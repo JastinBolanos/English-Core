@@ -137,7 +137,8 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("compass_chip_Conector").assertExists()
     composeTestRule.onNodeWithTag("compass_chip_Sujeto").assertExists()
     composeTestRule.onNodeWithTag("compass_chip_Verbo").assertExists()
-    composeTestRule.onNodeWithTag("compass_chip_Objeto").assertExists()
+    composeTestRule.onNodeWithTag("compass_chip_Sustantivo").assertExists()
+    composeTestRule.onNodeWithTag("compass_chip_Modificador").assertExists()
     composeTestRule.onNodeWithTag("search_word_input").assertExists()
 
     // Click Conector chip to filter

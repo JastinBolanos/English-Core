@@ -139,12 +139,13 @@ class ExampleUnitTest {
 
   @Test
   fun testSyntaxColorMapping() {
-    assertEquals(Color(0xFFFBBF24), getWordSyntaxColor(PartOfSpeech.CONNECTOR_CLAUSE))
-    assertEquals(Color(0xFFFB923C), getWordSyntaxColor(PartOfSpeech.CONNECTOR_NOUN))
-    assertEquals(Color(0xFFF59E0B), getWordSyntaxColor(PartOfSpeech.CONNECTOR_TRANSITION))
-    assertEquals(Color(0xFFC084FC), getWordSyntaxColor(PartOfSpeech.PRONOUN))
-    assertEquals(Color(0xFF60A5FA), getWordSyntaxColor(PartOfSpeech.VERB))
-    assertEquals(Color(0xFFA7F3D0), getWordSyntaxColor(PartOfSpeech.NOUN))
+    assertEquals(Color(0xFFFACC15), getWordSyntaxColor(PartOfSpeech.CONNECTOR_CLAUSE))
+    assertEquals(Color(0xFFFACC15), getWordSyntaxColor(PartOfSpeech.CONNECTOR_NOUN))
+    assertEquals(Color(0xFFFACC15), getWordSyntaxColor(PartOfSpeech.CONNECTOR_TRANSITION))
+    assertEquals(Color(0xFFA855F7), getWordSyntaxColor(PartOfSpeech.PRONOUN))
+    assertEquals(Color(0xFF3B82F6), getWordSyntaxColor(PartOfSpeech.VERB))
+    assertEquals(Color(0xFF34D399), getWordSyntaxColor(PartOfSpeech.NOUN))
+    assertEquals(Color(0xFFF8FAFC), getWordSyntaxColor(PartOfSpeech.MODIFIER))
   }
 
   @Test
@@ -176,7 +177,8 @@ class ExampleUnitTest {
           com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR -> it.partOfSpeech.isConnector
           com.example.presentation.vocabulary.SyntaxFilter.SUBJECT -> it.partOfSpeech == PartOfSpeech.PRONOUN
           com.example.presentation.vocabulary.SyntaxFilter.VERB -> it.partOfSpeech == PartOfSpeech.VERB
-          com.example.presentation.vocabulary.SyntaxFilter.OBJECT -> it.partOfSpeech == PartOfSpeech.NOUN
+          com.example.presentation.vocabulary.SyntaxFilter.NOUN -> it.partOfSpeech == PartOfSpeech.NOUN
+          com.example.presentation.vocabulary.SyntaxFilter.MODIFIER -> it.partOfSpeech == PartOfSpeech.MODIFIER
         }
       }
     }
@@ -184,7 +186,7 @@ class ExampleUnitTest {
     assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR).size)
     assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.SUBJECT).size)
     assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.VERB).size)
-    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.OBJECT).size)
+    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.NOUN).size)
     // Clear filter (null) returns all words
     assertEquals(4, filterBySyntax(null).size)
   }

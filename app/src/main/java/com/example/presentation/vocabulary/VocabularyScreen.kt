@@ -11,6 +11,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +70,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -116,13 +118,15 @@ import com.example.domain.util.SpokenWordMatch
  */
 fun getWordSyntaxColor(partOfSpeech: PartOfSpeech): Color {
   return when (partOfSpeech) {
-    PartOfSpeech.CONNECTOR_CLAUSE -> Color(0xFFFBBF24)     // Amarillo
-    PartOfSpeech.CONNECTOR_NOUN -> Color(0xFFFB923C)       // Naranja / Ámbar
-    PartOfSpeech.CONNECTOR_TRANSITION -> Color(0xFFF59E0B) // Dorado
-    PartOfSpeech.PRONOUN -> Color(0xFFC084FC)              // Morado claro
-    PartOfSpeech.VERB -> Color(0xFF60A5FA)                 // Azul claro
-    PartOfSpeech.NOUN -> Color(0xFFA7F3D0)                 // Verde menta / Blanco suave
-    PartOfSpeech.OTHER -> Color(0xFFE2E8F0)                // Blanco / Gris claro
+    PartOfSpeech.CONNECTOR,
+    PartOfSpeech.CONNECTOR_CLAUSE,
+    PartOfSpeech.CONNECTOR_NOUN,
+    PartOfSpeech.CONNECTOR_TRANSITION -> Color(0xFFFACC15) // Amarillo #FACC15
+    PartOfSpeech.PRONOUN -> Color(0xFFA855F7)              // Morado #A855F7
+    PartOfSpeech.VERB -> Color(0xFF3B82F6)                 // Azul #3B82F6
+    PartOfSpeech.NOUN -> Color(0xFF34D399)                 // Verde Esmeralda / Menta #34D399
+    PartOfSpeech.MODIFIER -> Color(0xFFF8FAFC)             // Blanco #F8FAFC
+    PartOfSpeech.OTHER -> Color(0xFFF8FAFC)                // Blanco suave
   }
 }
 
@@ -846,52 +850,84 @@ private fun SyntaxCompassHeader(
   val isConnectorSelected = selectedFilter == SyntaxFilter.CONNECTOR
   val isPronounSelected = selectedFilter == SyntaxFilter.SUBJECT
   val isVerbSelected = selectedFilter == SyntaxFilter.VERB
-  val isNounSelected = selectedFilter == SyntaxFilter.OBJECT
+  val isNounSelected = selectedFilter == SyntaxFilter.NOUN
+  val isModifierSelected = selectedFilter == SyntaxFilter.MODIFIER
 
   Surface(
     modifier = Modifier
       .fillMaxWidth()
       .padding(horizontal = 16.dp, vertical = 4.dp),
-    shape = RoundedCornerShape(12.dp),
+    shape = RoundedCornerShape(14.dp),
     color = Color(0xFF0F172A),
     border = BorderStroke(1.dp, Color(0xFF334155))
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 6.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
+        .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      CompassStepChip(
-        color = Color(0xFFFBBF24),
-        label = "🟡 Conector",
-        isSelected = isConnectorSelected,
-        onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) }
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-      CompassStepChip(
-        color = Color(0xFFC084FC),
-        label = "🟣 Sujeto",
-        isSelected = isPronounSelected,
-        onClick = { onSelectFilter(SyntaxFilter.SUBJECT) }
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-      CompassStepChip(
-        color = Color(0xFF60A5FA),
-        label = "🔵 Verbo",
-        isSelected = isVerbSelected,
-        onClick = { onSelectFilter(SyntaxFilter.VERB) }
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
-      CompassStepChip(
-        color = Color(0xFFA7F3D0),
-        label = "⚪ Objeto",
-        isSelected = isNounSelected,
-        onClick = { onSelectFilter(SyntaxFilter.OBJECT) }
+      // Fila deslizable horizontalmente para los 5 botones sin romper la pantalla
+      Row(
+        modifier = Modifier
+          .weight(1f)
+          .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        CompassStepChip(
+          color = Color(0xFFFACC15),
+          label = "🟡 Conector",
+          isSelected = isConnectorSelected,
+          onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
+          testTag = "compass_chip_Conector"
+        )
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        CompassStepChip(
+          color = Color(0xFFA855F7),
+          label = "🟣 Sujeto",
+          isSelected = isPronounSelected,
+          onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
+          testTag = "compass_chip_Sujeto"
+        )
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        CompassStepChip(
+          color = Color(0xFF3B82F6),
+          label = "🔵 Verbo",
+          isSelected = isVerbSelected,
+          onClick = { onSelectFilter(SyntaxFilter.VERB) },
+          testTag = "compass_chip_Verbo"
+        )
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        CompassStepChip(
+          color = Color(0xFF34D399),
+          label = "🟢 Sustantivo",
+          isSelected = isNounSelected,
+          onClick = { onSelectFilter(SyntaxFilter.NOUN) },
+          testTag = "compass_chip_Sustantivo"
+        )
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        CompassStepChip(
+          color = Color(0xFFF8FAFC),
+          label = "⚪ Modificador",
+          isSelected = isModifierSelected,
+          onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
+          testTag = "compass_chip_Modificador"
+        )
+      }
+
+      Spacer(modifier = Modifier.width(6.dp))
+
+      // Separador vertical sutil entre los chips y la X fija
+      VerticalDivider(
+        modifier = Modifier.height(22.dp),
+        thickness = 1.dp,
+        color = Color(0xFF334155)
       )
 
-      // Botón X para eliminar todas las selecciones y restablecer la lista completa
+      Spacer(modifier = Modifier.width(6.dp))
+
+      // Botón X fijo al costado para deseleccionar todo y dejar los 2809 libres
       Surface(
         shape = CircleShape,
         color = if (selectedFilter != null) Color(0xFFEF4444).copy(alpha = 0.25f) else Color(0xFF1E293B),
@@ -900,16 +936,16 @@ private fun SyntaxCompassHeader(
           color = if (selectedFilter != null) Color(0xFFEF4444) else Color(0xFF334155)
         ),
         modifier = Modifier
-          .size(26.dp)
-          .clickable(enabled = selectedFilter != null, onClick = onClearFilter)
+          .size(28.dp)
+          .clickable(onClick = onClearFilter)
           .testTag("btn_clear_compass_selection")
       ) {
         Box(contentAlignment = Alignment.Center) {
           Icon(
             imageVector = Icons.Default.Close,
-            contentDescription = "Eliminar todas las selecciones",
-            tint = if (selectedFilter != null) Color(0xFFFCA5A5) else Color(0xFF475569),
-            modifier = Modifier.size(15.dp)
+            contentDescription = "Deseleccionar todo y ver las 2809 palabras",
+            tint = if (selectedFilter != null) Color(0xFFFCA5A5) else Color(0xFF94A3B8),
+            modifier = Modifier.size(16.dp)
           )
         }
       }
@@ -922,10 +958,11 @@ private fun CompassStepChip(
   color: Color,
   label: String,
   isSelected: Boolean = false,
-  onClick: () -> Unit = {}
+  onClick: () -> Unit = {},
+  testTag: String = "compass_chip_${label.filter { it.isLetter() }}"
 ) {
   Surface(
-    shape = RoundedCornerShape(7.dp),
+    shape = RoundedCornerShape(8.dp),
     color = if (isSelected) color.copy(alpha = 0.35f) else color.copy(alpha = 0.12f),
     border = BorderStroke(
       width = if (isSelected) 1.8.dp else 1.dp,
@@ -933,14 +970,16 @@ private fun CompassStepChip(
     ),
     modifier = Modifier
       .clickable(onClick = onClick)
-      .testTag("compass_chip_${label.filter { it.isLetter() }}")
+      .testTag(testTag)
   ) {
     Text(
       text = label,
       color = if (isSelected) Color.White else color,
-      fontSize = 11.sp,
+      fontSize = 12.sp,
       fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-      modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+      maxLines = 1,
+      softWrap = false,
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
     )
   }
 }
@@ -1127,11 +1166,6 @@ private fun DraftScratchpadHeader(
           onClose = onCloseMirrorTray
         )
       }
-
-      HorizontalDivider(color = Color(0xFF334155), thickness = 0.8.dp)
-
-      // El Predictor de Conexión en Vivo
-      LiveConnectionPredictor(lastWord = draftWords.lastOrNull())
     }
   }
 }
@@ -1396,37 +1430,33 @@ private fun LiveConnectionPredictor(lastWord: Word?) {
   val highlightColor: Color
 
   if (lastWord == null) {
-    text = "💡 Inicia tu frase con: [🟡 Conector], [🟣 Sujeto] o [⚪ Sustantivo]"
+    text = "💡 Inicia tu frase con: [🟡 Conector], [🟣 Sujeto], [⚪ Modificador] o [🟢 Sustantivo]"
     highlightColor = Color(0xFF94A3B8)
   } else {
-    when (lastWord.partOfSpeech) {
-      PartOfSpeech.CONNECTOR_CLAUSE -> {
-        text = "🔗 Conecta con: [🟣 Sujeto] + [🔵 Verbo]"
-        highlightColor = Color(0xFFFBBF24) // Amarillo
+    when {
+      lastWord.partOfSpeech.isConnector -> {
+        text = "🔗 Conecta con: [🟣 Sujeto], [⚪ Modificador] o [🟢 Sustantivo]"
+        highlightColor = Color(0xFFFACC15) // Amarillo
       }
-      PartOfSpeech.CONNECTOR_NOUN -> {
-        text = "⚠️ PROHIBIDO Sujeto+Verbo. Siguiente pieza: [⚪ Sustantivo] o [🔵 Verbo-ING]"
-        highlightColor = Color(0xFFFB923C) // Naranja brillante de advertencia
+      lastWord.partOfSpeech == PartOfSpeech.PRONOUN -> {
+        text = "🔗 Conecta con: [🔵 Verbo] o [⚪ Modificador]"
+        highlightColor = Color(0xFFA855F7) // Morado
       }
-      PartOfSpeech.CONNECTOR_TRANSITION -> {
-        text = "🔗 Inicia frase con pausa: [ , ] + [🟣 Sujeto] + [🔵 Verbo]"
-        highlightColor = Color(0xFFF59E0B) // Dorado
+      lastWord.partOfSpeech == PartOfSpeech.VERB -> {
+        text = "🔗 Conecta con: [🟢 Sustantivo], [⚪ Modificador] o [🟡 Conector]"
+        highlightColor = Color(0xFF3B82F6) // Azul
       }
-      PartOfSpeech.PRONOUN -> {
-        text = "🔗 Conecta ahora con: [🔵 Acción/Verbo]"
-        highlightColor = Color(0xFFC084FC) // Morado
+      lastWord.partOfSpeech == PartOfSpeech.MODIFIER -> {
+        text = "🔗 Conecta con: [🟢 Sustantivo] o [🔵 Verbo]"
+        highlightColor = Color(0xFFF8FAFC) // Blanco
       }
-      PartOfSpeech.VERB -> {
-        text = "🔗 Conecta ahora con: [⚪ Objeto/Sustantivo] o [🟡 Conector]"
-        highlightColor = Color(0xFF60A5FA) // Azul
+      lastWord.partOfSpeech == PartOfSpeech.NOUN -> {
+        text = "🔗 Conecta con: [🔵 Verbo] o [🟡 Conector]"
+        highlightColor = Color(0xFF34D399) // Verde Esmeralda
       }
-      PartOfSpeech.NOUN -> {
-        text = "🔗 Conecta ahora con: [🔵 Verbo] o [🟡 Conector]"
-        highlightColor = Color(0xFFA7F3D0) // Menta
-      }
-      PartOfSpeech.OTHER -> {
-        text = "🔗 Conecta ahora con: [⚪ Sustantivo] o [🔵 Verbo]"
-        highlightColor = Color(0xFFE2E8F0)
+      else -> {
+        text = "🔗 Conecta con: [🟢 Sustantivo] o [🔵 Verbo]"
+        highlightColor = Color(0xFFF8FAFC)
       }
     }
   }
@@ -1531,9 +1561,9 @@ fun WordHudCard(
             )
           }
           Text(
-            text = word.partOfSpeech.displayName,
+            text = word.displayCategoryLabel,
             style = MaterialTheme.typography.labelSmall,
-            color = wordColor.copy(alpha = 0.75f),
+            color = wordColor.copy(alpha = 0.85f),
             fontSize = 11.sp
           )
         }
@@ -1676,7 +1706,7 @@ private fun MagnetIndicatorPill(nextCategories: List<PartOfSpeech>) {
         fontWeight = FontWeight.Bold,
         color = Color(0xFF64748B)
       )
-      nextCategories.take(2).forEach { category ->
+      nextCategories.take(3).forEach { category ->
         Box(
           modifier = Modifier
             .size(8.dp)

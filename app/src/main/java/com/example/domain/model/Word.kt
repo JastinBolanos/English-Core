@@ -12,7 +12,8 @@ data class Word(
   val easeFactor: Float = 2.5f,
   val nextReviewDate: Long = 0L,
   val overrideConnectionNote: String? = null,
-  val useCount: Int = 0
+  val useCount: Int = 0,
+  val secondaryPartOfSpeech: PartOfSpeech? = null
 ) {
   val nextExpectedCategories: List<PartOfSpeech>
     get() = partOfSpeech.nextExpectedCategories
@@ -22,4 +23,19 @@ data class Word(
 
   val displaySpanishTranslation: String
     get() = if (spanishTranslation.isNotBlank()) spanishTranslation else com.example.domain.util.WordDictionary.getTranslation(lemma, partOfSpeech)
+
+  val displayCategoryLabel: String
+    get() {
+      if (secondaryPartOfSpeech != null && secondaryPartOfSpeech != partOfSpeech) {
+        return "${partOfSpeech.displayName} / ${secondaryPartOfSpeech.displayName}"
+      }
+      return partOfSpeech.displayName
+    }
+
+  fun matchesCategory(category: PartOfSpeech): Boolean {
+    if (category.isConnector && (partOfSpeech.isConnector || secondaryPartOfSpeech?.isConnector == true)) {
+      return true
+    }
+    return partOfSpeech == category || secondaryPartOfSpeech == category
+  }
 }

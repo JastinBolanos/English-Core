@@ -133,10 +133,31 @@ object WordDictionary {
     "anything", "everything", "nothing"
   )
 
+  val commonModifiers = setOf(
+    "the", "a", "an", "not", "no", "good", "new", "first", "last", "long", "great", "little", "own",
+    "other", "old", "right", "big", "high", "different", "small", "large", "next", "early",
+    "young", "important", "few", "public", "bad", "same", "able", "very", "really", "already",
+    "again", "often", "always", "never", "ever", "much", "more", "most", "many"
+  )
+
+  val verbDominantWords = setOf(
+    "work", "call", "look", "help", "play", "run", "start", "turn", "talk", "watch",
+    "stop", "walk", "love", "stay", "cut", "fall", "move", "need", "try", "use",
+    "change", "pay", "visit", "open", "close", "study"
+  )
+
+  val nounDominantWords = setOf(
+    "control", "plan", "result", "order", "place", "hand", "end", "line", "power",
+    "service", "level", "face", "water", "house", "game", "name", "record", "step", "act"
+  )
+
   fun isPronoun(word: String): Boolean = pronounWords.contains(word.lowercase(Locale.ROOT).trim())
   fun isConnector(word: String): Boolean = connectorWords.contains(word.lowercase(Locale.ROOT).trim())
   fun isVerb(word: String): Boolean = commonVerbs.contains(word.lowercase(Locale.ROOT).trim())
   fun isNoun(word: String): Boolean = commonNouns.contains(word.lowercase(Locale.ROOT).trim())
+  fun isModifier(word: String): Boolean = commonModifiers.contains(word.lowercase(Locale.ROOT).trim())
+  fun isVerbDominant(word: String): Boolean = verbDominantWords.contains(word.lowercase(Locale.ROOT).trim())
+  fun isNounDominant(word: String): Boolean = nounDominantWords.contains(word.lowercase(Locale.ROOT).trim())
 
   private val curatedTranslations = mapOf(
     "the" to "el, la, los, las",
@@ -395,6 +416,8 @@ object WordDictionary {
     return when (partOfSpeech) {
       PartOfSpeech.VERB -> "I $clean everyday" // 3 palabras
       PartOfSpeech.NOUN -> "a good $clean"    // 3 palabras
+      PartOfSpeech.MODIFIER -> "the best $clean" // 3 palabras
+      PartOfSpeech.CONNECTOR,
       PartOfSpeech.CONNECTOR_CLAUSE,
       PartOfSpeech.CONNECTOR_NOUN,
       PartOfSpeech.CONNECTOR_TRANSITION -> "$clean you can" // 3 palabras

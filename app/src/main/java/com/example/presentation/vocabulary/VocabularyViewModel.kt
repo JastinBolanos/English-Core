@@ -29,7 +29,12 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
   CONNECTOR("Conector", "🟡"),
   SUBJECT("Sujeto", "🟣"),
   VERB("Verbo", "🔵"),
-  OBJECT("Objeto", "⚪")
+  NOUN("Sustantivo", "🟢"),
+  MODIFIER("Modificador", "⚪");
+
+  companion object {
+    val OBJECT get() = NOUN
+  }
 }
 
 class VocabularyViewModel @Inject constructor(
@@ -44,17 +49,18 @@ class VocabularyViewModel @Inject constructor(
   private val _searchQuery = MutableStateFlow("")
   val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-  // Filtro activo por categoría sintáctica desde el Guiador Superior (Conector, Sujeto, Verbo, Objeto)
+  // Filtro activo por categoría sintáctica desde el Guiador Superior
   private val _selectedSyntaxFilter = MutableStateFlow<SyntaxFilter?>(null)
   val selectedSyntaxFilter: StateFlow<SyntaxFilter?> = _selectedSyntaxFilter.asStateFlow()
 
   val selectedCategoryFilter: StateFlow<PartOfSpeech?> = _selectedSyntaxFilter
     .map { filter ->
       when (filter) {
-        SyntaxFilter.CONNECTOR -> PartOfSpeech.CONNECTOR_CLAUSE
+        SyntaxFilter.CONNECTOR -> PartOfSpeech.CONNECTOR
         SyntaxFilter.SUBJECT -> PartOfSpeech.PRONOUN
         SyntaxFilter.VERB -> PartOfSpeech.VERB
-        SyntaxFilter.OBJECT -> PartOfSpeech.NOUN
+        SyntaxFilter.NOUN -> PartOfSpeech.NOUN
+        SyntaxFilter.MODIFIER -> PartOfSpeech.MODIFIER
         null -> null
       }
     }
@@ -109,10 +115,11 @@ class VocabularyViewModel @Inject constructor(
     if (filter != null) {
       result = result.filter { word ->
         when (filter) {
-          SyntaxFilter.CONNECTOR -> word.partOfSpeech.isConnector
-          SyntaxFilter.SUBJECT -> word.partOfSpeech == PartOfSpeech.PRONOUN
-          SyntaxFilter.VERB -> word.partOfSpeech == PartOfSpeech.VERB
-          SyntaxFilter.OBJECT -> word.partOfSpeech == PartOfSpeech.NOUN
+          SyntaxFilter.CONNECTOR -> word.matchesCategory(PartOfSpeech.CONNECTOR)
+          SyntaxFilter.SUBJECT -> word.matchesCategory(PartOfSpeech.PRONOUN)
+          SyntaxFilter.VERB -> word.matchesCategory(PartOfSpeech.VERB)
+          SyntaxFilter.NOUN -> word.matchesCategory(PartOfSpeech.NOUN)
+          SyntaxFilter.MODIFIER -> word.matchesCategory(PartOfSpeech.MODIFIER)
         }
       }
     }
@@ -146,7 +153,8 @@ class VocabularyViewModel @Inject constructor(
       category.isConnector -> selectSyntaxFilter(SyntaxFilter.CONNECTOR)
       category == PartOfSpeech.PRONOUN -> selectSyntaxFilter(SyntaxFilter.SUBJECT)
       category == PartOfSpeech.VERB -> selectSyntaxFilter(SyntaxFilter.VERB)
-      category == PartOfSpeech.NOUN -> selectSyntaxFilter(SyntaxFilter.OBJECT)
+      category == PartOfSpeech.NOUN -> selectSyntaxFilter(SyntaxFilter.NOUN)
+      category == PartOfSpeech.MODIFIER -> selectSyntaxFilter(SyntaxFilter.MODIFIER)
       else -> clearSyntaxFilter()
     }
   }

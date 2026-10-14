@@ -70,28 +70,118 @@ class VocabularyRepositoryImpl @Inject constructor(
       )
     }
 
-    // 2. Clasificación general si no es conector del catálogo
-    // PRIORIDAD: Verificar Pronombres, Conectores y Verbos antes de Sustantivo
-    val primaryPos = when {
-      WordDictionary.isPronoun(cleanLemma) -> PartOfSpeech.PRONOUN
-      WordDictionary.isConnector(cleanLemma) -> PartOfSpeech.CONNECTOR_CLAUSE
-      WordDictionary.isVerb(cleanLemma) -> PartOfSpeech.VERB
-      partOfSpeech.contains("PRON") -> PartOfSpeech.PRONOUN
-      partOfSpeech.contains("CONN") -> PartOfSpeech.CONNECTOR_CLAUSE
-      partOfSpeech.contains("VERB") || partOfSpeech.contains("AUX") -> PartOfSpeech.VERB
-      WordDictionary.isNoun(cleanLemma) -> PartOfSpeech.NOUN
-      partOfSpeech.contains("NOUN") -> PartOfSpeech.NOUN
-      else -> PartOfSpeech.NOUN
+    // 2. Modificadores (artículos, adjetivos, adverbios)
+    if (WordDictionary.isModifier(cleanLemma)) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.MODIFIER,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.MODIFIER),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.MODIFIER),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
     }
 
+    // 3. Pronombres / Sujetos
+    if (WordDictionary.isPronoun(cleanLemma) || partOfSpeech.contains("PRON")) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.PRONOUN,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.PRONOUN),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.PRONOUN),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
+    }
+
+    // 4. Conectores generales
+    if (WordDictionary.isConnector(cleanLemma) || partOfSpeech.contains("CONN")) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.CONNECTOR_CLAUSE,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.CONNECTOR_CLAUSE),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.CONNECTOR_CLAUSE),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
+    }
+
+    // 5. Palabras con doble función (Verbo / Sustantivo o Sustantivo / Verbo)
+    if (WordDictionary.isVerbDominant(cleanLemma)) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.VERB,
+        secondaryPartOfSpeech = PartOfSpeech.NOUN,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.VERB),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.VERB),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
+    }
+
+    if (WordDictionary.isNounDominant(cleanLemma)) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.NOUN,
+        secondaryPartOfSpeech = PartOfSpeech.VERB,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.NOUN),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.NOUN),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
+    }
+
+    // 6. Verbos
+    if (WordDictionary.isVerb(cleanLemma) || partOfSpeech.contains("VERB") || partOfSpeech.contains("AUX")) {
+      return Word(
+        lemma = word,
+        partOfSpeech = PartOfSpeech.VERB,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = partOfSpeech,
+        spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.VERB),
+        microExample = WordDictionary.getMicroExample(word, PartOfSpeech.VERB),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        useCount = useCount
+      )
+    }
+
+    // 7. Sustantivos por defecto
     return Word(
       lemma = word,
-      partOfSpeech = primaryPos,
+      partOfSpeech = PartOfSpeech.NOUN,
       id = id,
       rank = rank,
       rawPartOfSpeech = partOfSpeech,
-      spanishTranslation = WordDictionary.getTranslation(word, primaryPos),
-      microExample = WordDictionary.getMicroExample(word, primaryPos),
+      spanishTranslation = WordDictionary.getTranslation(word, PartOfSpeech.NOUN),
+      microExample = WordDictionary.getMicroExample(word, PartOfSpeech.NOUN),
       interval = interval,
       easeFactor = easeFactor,
       nextReviewDate = nextReviewDate,
