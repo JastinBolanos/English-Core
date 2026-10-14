@@ -27,9 +27,13 @@ class DatabaseInitializer @Inject constructor(
       val sampleWord1 = wordDao.getWordByLemma("the")
       val sampleWord701 = wordDao.getWordByLemma("guy")
       val sampleWord1401 = wordDao.getWordByLemma("dear")
+      val sampleWord2101 = wordDao.getWordByLemma("formula")
+      val sampleWord2809 = wordDao.getWordByLemma("thirst")
       val needsReload = (sampleWord1 != null && sampleWord1.partOfSpeech != "modificador (artículo)") ||
                         (sampleWord701 != null && sampleWord701.partOfSpeech != "sustantivo") ||
-                        (sampleWord1401 != null && sampleWord1401.partOfSpeech != "modificador (adjetivo/interjección)/sustantivo")
+                        (sampleWord1401 != null && sampleWord1401.partOfSpeech != "modificador (adjetivo/interjección)/sustantivo") ||
+                        (sampleWord2101 != null && sampleWord2101.partOfSpeech != "sustantivo") ||
+                        (sampleWord2809 != null && sampleWord2809.partOfSpeech != "sustantivo/verbo")
       if (needsReload) {
         loadWordsFromCsv(preserveUseCounts = true)
       }
