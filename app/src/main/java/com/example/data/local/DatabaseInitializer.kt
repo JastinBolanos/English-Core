@@ -21,8 +21,13 @@ class DatabaseInitializer @Inject constructor(
 ) {
 
   suspend fun prePopulateIfNeeded() = withContext(Dispatchers.IO) {
+    com.example.domain.util.WordGrammarCatalog.loadGrammarTypesFromContext(context)
     val count = wordDao.getWordCount()
     if (count >= 2809) {
+      val sampleWord = wordDao.getWordByLemma("the")
+      if (sampleWord != null && (sampleWord.partOfSpeech.isEmpty() || sampleWord.partOfSpeech == "OTHER" || sampleWord.partOfSpeech == "MOD" || sampleWord.partOfSpeech == "PRON" || sampleWord.partOfSpeech == "CONN")) {
+        loadWordsFromCsv(preserveUseCounts = true)
+      }
       return@withContext
     }
     loadWordsFromCsv(preserveUseCounts = count > 0)
@@ -64,12 +69,17 @@ class DatabaseInitializer @Inject constructor(
           val rank = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: index
           val clean = word.lowercase(Locale.ROOT)
 
-          val pos = when {
-            WordDictionary.isPronoun(clean) -> "PRON"
-            WordDictionary.isConnector(clean) -> "CONN"
-            WordDictionary.isVerb(clean) -> "VERB"
-            WordDictionary.isNoun(clean) -> "NOUN"
-            else -> "OTHER"
+          val grammarType = com.example.domain.util.WordGrammarCatalog.getGrammarType(clean)
+          val pos = if (!grammarType.isNullOrBlank()) {
+            grammarType
+          } else {
+            when {
+              WordDictionary.isPronoun(clean) -> "PRON"
+              WordDictionary.isConnector(clean) -> "CONN"
+              WordDictionary.isVerb(clean) -> "VERB"
+              WordDictionary.isNoun(clean) -> "NOUN"
+              else -> "OTHER"
+            }
           }
 
           val useCount = existingUseCounts[clean] ?: 0

@@ -243,4 +243,33 @@ class ExampleUnitTest {
     val frequentWord = word.copy(useCount = 15)
     assertEquals(15, frequentWord.useCount)
   }
+
+  @Test
+  fun testNgslGrammaticalTypes_Contains700WordsFromBlock1() {
+    val jsonFile = File("src/main/res/raw/ngsl_grammatical_types.json")
+    if (jsonFile.exists()) {
+      val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
+      assertEquals("Debe contener exactamente 700 palabras en el bloque 1", 700, keyCount)
+      val content = jsonFile.readText()
+      assertTrue(content.contains("\"the\": \"modificador (artículo)\""))
+      assertTrue(content.contains("\"be\": \"verbo\""))
+      assertTrue(content.contains("\"and\": \"conector (conjunción)\""))
+      assertTrue(content.contains("\"it\": \"sujeto (pronombre)\""))
+      assertTrue(content.contains("\"fit\": \"verbo/modificador (adjetivo)/sustantivo\""))
+    }
+  }
+
+  @Test
+  fun testWordGrammarCatalog_DisplayLabelAndParsing() {
+    val word1 = Word(lemma = "the", rawPartOfSpeech = "modificador (artículo)")
+    assertEquals("modificador (artículo)", word1.displayCategoryLabel)
+
+    val word700 = Word(lemma = "fit", rawPartOfSpeech = "verbo/modificador (adjetivo)/sustantivo")
+    assertEquals("verbo/modificador (adjetivo)/sustantivo", word700.displayCategoryLabel)
+
+    val (pos, sec) = com.example.domain.util.WordGrammarCatalog.parseCategories("verbo/sustantivo", "work")
+    assertEquals(PartOfSpeech.VERB, pos)
+    assertEquals(PartOfSpeech.NOUN, sec)
+  }
 }
+

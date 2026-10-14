@@ -8,6 +8,7 @@ import com.example.domain.model.Word
 import com.example.domain.repository.VocabularyRepository
 import com.example.domain.util.ConnectorRulesCatalog
 import com.example.domain.util.WordDictionary
+import com.example.domain.util.WordGrammarCatalog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -50,6 +51,30 @@ class VocabularyRepositoryImpl @Inject constructor(
 
   private fun WordEntity.toDomain(): Word {
     val cleanLemma = word.lowercase().trim()
+
+    // 0. Catálogo Maestro de Tipos Gramaticales (2,809 palabras NGSL)
+    val customGrammarType = WordGrammarCatalog.getGrammarType(cleanLemma)
+      ?: partOfSpeech.takeIf { it.isNotBlank() && it !in setOf("PRON", "CONN", "VERB", "NOUN", "OTHER") }
+
+    if (!customGrammarType.isNullOrBlank()) {
+      val (primaryCat, secondaryCat) = WordGrammarCatalog.parseCategories(customGrammarType, cleanLemma)
+      val connectorRule = ConnectorRulesCatalog.getRule(cleanLemma)
+      return Word(
+        lemma = word,
+        partOfSpeech = primaryCat,
+        secondaryPartOfSpeech = secondaryCat,
+        id = id,
+        rank = rank,
+        rawPartOfSpeech = customGrammarType,
+        spanishTranslation = connectorRule?.spanishTranslation ?: WordDictionary.getTranslation(word, primaryCat),
+        microExample = connectorRule?.microExample ?: WordDictionary.getMicroExample(word, primaryCat),
+        interval = interval,
+        easeFactor = easeFactor,
+        nextReviewDate = nextReviewDate,
+        overrideConnectionNote = connectorRule?.connectionRuleNote,
+        useCount = useCount
+      )
+    }
 
     // 1. Interceptor de Reglas de Conectores (Diccionario Maestro Local)
     val connectorRule = ConnectorRulesCatalog.getRule(cleanLemma)

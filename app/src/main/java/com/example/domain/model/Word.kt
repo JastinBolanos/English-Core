@@ -26,6 +26,9 @@ data class Word(
 
   val displayCategoryLabel: String
     get() {
+      if (rawPartOfSpeech.isNotBlank()) {
+        return rawPartOfSpeech
+      }
       if (secondaryPartOfSpeech != null && secondaryPartOfSpeech != partOfSpeech) {
         return "${partOfSpeech.displayName} / ${secondaryPartOfSpeech.displayName}"
       }
@@ -33,7 +36,19 @@ data class Word(
     }
 
   fun matchesCategory(category: PartOfSpeech): Boolean {
-    if (category.isConnector && (partOfSpeech.isConnector || secondaryPartOfSpeech?.isConnector == true)) {
+    if (category.isConnector && (partOfSpeech.isConnector || secondaryPartOfSpeech?.isConnector == true || rawPartOfSpeech.contains("conector", ignoreCase = true))) {
+      return true
+    }
+    if (category == PartOfSpeech.PRONOUN && (partOfSpeech == PartOfSpeech.PRONOUN || secondaryPartOfSpeech == PartOfSpeech.PRONOUN || rawPartOfSpeech.contains("sujeto", ignoreCase = true) || rawPartOfSpeech.contains("pronombre", ignoreCase = true))) {
+      return true
+    }
+    if (category == PartOfSpeech.VERB && (partOfSpeech == PartOfSpeech.VERB || secondaryPartOfSpeech == PartOfSpeech.VERB || rawPartOfSpeech.contains("verbo", ignoreCase = true))) {
+      return true
+    }
+    if (category == PartOfSpeech.NOUN && (partOfSpeech == PartOfSpeech.NOUN || secondaryPartOfSpeech == PartOfSpeech.NOUN || rawPartOfSpeech.contains("sustantivo", ignoreCase = true))) {
+      return true
+    }
+    if (category == PartOfSpeech.MODIFIER && (partOfSpeech == PartOfSpeech.MODIFIER || secondaryPartOfSpeech == PartOfSpeech.MODIFIER || rawPartOfSpeech.contains("modificador", ignoreCase = true) || rawPartOfSpeech.contains("adjetivo", ignoreCase = true) || rawPartOfSpeech.contains("adverbio", ignoreCase = true) || rawPartOfSpeech.contains("artículo", ignoreCase = true))) {
       return true
     }
     return partOfSpeech == category || secondaryPartOfSpeech == category

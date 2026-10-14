@@ -79,6 +79,7 @@ fun EnglishApp() {
   val context = androidx.compose.ui.platform.LocalContext.current
 
   val repository = androidx.compose.runtime.remember(context) {
+    com.example.domain.util.WordGrammarCatalog.loadGrammarTypesFromContext(context.applicationContext)
     com.example.domain.util.WordDictionary.loadTranslationsFromContext(context.applicationContext)
     val db = com.example.data.local.AppDatabase.getDatabase(context.applicationContext)
     val dao = db.wordDao()
