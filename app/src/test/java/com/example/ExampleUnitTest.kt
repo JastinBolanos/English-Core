@@ -1,0 +1,244 @@
+package com.example
+
+import androidx.compose.ui.graphics.Color
+import com.example.domain.model.PartOfSpeech
+import com.example.domain.model.Word
+import com.example.domain.util.ConnectorRulesCatalog
+import com.example.domain.util.WordDictionary
+import com.example.presentation.vocabulary.getWordSyntaxColor
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+class ExampleUnitTest {
+  @Test
+  fun addition_isCorrect() {
+    assertEquals(4, 2 + 2)
+  }
+
+  @Test
+  fun testNgslCsv_ContainsExactly2809Words_IncludingWord217() {
+    val file = File("src/main/res/raw/ngsl_stats.csv")
+    if (file.exists()) {
+      val lines = file.readLines().filter { it.isNotBlank() }
+      assertEquals("ngsl_stats.csv debe tener exactamente 2809 palabras", 2809, lines.size)
+
+      val word217Line = lines.firstOrNull { it.startsWith("word,") }
+      assertNotNull("La palabra 'word' debe estar presente en el CSV", word217Line)
+      assertTrue(word217Line!!.contains("217"))
+
+      assertTrue("Primera palabra debe ser 'the'", lines.first().startsWith("the,1,"))
+      assertTrue("Última palabra debe ser 'thirst'", lines.last().startsWith("thirst,2809,"))
+    }
+  }
+
+  @Test
+  fun testNgslTranslationsJson_Has2809Entries() {
+    val jsonFile = File("src/main/res/raw/ngsl_translations.json")
+    if (jsonFile.exists()) {
+      val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
+      assertEquals("ngsl_translations.json debe contener exactamente 2809 traducciones", 2809, keyCount)
+    }
+  }
+
+  @Test
+  fun testCategoryFilteringLogic() {
+    val sampleList = listOf(
+      Word(lemma = "because", partOfSpeech = PartOfSpeech.CONNECTOR_CLAUSE),
+      Word(lemma = "despite", partOfSpeech = PartOfSpeech.CONNECTOR_NOUN),
+      Word(lemma = "I", partOfSpeech = PartOfSpeech.PRONOUN),
+      Word(lemma = "work", partOfSpeech = PartOfSpeech.VERB),
+      Word(lemma = "time", partOfSpeech = PartOfSpeech.NOUN)
+    )
+
+    // Filter connectors
+    val connectorsOnly = sampleList.filter { it.partOfSpeech.isConnector }
+    assertEquals(2, connectorsOnly.size)
+    assertTrue(connectorsOnly.any { it.lemma == "because" })
+    assertTrue(connectorsOnly.any { it.lemma == "despite" })
+
+    // Filter pronouns/subjects
+    val pronounsOnly = sampleList.filter { it.partOfSpeech == PartOfSpeech.PRONOUN }
+    assertEquals(1, pronounsOnly.size)
+    assertEquals("I", pronounsOnly.first().lemma)
+
+    // Filter verbs
+    val verbsOnly = sampleList.filter { it.partOfSpeech == PartOfSpeech.VERB }
+    assertEquals(1, verbsOnly.size)
+    assertEquals("work", verbsOnly.first().lemma)
+
+    // Filter nouns
+    val nounsOnly = sampleList.filter { it.partOfSpeech == PartOfSpeech.NOUN }
+    assertEquals(1, nounsOnly.size)
+    assertEquals("time", nounsOnly.first().lemma)
+  }
+
+  @Test
+  fun testConnectorRulesCatalog_Interception() {
+    // Grupo A: CONNECTOR_CLAUSE
+    val becauseRule = ConnectorRulesCatalog.getRule("because")
+    assertNotNull(becauseRule)
+    assertEquals(PartOfSpeech.CONNECTOR_CLAUSE, becauseRule?.category)
+
+    // Grupo B: CONNECTOR_NOUN
+    val despiteRule = ConnectorRulesCatalog.getRule("despite")
+    assertNotNull(despiteRule)
+    assertEquals(PartOfSpeech.CONNECTOR_NOUN, despiteRule?.category)
+    assertTrue(despiteRule?.connectionRuleNote?.contains("PROHIBIDO") == true)
+
+    // Grupo C: CONNECTOR_TRANSITION
+    val howeverRule = ConnectorRulesCatalog.getRule("however")
+    assertNotNull(howeverRule)
+    assertEquals(PartOfSpeech.CONNECTOR_TRANSITION, howeverRule?.category)
+    assertTrue(howeverRule?.connectionRuleNote?.contains("pausa") == true)
+  }
+
+  @Test
+  fun testTop100WordsClassification_NotNouns() {
+    val thanRule = ConnectorRulesCatalog.getRule("than")
+    assertNotNull("than must be in ConnectorRulesCatalog", thanRule)
+    assertEquals(PartOfSpeech.CONNECTOR_CLAUSE, thanRule?.category)
+
+    val nowRule = ConnectorRulesCatalog.getRule("now")
+    assertNotNull("now must be in ConnectorRulesCatalog", nowRule)
+    assertEquals(PartOfSpeech.CONNECTOR_TRANSITION, nowRule?.category)
+
+    val thenRule = ConnectorRulesCatalog.getRule("then")
+    assertNotNull("then must be in ConnectorRulesCatalog", thenRule)
+    assertEquals(PartOfSpeech.CONNECTOR_TRANSITION, thenRule?.category)
+
+    val alsoRule = ConnectorRulesCatalog.getRule("also")
+    assertNotNull("also must be in ConnectorRulesCatalog", alsoRule)
+    assertEquals(PartOfSpeech.CONNECTOR_CLAUSE, alsoRule?.category)
+
+    val intoRule = ConnectorRulesCatalog.getRule("into")
+    assertNotNull("into must be in ConnectorRulesCatalog", intoRule)
+    assertEquals(PartOfSpeech.CONNECTOR_NOUN, intoRule?.category)
+
+    val onlyRule = ConnectorRulesCatalog.getRule("only")
+    assertNotNull("only must be in ConnectorRulesCatalog", onlyRule)
+    assertEquals(PartOfSpeech.CONNECTOR_NOUN, onlyRule?.category)
+
+    // Pronouns
+    assertTrue(WordDictionary.isPronoun("i"))
+    assertTrue(WordDictionary.isPronoun("you"))
+    assertTrue(WordDictionary.isPronoun("they"))
+    assertTrue(WordDictionary.isPronoun("which"))
+    assertTrue(WordDictionary.isPronoun("that"))
+
+    // Core verbs
+    assertTrue(WordDictionary.isVerb("is"))
+    assertTrue(WordDictionary.isVerb("was"))
+    assertTrue(WordDictionary.isVerb("were"))
+    assertTrue(WordDictionary.isVerb("have"))
+    assertTrue(WordDictionary.isVerb("do"))
+    assertTrue(WordDictionary.isVerb("will"))
+  }
+
+  @Test
+  fun testSyntaxColorMapping() {
+    assertEquals(Color(0xFFFBBF24), getWordSyntaxColor(PartOfSpeech.CONNECTOR_CLAUSE))
+    assertEquals(Color(0xFFFB923C), getWordSyntaxColor(PartOfSpeech.CONNECTOR_NOUN))
+    assertEquals(Color(0xFFF59E0B), getWordSyntaxColor(PartOfSpeech.CONNECTOR_TRANSITION))
+    assertEquals(Color(0xFFC084FC), getWordSyntaxColor(PartOfSpeech.PRONOUN))
+    assertEquals(Color(0xFF60A5FA), getWordSyntaxColor(PartOfSpeech.VERB))
+    assertEquals(Color(0xFFA7F3D0), getWordSyntaxColor(PartOfSpeech.NOUN))
+  }
+
+  @Test
+  fun testMicroExampleLengthLimit() {
+    val testWords = listOf("take", "water", "because", "the", "be", "house", "run", "fast", "despite", "however")
+    for (lemma in testWords) {
+      val catalogRule = ConnectorRulesCatalog.getRule(lemma)
+      val example = catalogRule?.microExample ?: WordDictionary.getMicroExample(lemma, PartOfSpeech.NOUN)
+      val wordCount = example.trim().split("\\s+".toRegex()).size
+      assertTrue(
+        "Micro-example for '$lemma' (\"$example\") has $wordCount words, expected <= 4 words",
+        wordCount in 1..4
+      )
+    }
+  }
+
+  @Test
+  fun testSyntaxFilterEnumAndReset() {
+    val sampleList = listOf(
+      Word(lemma = "because", partOfSpeech = PartOfSpeech.CONNECTOR_CLAUSE),
+      Word(lemma = "I", partOfSpeech = PartOfSpeech.PRONOUN),
+      Word(lemma = "work", partOfSpeech = PartOfSpeech.VERB),
+      Word(lemma = "time", partOfSpeech = PartOfSpeech.NOUN)
+    )
+
+    fun filterBySyntax(filter: com.example.presentation.vocabulary.SyntaxFilter?): List<Word> {
+      return if (filter == null) sampleList else sampleList.filter {
+        when (filter) {
+          com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR -> it.partOfSpeech.isConnector
+          com.example.presentation.vocabulary.SyntaxFilter.SUBJECT -> it.partOfSpeech == PartOfSpeech.PRONOUN
+          com.example.presentation.vocabulary.SyntaxFilter.VERB -> it.partOfSpeech == PartOfSpeech.VERB
+          com.example.presentation.vocabulary.SyntaxFilter.OBJECT -> it.partOfSpeech == PartOfSpeech.NOUN
+        }
+      }
+    }
+
+    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR).size)
+    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.SUBJECT).size)
+    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.VERB).size)
+    assertEquals(1, filterBySyntax(com.example.presentation.vocabulary.SyntaxFilter.OBJECT).size)
+    // Clear filter (null) returns all words
+    assertEquals(4, filterBySyntax(null).size)
+  }
+
+  @Test
+  fun testPronunciationEvaluator_ExactMatch() {
+    val target = listOf("I", "want", "to", "learn", "English")
+    val spoken = "I want to learn English"
+
+    val result = com.example.domain.util.PronunciationEvaluator.evaluate(target, spoken)
+
+    assertTrue("Debe ser coincidencia exacta", result.isExactMatch)
+    assertEquals(100, result.accuracyPercentage)
+    assertEquals(5, result.wordMatches.size)
+    assertTrue("Todas las palabras deben coincidir", result.wordMatches.all { it.isMatch })
+    assertTrue(result.feedbackMessage.contains("100%"))
+  }
+
+  @Test
+  fun testPronunciationEvaluator_PartialMismatch() {
+    val target = listOf("I", "want", "water")
+    val spoken = "I won't water"
+
+    val result = com.example.domain.util.PronunciationEvaluator.evaluate(target, spoken)
+
+    org.junit.Assert.assertFalse("No debe ser exacta", result.isExactMatch)
+    assertEquals(3, result.wordMatches.size)
+    assertTrue("Primera palabra 'I' debe coincidir", result.wordMatches[0].isMatch)
+    org.junit.Assert.assertFalse("Segunda palabra 'won't' no debe coincidir", result.wordMatches[1].isMatch)
+    assertEquals("want", result.wordMatches[1].expectedWord)
+    assertTrue("Tercera palabra 'water' debe coincidir", result.wordMatches[2].isMatch)
+    assertEquals(66, result.accuracyPercentage)
+  }
+
+  @Test
+  fun testPronunciationEvaluator_PunctuationAndCaseInsensitive() {
+    val target = listOf("because", "we", "can")
+    val spoken = "Because, we CAN!"
+
+    val result = com.example.domain.util.PronunciationEvaluator.evaluate(target, spoken)
+
+    assertTrue("Debe ignorar mayúsculas y puntuaciones", result.isExactMatch)
+    assertEquals(100, result.accuracyPercentage)
+  }
+
+  @Test
+  fun testWord_UseCountDefaultAndIncrement() {
+    val word = Word(lemma = "practice", useCount = 0)
+    assertEquals(0, word.useCount)
+
+    val updatedWord = word.copy(useCount = word.useCount + 1)
+    assertEquals(1, updatedWord.useCount)
+
+    val frequentWord = word.copy(useCount = 15)
+    assertEquals(15, frequentWord.useCount)
+  }
+}

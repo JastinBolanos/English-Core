@@ -1,0 +1,6 @@
+{
+  "name": "English",
+  "description": "Aplicación para el aprendizaje de inglés con acceso a vocabulario, constructor de frases, entrenamiento SRS, fórmulas y progreso.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
