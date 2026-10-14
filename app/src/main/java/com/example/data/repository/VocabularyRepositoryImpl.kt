@@ -37,7 +37,15 @@ class VocabularyRepositoryImpl @Inject constructor(
   }
 
   override suspend fun incrementWordUseCount(word: String) {
-    wordDao.incrementUseCountByWord(word)
+    wordDao.incrementUseCountByWord(word.trim())
+  }
+
+  override suspend fun incrementWordUseCount(id: Long, word: String) {
+    if (id > 0L) {
+      wordDao.incrementUseCount(id)
+    } else if (word.isNotBlank()) {
+      wordDao.incrementUseCountByWord(word.trim())
+    }
   }
 
   private fun WordEntity.toDomain(): Word {

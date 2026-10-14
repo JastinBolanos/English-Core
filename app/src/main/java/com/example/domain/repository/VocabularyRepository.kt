@@ -8,4 +8,5 @@ interface VocabularyRepository {
   suspend fun prePopulateDatabaseIfNeeded()
   suspend fun reloadDatabaseFromCsv()
   suspend fun incrementWordUseCount(word: String)
+  suspend fun incrementWordUseCount(id: Long, word: String = "")
 }

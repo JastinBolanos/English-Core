@@ -232,5 +232,49 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithText("1.0x").assertExists()
   }
+
+  @Test
+  fun `verify word useCount increments and persists across database initializations`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+
+    // First app launch: pre-populates words
+    repo.prePopulateDatabaseIfNeeded()
+    val initialCount = dao.getWordCount()
+    assertEquals("Deben cargarse exactamente 2809 palabras incluyendo 'rank'", 2809, initialCount)
+
+    val wordBefore = dao.getWordByLemma("the")
+    assertNotNull("La palabra 'the' debe existir", wordBefore)
+    assertEquals(0, wordBefore!!.useCount)
+
+    // User uses the word "the" twice
+    repo.incrementWordUseCount(wordBefore.id, wordBefore.word)
+    repo.incrementWordUseCount(wordBefore.id, wordBefore.word)
+
+    val wordAfter = dao.getWordById(wordBefore.id)
+    assertNotNull(wordAfter)
+    assertEquals("El contador de uso debe ser 2 tras dos usos", 2, wordAfter!!.useCount)
+
+    // Simulate user exiting and reopening the app: prePopulateDatabaseIfNeeded is called again
+    repo.prePopulateDatabaseIfNeeded()
+
+    // Verify counter is NOT reset to 0 and exact count is preserved
+    val wordAfterRestart = dao.getWordById(wordBefore.id)
+    assertNotNull(wordAfterRestart)
+    assertEquals("El contador exacto (2) debe conservarse al reiniciar la app", 2, wordAfterRestart!!.useCount)
+
+    // Verify 'rank' is also preserved and count remains 2809
+    val rankWord = dao.getWordByLemma("rank")
+    assertNotNull("La palabra 'rank' debe estar presente", rankWord)
+    assertEquals(2809, dao.getWordCount())
+
+    db.close()
+  }
 }
+
 

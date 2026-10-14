@@ -66,9 +66,23 @@ class DatabaseInitializer @Inject constructor(
   suspend fun prePopulateIfNeeded() = withContext(Dispatchers.IO) {
     com.example.domain.util.WordDictionary.loadTranslationsFromContext(context)
     val count = wordDao.getWordCount()
-    if (count < 2809) {
-      wordDao.clearAll()
+    if (count == 0) {
       loadAndInsertWords()
+    } else {
+      // Si la base de datos ya fue poblada, no borrarla para preservar useCount (historial de conteo)
+      // y datos SRS del usuario.
+      // Si faltaba la palabra 'rank' por el bug de encabezados anterior, insertarla sin alterar el resto
+      val rankEntity = wordDao.getWordByLemma("rank")
+      if (rankEntity == null) {
+        wordDao.insertWord(
+          WordEntity(
+            word = "rank",
+            rank = 1535,
+            partOfSpeech = inferPartOfSpeech("rank"),
+            useCount = 0
+          )
+        )
+      }
     }
   }
 
@@ -91,11 +105,12 @@ class DatabaseInitializer @Inject constructor(
             val tokens = trimmed.split(",")
             val wordLemma = tokens.getOrNull(0)?.trim() ?: ""
 
-            // Solo ignorar si es un encabezado real (donde token 1 no es número)
-            val isHeader = tokens.any { it.trim().equals("rank", ignoreCase = true) || it.trim().equals("frequency", ignoreCase = true) }
+            // Solo ignorar si es un encabezado real (donde token 1 no es número de rank válido)
+            val parsedRank = tokens.getOrNull(1)?.trim()?.toIntOrNull()
+            val isHeader = parsedRank == null
 
             if (wordLemma.isNotEmpty() && !isHeader) {
-              val parsedRank = tokens.getOrNull(1)?.trim()?.toIntOrNull() ?: rankCounter
+              val finalRank = parsedRank ?: rankCounter
               
               // Parse POS if specified in CSV or infer from dictionary
               val posFromCsv = tokens.firstOrNull { token ->
@@ -108,8 +123,9 @@ class DatabaseInitializer @Inject constructor(
               entities.add(
                 WordEntity(
                   word = wordLemma,
-                  rank = parsedRank,
-                  partOfSpeech = finalPos
+                  rank = finalRank,
+                  partOfSpeech = finalPos,
+                  useCount = 0
                 )
               )
               rankCounter++

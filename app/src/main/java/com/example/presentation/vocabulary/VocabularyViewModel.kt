@@ -195,7 +195,7 @@ class VocabularyViewModel @Inject constructor(
     _draftWords.value = _draftWords.value + word
     ttsManager.speak(word.lemma)
     viewModelScope.launch {
-      repository.incrementWordUseCount(word.lemma)
+      repository.incrementWordUseCount(word.id, word.lemma)
     }
     // Si ya había una evaluación, recalcular contra la nueva frase extendida
     _pronunciationEvaluation.value?.let { currentEval ->

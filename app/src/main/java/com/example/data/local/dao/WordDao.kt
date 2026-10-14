@@ -36,14 +36,23 @@ interface WordDao {
   @Query("UPDATE words SET `interval` = :interval, easeFactor = :easeFactor, nextReviewDate = :nextReviewDate WHERE id = :id")
   suspend fun updateSrsData(id: Long, interval: Int, easeFactor: Float, nextReviewDate: Long)
 
-  @Query("UPDATE words SET useCount = useCount + 1 WHERE word = :word")
+  @Query("UPDATE words SET useCount = useCount + 1 WHERE LOWER(TRIM(word)) = LOWER(TRIM(:word))")
   suspend fun incrementUseCountByWord(word: String)
 
   @Query("UPDATE words SET useCount = useCount + 1 WHERE id = :id")
   suspend fun incrementUseCount(id: Long)
 
+  @Query("SELECT * FROM words WHERE LOWER(TRIM(word)) = LOWER(TRIM(:word)) LIMIT 1")
+  suspend fun getWordByLemma(word: String): WordEntity?
+
+  @Query("SELECT * FROM words WHERE id = :id LIMIT 1")
+  suspend fun getWordById(id: Long): WordEntity?
+
   @Query("SELECT COUNT(*) FROM words")
   suspend fun getWordCount(): Int
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertWord(word: WordEntity): Long
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAll(words: List<WordEntity>)
