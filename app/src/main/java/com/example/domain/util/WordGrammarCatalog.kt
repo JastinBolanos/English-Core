@@ -36,7 +36,7 @@ object WordGrammarCatalog {
   }
 
   fun loadGrammarTypesFromContext(context: Context) {
-    if (grammarTypes.size >= 700) return
+    if (grammarTypes.size >= 2809) return
     try {
       val inputStream = context.resources.openRawResource(R.raw.ngsl_grammatical_types)
       val reader = BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))

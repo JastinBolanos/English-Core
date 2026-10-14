@@ -245,17 +245,20 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testNgslGrammaticalTypes_Contains700WordsFromBlock1() {
+  fun testNgslGrammaticalTypes_Contains1400WordsFromBlocks1And2() {
     val jsonFile = File("src/main/res/raw/ngsl_grammatical_types.json")
     if (jsonFile.exists()) {
       val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
-      assertEquals("Debe contener exactamente 700 palabras en el bloque 1", 700, keyCount)
+      assertEquals("Debe contener exactamente 1400 palabras en los bloques 1 y 2", 1400, keyCount)
       val content = jsonFile.readText()
+      // Bloque 1
       assertTrue(content.contains("\"the\": \"modificador (artículo)\""))
-      assertTrue(content.contains("\"be\": \"verbo\""))
-      assertTrue(content.contains("\"and\": \"conector (conjunción)\""))
-      assertTrue(content.contains("\"it\": \"sujeto (pronombre)\""))
       assertTrue(content.contains("\"fit\": \"verbo/modificador (adjetivo)/sustantivo\""))
+      // Bloque 2
+      assertTrue(content.contains("\"guy\": \"sustantivo\""))
+      assertTrue(content.contains("\"function\": \"sustantivo/verbo\""))
+      assertTrue(content.contains("\"despite\": \"conector (preposición)\""))
+      assertTrue(content.contains("\"construction\": \"sustantivo\""))
     }
   }
 

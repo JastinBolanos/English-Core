@@ -24,8 +24,11 @@ class DatabaseInitializer @Inject constructor(
     com.example.domain.util.WordGrammarCatalog.loadGrammarTypesFromContext(context)
     val count = wordDao.getWordCount()
     if (count >= 2809) {
-      val sampleWord = wordDao.getWordByLemma("the")
-      if (sampleWord != null && (sampleWord.partOfSpeech.isEmpty() || sampleWord.partOfSpeech == "OTHER" || sampleWord.partOfSpeech == "MOD" || sampleWord.partOfSpeech == "PRON" || sampleWord.partOfSpeech == "CONN")) {
+      val sampleWord1 = wordDao.getWordByLemma("the")
+      val sampleWord701 = wordDao.getWordByLemma("guy")
+      val needsReload = (sampleWord1 != null && sampleWord1.partOfSpeech != "modificador (artículo)") ||
+                        (sampleWord701 != null && sampleWord701.partOfSpeech != "sustantivo")
+      if (needsReload) {
         loadWordsFromCsv(preserveUseCounts = true)
       }
       return@withContext
