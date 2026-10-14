@@ -245,20 +245,23 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testNgslGrammaticalTypes_Contains1400WordsFromBlocks1And2() {
+  fun testNgslGrammaticalTypes_Contains2100WordsFromBlocks1To3() {
     val jsonFile = File("src/main/res/raw/ngsl_grammatical_types.json")
     if (jsonFile.exists()) {
       val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
-      assertEquals("Debe contener exactamente 1400 palabras en los bloques 1 y 2", 1400, keyCount)
+      assertEquals("Debe contener exactamente 2100 palabras en los bloques 1, 2 y 3", 2100, keyCount)
       val content = jsonFile.readText()
       // Bloque 1
       assertTrue(content.contains("\"the\": \"modificador (artículo)\""))
       assertTrue(content.contains("\"fit\": \"verbo/modificador (adjetivo)/sustantivo\""))
       // Bloque 2
       assertTrue(content.contains("\"guy\": \"sustantivo\""))
-      assertTrue(content.contains("\"function\": \"sustantivo/verbo\""))
-      assertTrue(content.contains("\"despite\": \"conector (preposición)\""))
       assertTrue(content.contains("\"construction\": \"sustantivo\""))
+      // Bloque 3
+      assertTrue(content.contains("\"dear\": \"modificador (adjetivo/interjección)/sustantivo\""))
+      assertTrue(content.contains("\"objective\": \"sustantivo/modificador (adjetivo)\""))
+      assertTrue(content.contains("\"moreover\": \"conector/modificador (adverbio)\""))
+      assertTrue(content.contains("\"restore\": \"verbo\""))
     }
   }
 
