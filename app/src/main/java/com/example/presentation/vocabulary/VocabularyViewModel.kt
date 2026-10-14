@@ -35,6 +35,17 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
   companion object {
     val OBJECT get() = NOUN
   }
+
+  fun matchesWord(word: Word): Boolean {
+    val primary = word.getPrimaryCategory()
+    return when (this) {
+      CONNECTOR -> primary.isConnector
+      SUBJECT -> primary == PartOfSpeech.PRONOUN
+      VERB -> primary == PartOfSpeech.VERB
+      NOUN -> primary == PartOfSpeech.NOUN
+      MODIFIER -> primary == PartOfSpeech.MODIFIER
+    }
+  }
 }
 
 class VocabularyViewModel @Inject constructor(
@@ -113,15 +124,7 @@ class VocabularyViewModel @Inject constructor(
   ) { list: List<Word>, query: String, filter: SyntaxFilter? ->
     var result = list
     if (filter != null) {
-      result = result.filter { word ->
-        when (filter) {
-          SyntaxFilter.CONNECTOR -> word.matchesCategory(PartOfSpeech.CONNECTOR)
-          SyntaxFilter.SUBJECT -> word.matchesCategory(PartOfSpeech.PRONOUN)
-          SyntaxFilter.VERB -> word.matchesCategory(PartOfSpeech.VERB)
-          SyntaxFilter.NOUN -> word.matchesCategory(PartOfSpeech.NOUN)
-          SyntaxFilter.MODIFIER -> word.matchesCategory(PartOfSpeech.MODIFIER)
-        }
-      }
+      result = result.filter { filter.matchesWord(it) }
     }
     if (query.isNotBlank()) {
       result = result.filter { it.lemma.contains(query.trim(), ignoreCase = true) }

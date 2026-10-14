@@ -16,13 +16,13 @@ data class Word(
   val secondaryPartOfSpeech: PartOfSpeech? = null
 ) {
   val nextExpectedCategories: List<PartOfSpeech>
-    get() = partOfSpeech.nextExpectedCategories
+    get() = getPrimaryCategory().nextExpectedCategories
 
   val connectionRuleNote: String
-    get() = overrideConnectionNote ?: partOfSpeech.connectionRuleNote
+    get() = overrideConnectionNote ?: getPrimaryCategory().connectionRuleNote
 
   val displaySpanishTranslation: String
-    get() = if (spanishTranslation.isNotBlank()) spanishTranslation else com.example.domain.util.WordDictionary.getTranslation(lemma, partOfSpeech)
+    get() = if (spanishTranslation.isNotBlank()) spanishTranslation else com.example.domain.util.WordDictionary.getTranslation(lemma, getPrimaryCategory())
 
   val displayCategoryLabel: String
     get() {
@@ -35,22 +35,53 @@ data class Word(
       return partOfSpeech.displayName
     }
 
+  /**
+   * Determina estrictamente la categoría principal evaluando ÚNICAMENTE
+   * la primera parte antes de la primera barra (/):
+   * - "conector" -> Conector (Amarillo)
+   * - "sujeto" o "pronombre" -> Sujeto (Morado)
+   * - "verbo" -> Verbo (Azul)
+   * - "sustantivo" -> Sustantivo (Verde)
+   * - "modificador", "adverbio", "interjección", etc. -> Modificador (Blanco)
+   */
+  fun getPrimaryCategory(): PartOfSpeech {
+    val classification = if (rawPartOfSpeech.isNotBlank()) rawPartOfSpeech else partOfSpeech.displayName
+    val clean = classification.lowercase().trim()
+    val firstPart = clean.substringBefore("/").trim()
+    return when {
+      firstPart.startsWith("conector") -> {
+        if (partOfSpeech.isConnector) partOfSpeech else PartOfSpeech.CONNECTOR
+      }
+      firstPart.startsWith("sujeto") || firstPart.startsWith("pronombre") -> PartOfSpeech.PRONOUN
+      firstPart.startsWith("verbo") -> PartOfSpeech.VERB
+      firstPart.startsWith("sustantivo") -> PartOfSpeech.NOUN
+      firstPart.startsWith("modificador") || firstPart.startsWith("adverbio") ||
+      firstPart.startsWith("interjección") || firstPart.startsWith("interjeccion") ||
+      firstPart.startsWith("artículo") || firstPart.startsWith("articulo") ||
+      firstPart.startsWith("adjetivo") -> PartOfSpeech.MODIFIER
+      else -> {
+        when {
+          partOfSpeech.isConnector -> partOfSpeech
+          partOfSpeech == PartOfSpeech.PRONOUN -> PartOfSpeech.PRONOUN
+          partOfSpeech == PartOfSpeech.VERB -> PartOfSpeech.VERB
+          partOfSpeech == PartOfSpeech.NOUN -> PartOfSpeech.NOUN
+          else -> PartOfSpeech.MODIFIER
+        }
+      }
+    }
+  }
+
+  /**
+   * Filtrado puro contra la categoría principal.
+   * Evita que palabras con tipo secundario (ej. modificador (...)/conector)
+   * se filtren erróneamente en Conector.
+   */
   fun matchesCategory(category: PartOfSpeech): Boolean {
-    if (category.isConnector && (partOfSpeech.isConnector || secondaryPartOfSpeech?.isConnector == true || rawPartOfSpeech.contains("conector", ignoreCase = true))) {
-      return true
+    val primary = getPrimaryCategory()
+    return if (category.isConnector) {
+      primary.isConnector
+    } else {
+      primary == category
     }
-    if (category == PartOfSpeech.PRONOUN && (partOfSpeech == PartOfSpeech.PRONOUN || secondaryPartOfSpeech == PartOfSpeech.PRONOUN || rawPartOfSpeech.contains("sujeto", ignoreCase = true) || rawPartOfSpeech.contains("pronombre", ignoreCase = true))) {
-      return true
-    }
-    if (category == PartOfSpeech.VERB && (partOfSpeech == PartOfSpeech.VERB || secondaryPartOfSpeech == PartOfSpeech.VERB || rawPartOfSpeech.contains("verbo", ignoreCase = true))) {
-      return true
-    }
-    if (category == PartOfSpeech.NOUN && (partOfSpeech == PartOfSpeech.NOUN || secondaryPartOfSpeech == PartOfSpeech.NOUN || rawPartOfSpeech.contains("sustantivo", ignoreCase = true))) {
-      return true
-    }
-    if (category == PartOfSpeech.MODIFIER && (partOfSpeech == PartOfSpeech.MODIFIER || secondaryPartOfSpeech == PartOfSpeech.MODIFIER || rawPartOfSpeech.contains("modificador", ignoreCase = true) || rawPartOfSpeech.contains("adjetivo", ignoreCase = true) || rawPartOfSpeech.contains("adverbio", ignoreCase = true) || rawPartOfSpeech.contains("artículo", ignoreCase = true))) {
-      return true
-    }
-    return partOfSpeech == category || secondaryPartOfSpeech == category
   }
 }

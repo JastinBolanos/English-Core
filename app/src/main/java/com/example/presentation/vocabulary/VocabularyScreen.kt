@@ -130,6 +130,13 @@ fun getWordSyntaxColor(partOfSpeech: PartOfSpeech): Color {
   }
 }
 
+/**
+ * Obtiene el color de la palabra basado ESTRICTAMENTE en su categoría principal.
+ */
+fun getWordSyntaxColor(word: Word): Color {
+  return getWordSyntaxColor(word.getPrimaryCategory())
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VocabularyScreen(
@@ -856,24 +863,24 @@ private fun SyntaxCompassHeader(
   Surface(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 4.dp),
-    shape = RoundedCornerShape(14.dp),
+      .padding(horizontal = 12.dp, vertical = 4.dp),
+    shape = RoundedCornerShape(12.dp),
     color = Color(0xFF0F172A),
     border = BorderStroke(1.dp, Color(0xFF334155))
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(start = 10.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        .padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
-      // Fila deslizable horizontalmente para los 5 botones sin romper la pantalla
+      // Fila deslizable horizontalmente para los 5 botones con espaciado compacto
       Row(
         modifier = Modifier
           .weight(1f)
           .horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
       ) {
         CompassStepChip(
           color = Color(0xFFFACC15),
@@ -882,7 +889,7 @@ private fun SyntaxCompassHeader(
           onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
           testTag = "compass_chip_Conector"
         )
-        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
         CompassStepChip(
           color = Color(0xFFA855F7),
           label = "🟣 Sujeto",
@@ -890,7 +897,7 @@ private fun SyntaxCompassHeader(
           onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
           testTag = "compass_chip_Sujeto"
         )
-        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
         CompassStepChip(
           color = Color(0xFF3B82F6),
           label = "🔵 Verbo",
@@ -898,7 +905,7 @@ private fun SyntaxCompassHeader(
           onClick = { onSelectFilter(SyntaxFilter.VERB) },
           testTag = "compass_chip_Verbo"
         )
-        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
         CompassStepChip(
           color = Color(0xFF34D399),
           label = "🟢 Sustantivo",
@@ -906,7 +913,7 @@ private fun SyntaxCompassHeader(
           onClick = { onSelectFilter(SyntaxFilter.NOUN) },
           testTag = "compass_chip_Sustantivo"
         )
-        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
         CompassStepChip(
           color = Color(0xFFF8FAFC),
           label = "⚪ Modificador",
@@ -914,20 +921,21 @@ private fun SyntaxCompassHeader(
           onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
           testTag = "compass_chip_Modificador"
         )
+        Spacer(modifier = Modifier.width(8.dp))
       }
 
-      Spacer(modifier = Modifier.width(6.dp))
+      Spacer(modifier = Modifier.width(4.dp))
 
       // Separador vertical sutil entre los chips y la X fija
       VerticalDivider(
-        modifier = Modifier.height(22.dp),
+        modifier = Modifier.height(20.dp),
         thickness = 1.dp,
         color = Color(0xFF334155)
       )
 
-      Spacer(modifier = Modifier.width(6.dp))
+      Spacer(modifier = Modifier.width(4.dp))
 
-      // Botón X fijo al costado para deseleccionar todo y dejar los 2809 libres
+      // Botón X compacto y fijo al costado para deseleccionar todo y dejar los 2809 libres
       Surface(
         shape = CircleShape,
         color = if (selectedFilter != null) Color(0xFFEF4444).copy(alpha = 0.25f) else Color(0xFF1E293B),
@@ -936,7 +944,7 @@ private fun SyntaxCompassHeader(
           color = if (selectedFilter != null) Color(0xFFEF4444) else Color(0xFF334155)
         ),
         modifier = Modifier
-          .size(28.dp)
+          .size(26.dp)
           .clickable(onClick = onClearFilter)
           .testTag("btn_clear_compass_selection")
       ) {
@@ -945,7 +953,7 @@ private fun SyntaxCompassHeader(
             imageVector = Icons.Default.Close,
             contentDescription = "Deseleccionar todo y ver las 2809 palabras",
             tint = if (selectedFilter != null) Color(0xFFFCA5A5) else Color(0xFF94A3B8),
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(14.dp)
           )
         }
       }
@@ -962,10 +970,10 @@ private fun CompassStepChip(
   testTag: String = "compass_chip_${label.filter { it.isLetter() }}"
 ) {
   Surface(
-    shape = RoundedCornerShape(8.dp),
+    shape = RoundedCornerShape(7.dp),
     color = if (isSelected) color.copy(alpha = 0.35f) else color.copy(alpha = 0.12f),
     border = BorderStroke(
-      width = if (isSelected) 1.8.dp else 1.dp,
+      width = if (isSelected) 1.5.dp else 1.dp,
       color = if (isSelected) color else color.copy(alpha = 0.45f)
     ),
     modifier = Modifier
@@ -975,11 +983,11 @@ private fun CompassStepChip(
     Text(
       text = label,
       color = if (isSelected) Color.White else color,
-      fontSize = 12.sp,
+      fontSize = 11.sp,
       fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
       maxLines = 1,
       softWrap = false,
-      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
     )
   }
 }
@@ -1392,7 +1400,7 @@ private fun DraftChip(
   word: Word,
   onClickRemove: () -> Unit
 ) {
-  val chipColor = getWordSyntaxColor(word.partOfSpeech)
+  val chipColor = getWordSyntaxColor(word)
 
   Surface(
     shape = RoundedCornerShape(8.dp),
@@ -1486,7 +1494,7 @@ fun WordHudCard(
   modifier: Modifier = Modifier
 ) {
   var isRevealed by rememberSaveable(word.id) { mutableStateOf(false) }
-  val wordColor = getWordSyntaxColor(word.partOfSpeech)
+  val wordColor = getWordSyntaxColor(word)
   val borderColor by animateColorAsState(
     targetValue = if (isRevealed) wordColor else Color(0xFF334155),
     label = "cardBorderColor"

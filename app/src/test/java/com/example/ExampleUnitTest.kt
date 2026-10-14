@@ -7,6 +7,7 @@ import com.example.domain.util.ConnectorRulesCatalog
 import com.example.domain.util.WordDictionary
 import com.example.presentation.vocabulary.getWordSyntaxColor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -279,6 +280,56 @@ class ExampleUnitTest {
     val (pos, sec) = com.example.domain.util.WordGrammarCatalog.parseCategories("verbo/sustantivo", "work")
     assertEquals(PartOfSpeech.VERB, pos)
     assertEquals(PartOfSpeech.NOUN, sec)
+  }
+
+  @Test
+  fun testStrictPrimaryCategoryAndPureFiltering() {
+    val onlyWord = Word(lemma = "only", rawPartOfSpeech = "modificador (adverbio/adjetivo)/conector")
+    val firstWord = Word(lemma = "first", rawPartOfSpeech = "modificador (adjetivo/adverbio)/conector")
+    val evenWord = Word(lemma = "even", rawPartOfSpeech = "modificador (adverbio)/conector")
+    val makeWord = Word(lemma = "make", rawPartOfSpeech = "verbo/sustantivo")
+    val timeWord = Word(lemma = "time", rawPartOfSpeech = "sustantivo/verbo")
+    val becauseWord = Word(lemma = "because", rawPartOfSpeech = "conector (conjunción)")
+
+    // 1. Categoría primaria estricta
+    assertEquals(PartOfSpeech.MODIFIER, onlyWord.getPrimaryCategory())
+    assertEquals(PartOfSpeech.MODIFIER, firstWord.getPrimaryCategory())
+    assertEquals(PartOfSpeech.MODIFIER, evenWord.getPrimaryCategory())
+    assertEquals(PartOfSpeech.VERB, makeWord.getPrimaryCategory())
+    assertEquals(PartOfSpeech.NOUN, timeWord.getPrimaryCategory())
+    assertTrue(becauseWord.getPrimaryCategory().isConnector)
+
+    // 2. Colores: only, first y even deben ser Blanco (#F8FAFC), NO amarillo
+    val whiteColor = Color(0xFFF8FAFC)
+    val yellowColor = Color(0xFFFACC15)
+    val blueColor = Color(0xFF3B82F6)
+    val greenColor = Color(0xFF34D399)
+
+    assertEquals(whiteColor, getWordSyntaxColor(onlyWord))
+    assertEquals(whiteColor, getWordSyntaxColor(firstWord))
+    assertEquals(whiteColor, getWordSyntaxColor(evenWord))
+    assertEquals(blueColor, getWordSyntaxColor(makeWord))
+    assertEquals(greenColor, getWordSyntaxColor(timeWord))
+    assertEquals(yellowColor, getWordSyntaxColor(becauseWord))
+
+    // 3. Filtrado Puro: only, first y even NO deben entrar en Conector
+    assertFalse("only no debe colarse en Conector", onlyWord.matchesCategory(PartOfSpeech.CONNECTOR))
+    assertFalse("first no debe colarse en Conector", firstWord.matchesCategory(PartOfSpeech.CONNECTOR))
+    assertFalse("even no debe colarse en Conector", evenWord.matchesCategory(PartOfSpeech.CONNECTOR))
+    assertTrue("only pertenece a Modificador", onlyWord.matchesCategory(PartOfSpeech.MODIFIER))
+
+    // make no debe colarse en Sustantivo
+    assertFalse("make no debe colarse en Sustantivo", makeWord.matchesCategory(PartOfSpeech.NOUN))
+    assertTrue("make pertenece a Verbo", makeWord.matchesCategory(PartOfSpeech.VERB))
+
+    // time no debe colarse en Verbo
+    assertFalse("time no debe colarse en Verbo", timeWord.matchesCategory(PartOfSpeech.VERB))
+    assertTrue("time pertenece a Sustantivo", timeWord.matchesCategory(PartOfSpeech.NOUN))
+
+    // SyntaxFilter enum test
+    assertTrue(com.example.presentation.vocabulary.SyntaxFilter.MODIFIER.matchesWord(onlyWord))
+    assertFalse(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR.matchesWord(onlyWord))
+    assertTrue(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR.matchesWord(becauseWord))
   }
 }
 
