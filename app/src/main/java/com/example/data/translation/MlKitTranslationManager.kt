@@ -2,6 +2,7 @@ package com.example.data.translation
 
 import com.example.domain.translation.TranslationManager
 import com.example.domain.translation.TranslationState
+import com.example.domain.util.PhraseTranslator
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
@@ -37,54 +38,71 @@ class MlKitTranslationManager : TranslationManager {
 
     latestPendingText = clean
 
-    try {
-      if (isDownloading) {
-        _translationState.value = TranslationState.DownloadingModel
-        return
-      }
+    // 1. Obtener de inmediato la traducción completa pedagógica de la frase entera
+    val phraseFallback = PhraseTranslator.translatePhrase(clean)
+    if (phraseFallback.isNotBlank()) {
+      _translationState.value = TranslationState.Success(phraseFallback)
+    } else {
+      _translationState.value = TranslationState.Translating
+    }
 
+    // 2. Intentar refinamiento mediante el modelo ML Kit si está disponible
+    try {
       if (!isModelDownloaded) {
-        _translationState.value = TranslationState.DownloadingModel
-        isDownloading = true
-        val conditions = DownloadConditions.Builder().build()
-        translator.downloadModelIfNeeded(conditions)
-          .addOnSuccessListener {
-            isModelDownloaded = true
-            isDownloading = false
-            val current = latestPendingText
-            if (!current.isNullOrBlank()) {
-              executeTranslation(current)
-            } else {
-              _translationState.value = TranslationState.Idle
+        if (!isDownloading) {
+          isDownloading = true
+          val conditions = DownloadConditions.Builder().build()
+          translator.downloadModelIfNeeded(conditions)
+            .addOnSuccessListener {
+              isModelDownloaded = true
+              isDownloading = false
+              val current = latestPendingText
+              if (!current.isNullOrBlank()) {
+                val currentFallback = PhraseTranslator.translatePhrase(current)
+                executeTranslation(current, currentFallback)
+              }
             }
-          }
-          .addOnFailureListener { error ->
-            isDownloading = false
-            _translationState.value = TranslationState.Error(
-              error.localizedMessage ?: "No se pudo descargar el modelo offline de ML Kit"
-            )
-          }
+            .addOnFailureListener {
+              isDownloading = false
+              // Si falla la descarga de ML Kit, conservamos la traducción completa de PhraseTranslator
+              if (phraseFallback.isNotBlank()) {
+                _translationState.value = TranslationState.Success(phraseFallback)
+              }
+            }
+        }
       } else {
-        executeTranslation(clean)
+        executeTranslation(clean, phraseFallback)
       }
-    } catch (e: Exception) {
-      _translationState.value = TranslationState.Error(e.localizedMessage ?: "Error con el motor de traducción")
+    } catch (_: Exception) {
+      if (phraseFallback.isNotBlank()) {
+        _translationState.value = TranslationState.Success(phraseFallback)
+      }
     }
   }
 
-  private fun executeTranslation(text: String) {
-    _translationState.value = TranslationState.Translating
+  private fun executeTranslation(text: String, fallback: String) {
     translator.translate(text)
       .addOnSuccessListener { translated ->
         if (text == latestPendingText) {
-          _translationState.value = TranslationState.Success(translated)
+          val cleanTranslated = translated.trim()
+          val inputWordsCount = text.split("\\s+".toRegex()).count { it.isNotBlank() }
+          val outputWordsCount = cleanTranslated.split("\\s+".toRegex()).count { it.isNotBlank() }
+
+          // Si la frase de entrada contiene 2 o más palabras pero ML Kit devolvió solo 1 palabra,
+          // significa que truncó la frase (e.g. tradujo solo 'be' en 'be of a ...').
+          // En ese caso preservamos la traducción completa de toda la frase.
+          if (inputWordsCount >= 2 && outputWordsCount < 2 && fallback.isNotBlank()) {
+            _translationState.value = TranslationState.Success(fallback)
+          } else if (cleanTranslated.isNotBlank()) {
+            _translationState.value = TranslationState.Success(cleanTranslated)
+          } else if (fallback.isNotBlank()) {
+            _translationState.value = TranslationState.Success(fallback)
+          }
         }
       }
-      .addOnFailureListener { error ->
-        if (text == latestPendingText) {
-          _translationState.value = TranslationState.Error(
-            error.localizedMessage ?: "Error al traducir la frase"
-          )
+      .addOnFailureListener {
+        if (text == latestPendingText && fallback.isNotBlank()) {
+          _translationState.value = TranslationState.Success(fallback)
         }
       }
   }

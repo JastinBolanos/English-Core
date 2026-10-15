@@ -356,6 +356,31 @@ class ExampleUnitTest {
     draft = moveWord(draft, 2, 1)
     assertEquals("play month the", draft.joinToString(" ") { it.lemma })
   }
+
+  @Test
+  fun testPhraseTranslator_TranslatesFullPhrasesNotJustSingleWord() {
+    // 1. Caso específico del usuario: "be of a"
+    val userPhrase = "be of a"
+    val userTranslation = com.example.domain.util.PhraseTranslator.translatePhrase(userPhrase)
+    assertNotNull(userTranslation)
+    assertTrue("Debe traducir toda la frase y no solo 'ser'", userTranslation.contains("ser"))
+    assertTrue("Debe incluir la traducción de 'of' ('de')", userTranslation.contains("de"))
+    assertTrue("Debe incluir la traducción de 'a' ('un')", userTranslation.contains("un"))
+    assertEquals("ser de un", userTranslation)
+
+    // 2. Frase de 4 palabras: "be of a word"
+    WordDictionary.injectTranslations(mapOf("word" to "palabra"))
+    val fourWordsPhrase = "be of a word"
+    val fourWordsTranslation = com.example.domain.util.PhraseTranslator.translatePhrase(fourWordsPhrase)
+    assertEquals("ser de una palabra", fourWordsTranslation)
+
+    // 3. Frase con conectores y pronombres: "because they can"
+    val clausePhrase = "because they can"
+    val clauseTranslation = com.example.domain.util.PhraseTranslator.translatePhrase(clausePhrase)
+    assertTrue(clauseTranslation.contains("porque"))
+    assertTrue(clauseTranslation.contains("ellos"))
+    assertTrue(clauseTranslation.contains("puede"))
+  }
 }
 
 

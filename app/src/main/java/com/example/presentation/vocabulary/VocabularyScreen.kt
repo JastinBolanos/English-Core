@@ -294,8 +294,11 @@ fun VocabularyScreen(
         translationState = translationState,
         onToggleTranslationTray = { viewModel.toggleTranslationTray() },
         onTranslate = {
-          val phrase = draftWords.joinToString(" ") { it.lemma }
-          openGoogleTranslate(context, phrase)
+          if (!isTranslationTrayExpanded) {
+            viewModel.toggleTranslationTray()
+          } else {
+            viewModel.translateCurrentDraft()
+          }
         },
         onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
         onMoveLeft = { index -> viewModel.moveWordLeft(index) },
