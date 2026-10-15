@@ -91,14 +91,10 @@ fun EnglishApp() {
     com.example.di.TtsModule.provideTtsManager(context.applicationContext)
   }
 
-  val sttManager = androidx.compose.runtime.remember(context) {
-    com.example.di.SpeechToTextModule.provideSpeechToTextManager(context.applicationContext)
-  }
-
   val vocabularyViewModel: com.example.presentation.vocabulary.VocabularyViewModel =
     androidx.lifecycle.viewmodel.compose.viewModel(
-      factory = androidx.compose.runtime.remember(repository, ttsManager, sttManager) {
-        com.example.presentation.vocabulary.VocabularyViewModel.Factory(repository, ttsManager, sttManager)
+      factory = androidx.compose.runtime.remember(repository, ttsManager) {
+        com.example.presentation.vocabulary.VocabularyViewModel.Factory(repository, ttsManager)
       }
     )
 

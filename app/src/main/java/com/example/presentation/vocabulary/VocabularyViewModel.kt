@@ -17,10 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-import com.example.data.stt.SpeechRecognitionState
 import com.example.data.stt.SpeechToTextManager
-import com.example.domain.util.PronunciationEvaluation
-import com.example.domain.util.PronunciationEvaluator
 
 /**
  * Filtro interactivo de sintaxis desde el Guiador Superior (Brújula de Aprendizaje).
@@ -51,7 +48,7 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
 class VocabularyViewModel @Inject constructor(
   private val repository: VocabularyRepository,
   private val ttsManager: TtsManager,
-  private val speechToTextManager: SpeechToTextManager
+  private val speechToTextManager: SpeechToTextManager? = null
 ) : ViewModel() {
 
   private val _isLoading = MutableStateFlow(false)
@@ -80,20 +77,6 @@ class VocabularyViewModel @Inject constructor(
   // Estado del Borrador de Frases (Scratchpad / Lienzo de Pruebas)
   private val _draftWords = MutableStateFlow<List<Word>>(emptyList())
   val draftWords: StateFlow<List<Word>> = _draftWords.asStateFlow()
-
-  // Estado del Motor de Voz y Evaluación de Pronunciación (Bandeja Espejo)
-  val speechState: StateFlow<SpeechRecognitionState> = speechToTextManager.state
-  val partialSpokenText: StateFlow<String> = speechToTextManager.partialText
-
-  val isListening: StateFlow<Boolean> = speechToTextManager.state
-    .map { it is SpeechRecognitionState.Listening }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-  private val _pronunciationEvaluation = MutableStateFlow<PronunciationEvaluation?>(null)
-  val pronunciationEvaluation: StateFlow<PronunciationEvaluation?> = _pronunciationEvaluation.asStateFlow()
-
-  private val _isMirrorTrayVisible = MutableStateFlow(false)
-  val isMirrorTrayVisible: StateFlow<Boolean> = _isMirrorTrayVisible.asStateFlow()
 
   // Control global de velocidad TTS (1.0f ➔ 0.8f ➔ 0.5f ➔ 1.0f)
   val currentSpeechSpeed: StateFlow<Float> = ttsManager.currentSpeechRate
@@ -172,26 +155,6 @@ class VocabularyViewModel @Inject constructor(
       repository.prePopulateDatabaseIfNeeded()
       _isLoading.value = false
     }
-
-    viewModelScope.launch {
-      speechToTextManager.state.collect { state ->
-        when (state) {
-          is SpeechRecognitionState.Listening -> {
-            _isMirrorTrayVisible.value = true
-          }
-          is SpeechRecognitionState.Results -> {
-            _isMirrorTrayVisible.value = true
-            evaluateCurrentDraft(state.text)
-          }
-          is SpeechRecognitionState.Error -> {
-            _isMirrorTrayVisible.value = true
-          }
-          is SpeechRecognitionState.Idle -> {
-            // Se mantiene visible si hay una evaluación previa activa
-          }
-        }
-      }
-    }
   }
 
   fun updateSearchQuery(query: String) {
@@ -208,44 +171,24 @@ class VocabularyViewModel @Inject constructor(
     viewModelScope.launch {
       repository.incrementWordUseCount(word.id, word.lemma)
     }
-    // Si ya había una evaluación, recalcular contra la nueva frase extendida
-    _pronunciationEvaluation.value?.let { currentEval ->
-      evaluateCurrentDraft(currentEval.spokenText)
-    }
   }
 
   /**
    * Elimina un bloque/chip específico del borrador por índice.
-   * Regla de Oro: Si la frase queda vacía, limpia y oculta la bandeja espejo sin fricción.
    */
   fun removeWordFromDraft(index: Int) {
     if (index in _draftWords.value.indices) {
       val updated = _draftWords.value.toMutableList()
       updated.removeAt(index)
       _draftWords.value = updated
-
-      if (updated.isEmpty()) {
-        speechToTextManager.reset()
-        _pronunciationEvaluation.value = null
-        _isMirrorTrayVisible.value = false
-      } else {
-        _pronunciationEvaluation.value?.let { currentEval ->
-          evaluateCurrentDraft(currentEval.spokenText)
-        }
-      }
     }
   }
 
   /**
    * Limpia todo el borrador en un solo toque (Papelera 🗑️).
-   * Cero fricción: borra la frase, detiene cualquier escucha activa, limpia la transcripción
-   * y cierra de inmediato la Bandeja Espejo.
    */
   fun clearDraft() {
     _draftWords.value = emptyList()
-    speechToTextManager.reset()
-    _pronunciationEvaluation.value = null
-    _isMirrorTrayVisible.value = false
   }
 
   /**
@@ -262,44 +205,6 @@ class VocabularyViewModel @Inject constructor(
     ttsManager.speak(word)
   }
 
-  /**
-   * Alterna la escucha del motor de reconocimiento de voz.
-   */
-  fun toggleSpeechRecognition() {
-    if (speechToTextManager.state.value is SpeechRecognitionState.Listening) {
-      speechToTextManager.stopListening()
-    } else {
-      startSpeechRecognition()
-    }
-  }
-
-  /**
-   * Inicia el evaluador de voz en la Bandeja Espejo.
-   */
-  fun startSpeechRecognition() {
-    if (_draftWords.value.isEmpty()) return
-    _isMirrorTrayVisible.value = true
-    _pronunciationEvaluation.value = null
-    speechToTextManager.startListening()
-  }
-
-  fun stopSpeechRecognition() {
-    speechToTextManager.stopListening()
-  }
-
-  fun closeMirrorTray() {
-    speechToTextManager.stopListening()
-    _isMirrorTrayVisible.value = false
-    _pronunciationEvaluation.value = null
-  }
-
-  private fun evaluateCurrentDraft(spokenText: String) {
-    val targetWords = _draftWords.value.map { it.lemma }
-    if (targetWords.isNotEmpty() && spokenText.isNotBlank()) {
-      _pronunciationEvaluation.value = PronunciationEvaluator.evaluate(targetWords, spokenText)
-    }
-  }
-
   fun reloadFromCsv() {
     viewModelScope.launch {
       _isLoading.value = true
@@ -311,13 +216,13 @@ class VocabularyViewModel @Inject constructor(
   override fun onCleared() {
     super.onCleared()
     ttsManager.stop()
-    speechToTextManager.destroy()
+    speechToTextManager?.destroy()
   }
 
   class Factory(
     private val repository: VocabularyRepository,
     private val ttsManager: TtsManager,
-    private val speechToTextManager: SpeechToTextManager
+    private val speechToTextManager: SpeechToTextManager? = null
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {

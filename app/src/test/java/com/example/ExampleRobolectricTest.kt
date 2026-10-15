@@ -161,7 +161,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify mic button and mirror tray are invisible when draft is empty`() {
+  fun `verify translate button is invisible when draft is empty and mirror tray is completely removed`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -170,6 +170,7 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("draft_scratchpad").assertExists()
+    composeTestRule.onNodeWithTag("btn_translate_practice").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_mic_pronunciation").assertDoesNotExist()
     composeTestRule.onNodeWithTag("mirror_voice_tray").assertDoesNotExist()
   }

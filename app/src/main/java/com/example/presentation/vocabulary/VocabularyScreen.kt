@@ -39,10 +39,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -51,12 +53,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -96,13 +96,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
 import com.example.R
-import com.example.data.stt.SpeechRecognitionState
 import com.example.domain.model.PartOfSpeech
 import com.example.domain.model.Word
-import com.example.domain.util.PronunciationEvaluation
-import com.example.domain.util.SpokenWordMatch
 
 /**
  * SISTEMA DE COLORES DE SINTAXIS PASIVA Y CONECTORES
@@ -151,13 +147,9 @@ fun VocabularyScreen(
   val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
   val draftWords by viewModel.draftWords.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
-  val isListening by viewModel.isListening.collectAsStateWithLifecycle()
-  val speechState by viewModel.speechState.collectAsStateWithLifecycle()
-  val partialSpokenText by viewModel.partialSpokenText.collectAsStateWithLifecycle()
-  val pronunciationEvaluation by viewModel.pronunciationEvaluation.collectAsStateWithLifecycle()
-  val isMirrorTrayVisible by viewModel.isMirrorTrayVisible.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
 
+  val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
   val listState = rememberLazyListState()
   val coroutineScope = rememberCoroutineScope()
@@ -183,27 +175,6 @@ fun VocabularyScreen(
 
     coroutineScope.launch {
       listState.scrollToItem(targetIndex.coerceIn(0, maxOf(0, words.size - 1)))
-    }
-  }
-
-  val context = LocalContext.current
-  val permissionLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.RequestPermission()
-  ) { isGranted ->
-    if (isGranted) {
-      viewModel.startSpeechRecognition()
-    }
-  }
-
-  val onToggleMic: () -> Unit = {
-    val permissionStatus = ContextCompat.checkSelfPermission(
-      context,
-      Manifest.permission.RECORD_AUDIO
-    )
-    if (permissionStatus == PackageManager.PERMISSION_GRANTED) {
-      viewModel.toggleSpeechRecognition()
-    } else {
-      permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
   }
 
@@ -296,15 +267,13 @@ fun VocabularyScreen(
       )
 
       // 2. LA BARRA DE BORRADOR ("Scratchpad" de Frases) con Bandeja Espejo de Voz y Predictor
+      // 2. LA BARRA DE BORRADOR ("Scratchpad" de Frases) con enlace directo a Google Translate
       DraftScratchpadHeader(
         draftWords = draftWords,
-        isListening = isListening,
-        speechState = speechState,
-        partialSpokenText = partialSpokenText,
-        pronunciationEvaluation = pronunciationEvaluation,
-        isMirrorTrayVisible = isMirrorTrayVisible,
-        onToggleMic = onToggleMic,
-        onCloseMirrorTray = { viewModel.closeMirrorTray() },
+        onTranslate = {
+          val phrase = draftWords.joinToString(" ") { it.lemma }
+          openGoogleTranslate(context, phrase)
+        },
         onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
         onPlayPhrase = { viewModel.playFullDraftPhrase() },
         onClearDraft = { viewModel.clearDraft() }
@@ -643,9 +612,9 @@ fun TacticalRoadmapDialog(
               description = "Memoria auditiva de alta fidelidad: pronunciación nativa palabra por palabra y lectura corrida de frases armadas."
             )
             RoadmapLabPillarItem(
-              emoji = "🎙️",
-              title = "Juez de Pronunciación (Micrófono)",
-              description = "Entrenamiento físico muscular de lengua y mandíbula con la Bandeja Espejo en el Lienzo de Pruebas."
+              emoji = "🌐",
+              title = "Práctica Externa (Google Translate)",
+              description = "Envío instantáneo de frases armadas a Google Translate con voz nativa, traducción y práctica avanzada."
             )
           }
         }
@@ -979,27 +948,62 @@ private fun CompassStepChip(
 }
 
 /**
+ * Abre Google Translate con la frase en inglés:
+ * 1. Copia la frase automáticamente al Portapapeles (ClipboardManager).
+ * 2. Lanza un Intent a la aplicación de Google Translate (com.google.android.apps.translate).
+ * 3. Si la app no está instalada, abre el enlace oficial en el navegador web:
+ *    https://translate.google.com/?sl=en&tl=es&text=...
+ */
+fun openGoogleTranslate(context: Context, phrase: String) {
+  val cleanPhrase = phrase.trim()
+  if (cleanPhrase.isBlank()) return
+
+  // 1. Copiar al portapapeles
+  try {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    val clip = ClipData.newPlainText("Frase en inglés", cleanPhrase)
+    clipboard?.setPrimaryClip(clip)
+    Toast.makeText(context, "Frase copiada al portapapeles", Toast.LENGTH_SHORT).show()
+  } catch (_: Exception) {}
+
+  // 2. Intent hacia la app de Google Translate o fallback al navegador
+  val encodedText = java.net.URLEncoder.encode(cleanPhrase, "UTF-8")
+  val webUrl = "https://translate.google.com/?sl=en&tl=es&text=$encodedText"
+
+  val appIntent = Intent(Intent.ACTION_SEND).apply {
+    type = "text/plain"
+    putExtra(Intent.EXTRA_TEXT, cleanPhrase)
+    setPackage("com.google.android.apps.translate")
+    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+  }
+
+  try {
+    context.startActivity(appIntent)
+  } catch (_: Exception) {
+    try {
+      val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      context.startActivity(browserIntent)
+    } catch (_: Exception) {}
+  }
+}
+
+/**
  * 2. LA BARRA DE BORRADOR ("Scratchpad" de Frases)
- * Contenedor interactivo fijo con bloques de color, controles de audio, evaluador de pronunciación
- * ("Bandeja Espejo") y predictor en vivo.
+ * Contenedor interactivo fijo con bloques de color, controles de audio y enlace directo
+ * a Google Translate.
  *
- * Flujo Invisible:
- * - Sin frase: Pantalla limpia sin micrófono ni bandeja espejo.
- * - Con frase: Aparece el micrófono (🎤).
- * - Tocar 🎤: Se despliega la Bandeja Espejo directamente acoplada y evalúa palabra por palabra
- *   (verde menta = acierto, rojo coral = diferencia).
- * - Papelera (🗑️): Borra la frase y cierra la bandeja de inmediato con cero fricción.
+ * Flujo:
+ * - Sin frase: Pantalla limpia, se indica tocar palabras para armar una frase.
+ * - Con frase: Aparece el botón de traducir (Translate) para copiar y abrir directamente en Google Translate.
+ * - Play (▶️): Reproduce la frase completa corrida con TTS.
+ * - Papelera (🗑️): Limpia la frase de inmediato con cero fricción.
  */
 @Composable
 private fun DraftScratchpadHeader(
   draftWords: List<Word>,
-  isListening: Boolean,
-  speechState: SpeechRecognitionState,
-  partialSpokenText: String,
-  pronunciationEvaluation: PronunciationEvaluation?,
-  isMirrorTrayVisible: Boolean,
-  onToggleMic: () -> Unit,
-  onCloseMirrorTray: () -> Unit,
+  onTranslate: () -> Unit,
   onRemoveWord: (Int) -> Unit,
   onPlayPhrase: () -> Unit,
   onClearDraft: () -> Unit
@@ -1055,23 +1059,23 @@ private fun DraftScratchpadHeader(
           }
         }
 
-        // Acciones rápidas (Micrófono opcional, Play y Limpiar)
+        // Acciones rápidas (Traducir a Google Translate, Play y Limpiar)
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          // El micrófono SOLO existe si hay frase armada en el Lienzo de Pruebas
+          // El botón de traducir SOLO existe si hay frase armada en el Lienzo de Pruebas
           if (draftWords.isNotEmpty()) {
             IconButton(
-              onClick = onToggleMic,
+              onClick = onTranslate,
               modifier = Modifier
                 .size(32.dp)
-                .testTag("btn_mic_pronunciation")
+                .testTag("btn_translate_practice")
             ) {
               Icon(
-                imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
-                contentDescription = if (isListening) "Detener evaluador de pronunciación" else "Evaluar pronunciación con voz",
-                tint = if (isListening) Color(0xFFEF4444) else Color(0xFF38BDF8),
+                imageVector = Icons.Default.Translate,
+                contentDescription = "Traducir y practicar frase en Google Translate",
+                tint = Color(0xFF38BDF8),
                 modifier = Modifier.size(20.dp)
               )
             }
@@ -1144,239 +1148,10 @@ private fun DraftScratchpadHeader(
           }
         }
       }
-
-      // BANDEJA ESPEJO DE VOZ (Acoplada directamente al Lienzo de Pruebas como segundo piso)
-      AnimatedVisibility(
-        visible = draftWords.isNotEmpty() && (isMirrorTrayVisible || isListening || pronunciationEvaluation != null),
-        enter = expandVertically() + fadeIn(),
-        exit = shrinkVertically() + fadeOut()
-      ) {
-        MirrorVoiceTray(
-          isListening = isListening,
-          speechState = speechState,
-          partialSpokenText = partialSpokenText,
-          evaluation = pronunciationEvaluation,
-          onToggleMic = onToggleMic,
-          onClose = onCloseMirrorTray
-        )
-      }
     }
   }
 }
 
-/**
- * Sub-bandeja espejo acoplada dentro del Lienzo de Pruebas para evaluar la voz sin popups externos.
- */
-@Composable
-private fun MirrorVoiceTray(
-  isListening: Boolean,
-  speechState: SpeechRecognitionState,
-  partialSpokenText: String,
-  evaluation: PronunciationEvaluation?,
-  onToggleMic: () -> Unit,
-  onClose: () -> Unit
-) {
-  Surface(
-    shape = RoundedCornerShape(10.dp),
-    color = Color(0xFF0F172A),
-    border = BorderStroke(
-      width = 1.dp,
-      color = when {
-        isListening -> Color(0xFF38BDF8)
-        evaluation?.isExactMatch == true -> Color(0xFF34D399)
-        evaluation != null -> Color(0xFFF87171)
-        else -> Color(0xFF334155)
-      }
-    ),
-    modifier = Modifier
-      .fillMaxWidth()
-      .testTag("mirror_voice_tray")
-  ) {
-    Column(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 10.dp, vertical = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      // Barra de estado de la Bandeja Espejo
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-      ) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-          Icon(
-            imageVector = if (isListening) Icons.Default.GraphicEq else Icons.Default.Mic,
-            contentDescription = null,
-            tint = if (isListening) Color(0xFF38BDF8) else Color(0xFF94A3B8),
-            modifier = Modifier.size(15.dp)
-          )
-          Text(
-            text = "BANDEJA ESPEJO",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = if (isListening) Color(0xFF38BDF8) else Color(0xFF94A3B8),
-            fontSize = 10.sp
-          )
-        }
-
-        if (evaluation != null) {
-          Text(
-            text = evaluation.feedbackMessage,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 11.sp,
-            color = if (evaluation.isExactMatch) Color(0xFF34D399) else Color(0xFFF87171),
-            modifier = Modifier.testTag("evaluation_feedback_text")
-          )
-        } else if (isListening) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
-          ) {
-            Box(
-              modifier = Modifier
-                .size(7.dp)
-                .background(Color(0xFF38BDF8), CircleShape)
-            )
-            Text(
-              text = "Escuchando en inglés...",
-              style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFF38BDF8),
-              fontSize = 10.sp
-            )
-          }
-        } else {
-          IconButton(
-            onClick = onClose,
-            modifier = Modifier.size(20.dp)
-          ) {
-            Icon(
-              imageVector = Icons.Default.Close,
-              contentDescription = "Cerrar bandeja espejo",
-              tint = Color(0xFF64748B),
-              modifier = Modifier.size(14.dp)
-            )
-          }
-        }
-      }
-
-      // Contenido: Escuchando, Resultado o Error
-      when {
-        isListening -> {
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 4.dp),
-            contentAlignment = Alignment.CenterStart
-          ) {
-            Text(
-              text = if (partialSpokenText.isNotBlank()) "🎙️ \"$partialSpokenText...\"" else "🎙️ Escuchando tu pronunciación...",
-              style = MaterialTheme.typography.bodySmall,
-              color = Color(0xFFE2E8F0),
-              fontStyle = FontStyle.Italic,
-              fontSize = 12.sp
-            )
-          }
-        }
-        evaluation != null -> {
-          Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            LazyRow(
-              modifier = Modifier
-                .fillMaxWidth()
-                .testTag("spoken_words_row"),
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              itemsIndexed(
-                items = evaluation.wordMatches,
-                key = { idx, item -> "${idx}_${item.word}" }
-              ) { _, match ->
-                MirrorWordChip(match = match)
-              }
-            }
-
-            if (evaluation.missingWordsCount > 0) {
-              Text(
-                text = "Faltaron ${evaluation.missingWordsCount} palabra(s) por pronunciar.",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8),
-                fontSize = 10.sp
-              )
-            }
-          }
-        }
-        speechState is SpeechRecognitionState.Error -> {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-          ) {
-            Text(
-              text = "⚠️ ${speechState.message}",
-              style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFFF87171),
-              fontSize = 11.sp,
-              modifier = Modifier.weight(1f)
-            )
-            Text(
-              text = "Reintentar 🎤",
-              style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFF38BDF8),
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold,
-              modifier = Modifier
-                .clickable(onClick = onToggleMic)
-                .padding(4.dp)
-            )
-          }
-        }
-      }
-    }
-  }
-}
-
-/**
- * Chip para cada palabra transcrita por el micrófono:
- * 🟢 Verde menta: Coincidió exactamente con el bloque original.
- * 🔴 Rojo coral: El teléfono entendió otra cosa.
- */
-@Composable
-private fun MirrorWordChip(match: SpokenWordMatch) {
-  val isMatch = match.isMatch
-  val accentColor = if (isMatch) Color(0xFF34D399) else Color(0xFFF87171)
-  val bgColor = if (isMatch) Color(0xFF064E3B).copy(alpha = 0.55f) else Color(0xFF7F1D1D).copy(alpha = 0.55f)
-
-  Surface(
-    shape = RoundedCornerShape(8.dp),
-    color = bgColor,
-    border = BorderStroke(1.dp, accentColor),
-    modifier = Modifier.testTag("spoken_word_${match.word}")
-  ) {
-    Column(
-      modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-      horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-      Text(
-        text = match.word,
-        color = accentColor,
-        fontWeight = FontWeight.Bold,
-        fontSize = 13.sp
-      )
-      if (!isMatch && match.expectedWord != null) {
-        Text(
-          text = "esperado: ${match.expectedWord}",
-          color = Color(0xFFFCA5A5),
-          fontSize = 9.sp,
-          fontWeight = FontWeight.SemiBold
-        )
-      }
-    }
-  }
-}
 
 /**
  * Chip interactivo del borrador.
