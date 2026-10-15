@@ -7,10 +7,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +20,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -56,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -101,24 +98,34 @@ fun GeminiConsultationTray(
       usePlatformDefaultWidth = false
     )
   ) {
+    // Caja semi-transparente estilo vidrio esmerilado (frosted glass) sin bordes sólidos
     Surface(
       modifier = modifier
         .fillMaxWidth(0.94f)
         .widthIn(max = 520.dp)
         .heightIn(min = 380.dp, max = 580.dp)
+        .clip(RoundedCornerShape(24.dp))
+        .background(
+          brush = Brush.verticalGradient(
+            colors = listOf(
+              Color(0xD90F172A), // 85% opacidad
+              Color(0xCC090E1D)  // 80% opacidad translúcido
+            )
+          )
+        )
         .testTag("gemini_consultation_dialog"),
-      shape = RoundedCornerShape(20.dp),
-      color = Color(0xFF0F172A), // Slate 900
-      border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.55f)),
-      shadowElevation = 12.dp
+      shape = RoundedCornerShape(24.dp),
+      color = Color(0xC80B132B), // Acrílico oscuro semi-translúcido sin borde
+      border = null,
+      shadowElevation = 0.dp
     ) {
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(16.dp),
+          .padding(horizontal = 18.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.SpaceBetween
       ) {
-        // 1. Cabecera con Icono de Estrella de Gemini, Título y Acciones
+        // 1. Cabecera con Estrella de Gemini, Título y Botones de acción
         Row(
           modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
@@ -128,24 +135,19 @@ fun GeminiConsultationTray(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
-            Surface(
-              shape = RoundedCornerShape(10.dp),
-              color = Color(0xFF0284C7).copy(alpha = 0.25f),
-              border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f))
+            Box(
+              modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Color(0x3338BDF8)),
+              contentAlignment = Alignment.Center
             ) {
-              Box(
-                modifier = Modifier
-                  .size(34.dp)
-                  .padding(4.dp),
-                contentAlignment = Alignment.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Filled.AutoAwesome,
-                  contentDescription = "Estrella Gemini IA",
-                  tint = Color(0xFF38BDF8),
-                  modifier = Modifier.size(20.dp)
-                )
-              }
+              Icon(
+                imageVector = Icons.Filled.AutoAwesome,
+                contentDescription = "Estrella Gemini IA",
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(20.dp)
+              )
             }
 
             Column {
@@ -161,7 +163,7 @@ fun GeminiConsultationTray(
                 )
                 Surface(
                   shape = RoundedCornerShape(6.dp),
-                  color = Color(0xFF064E3B)
+                  color = Color(0x3310B981)
                 ) {
                   Text(
                     text = "3.5 Flash",
@@ -232,16 +234,16 @@ fun GeminiConsultationTray(
           }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider(color = Color(0xFF334155).copy(alpha = 0.5f))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = Color(0x26475569))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Campo opcional para ingresar o cambiar la clave de API de Gemini si está vacía
+        // Campo opcional para ingresar clave si se necesita
         AnimatedVisibility(visible = showApiKeyField || apiKey.isBlank()) {
           Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF1E293B),
-            border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.4f)),
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0x661E293B),
+            border = null,
             modifier = Modifier
               .fillMaxWidth()
               .padding(bottom = 8.dp)
@@ -254,7 +256,7 @@ fun GeminiConsultationTray(
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = "Si no está configurada en .env, puedes pegarla aquí para usar Gemini:",
+                text = "Puedes pegarla aquí para consultar directamente a Gemini:",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF94A3B8),
                 fontSize = 11.sp
@@ -270,56 +272,17 @@ fun GeminiConsultationTray(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
                 colors = OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = Color(0xFF38BDF8),
-                  unfocusedBorderColor = Color(0xFF475569)
+                  focusedBorderColor = Color(0x8038BDF8),
+                  unfocusedBorderColor = Color(0x33475569),
+                  focusedContainerColor = Color(0x331E293B),
+                  unfocusedContainerColor = Color(0x221E293B)
                 )
               )
             }
           }
         }
 
-        // Sugerencias rápidas en píldoras horizontales
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(vertical = 4.dp),
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-          if (draftPhrase.isNotBlank()) {
-            SuggestionPill(
-              text = "Analizar frase: '$draftPhrase'",
-              onClick = {
-                onSendMessage("Explícame la frase '$draftPhrase'. ¿Qué significa, en qué contexto se usa y qué regla gramatical sigue?")
-              }
-            )
-          }
-
-          SuggestionPill(
-            text = "Diferencia 'make' vs 'do'",
-            onClick = {
-              onSendMessage("¿Cuál es la diferencia entre los verbos 'make' y 'do' en inglés? Dame ejemplos claros.")
-            }
-          )
-
-          SuggestionPill(
-            text = "3 ejemplos de conectores",
-            onClick = {
-              onSendMessage("Dame 3 ejemplos prácticos con conectores en inglés (ej: however, although, because) con su traducción.")
-            }
-          )
-
-          SuggestionPill(
-            text = "Tips para pronunciación",
-            onClick = {
-              onSendMessage("¿Cuáles son los 3 errores de pronunciación más comunes para hispanohablantes al aprender inglés y cómo evitarlos?")
-            }
-          )
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // 2. Área de Conversación (LazyColumn que preserva mensajes)
+        // 2. Área de Conversación limpia sin sugerencias
         Box(
           modifier = Modifier
             .weight(1f)
@@ -329,17 +292,25 @@ fun GeminiConsultationTray(
             Column(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp, horizontal = 12.dp),
+                .padding(vertical = 28.dp, horizontal = 16.dp),
               horizontalAlignment = Alignment.CenterHorizontally,
               verticalArrangement = Arrangement.Center
             ) {
-              Icon(
-                imageVector = Icons.Filled.AutoAwesome,
-                contentDescription = null,
-                tint = Color(0xFF38BDF8).copy(alpha = 0.6f),
-                modifier = Modifier.size(36.dp)
-              )
-              Spacer(modifier = Modifier.height(10.dp))
+              Box(
+                modifier = Modifier
+                  .size(48.dp)
+                  .clip(CircleShape)
+                  .background(Color(0x2638BDF8)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Filled.AutoAwesome,
+                  contentDescription = null,
+                  tint = Color(0xFF38BDF8),
+                  modifier = Modifier.size(26.dp)
+                )
+              }
+              Spacer(modifier = Modifier.height(12.dp))
               Text(
                 text = "¡Pregúntale a Gemini!",
                 style = MaterialTheme.typography.titleSmall,
@@ -348,7 +319,7 @@ fun GeminiConsultationTray(
               )
               Spacer(modifier = Modifier.height(4.dp))
               Text(
-                text = "Escribe cualquier consulta sobre una palabra, gramática, pronunciación o las frases del lienzo de pruebas.",
+                text = "Escribe tu duda sobre cualquier palabra, pronunciación, gramática o frase en inglés.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF94A3B8),
                 fontSize = 12.sp,
@@ -382,7 +353,7 @@ fun GeminiConsultationTray(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 3. Barra de Entrada de Consulta
+        // 3. Barra de Entrada de Consulta sin bordes pesados
         Row(
           modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
@@ -393,7 +364,7 @@ fun GeminiConsultationTray(
             onValueChange = onInputTextChanged,
             placeholder = {
               Text(
-                text = "Escribe tu duda sobre inglés...",
+                text = "Escribe tu consulta sobre inglés...",
                 color = Color(0xFF64748B),
                 fontSize = 13.sp
               )
@@ -405,10 +376,10 @@ fun GeminiConsultationTray(
             shape = RoundedCornerShape(24.dp),
             textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFFF1F5F9), fontSize = 13.sp),
             colors = OutlinedTextFieldDefaults.colors(
-              focusedBorderColor = Color(0xFF38BDF8),
-              unfocusedBorderColor = Color(0xFF334155),
-              focusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.7f),
-              unfocusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f)
+              focusedBorderColor = Color(0x6638BDF8),
+              unfocusedBorderColor = Color(0x1F475569),
+              focusedContainerColor = Color(0x4D1E293B),
+              unfocusedContainerColor = Color(0x331E293B)
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(
@@ -422,11 +393,8 @@ fun GeminiConsultationTray(
 
           Surface(
             shape = CircleShape,
-            color = if (inputText.isNotBlank() && !isLoading) Color(0xFF0284C7) else Color(0xFF1E293B),
-            border = BorderStroke(
-              1.dp,
-              if (inputText.isNotBlank() && !isLoading) Color(0xFF38BDF8) else Color(0xFF334155)
-            ),
+            color = if (inputText.isNotBlank() && !isLoading) Color(0xD90284C7) else Color(0x401E293B),
+            border = null,
             modifier = Modifier
               .size(44.dp)
               .clickable(
@@ -474,7 +442,7 @@ private fun ChatMessageBubble(message: GeminiChatMessage) {
           .padding(top = 4.dp, end = 6.dp)
           .size(22.dp)
           .clip(CircleShape)
-          .background(Color(0xFF0284C7).copy(alpha = 0.35f)),
+          .background(Color(0x330284C7)),
         contentAlignment = Alignment.Center
       ) {
         Icon(
@@ -488,16 +456,13 @@ private fun ChatMessageBubble(message: GeminiChatMessage) {
 
     Surface(
       shape = RoundedCornerShape(
-        topStart = 14.dp,
-        topEnd = 14.dp,
-        bottomStart = if (isUser) 14.dp else 4.dp,
-        bottomEnd = if (isUser) 4.dp else 14.dp
+        topStart = 16.dp,
+        topEnd = 16.dp,
+        bottomStart = if (isUser) 16.dp else 4.dp,
+        bottomEnd = if (isUser) 4.dp else 16.dp
       ),
-      color = if (isUser) Color(0xFF0369A1) else Color(0xFF1E293B),
-      border = BorderStroke(
-        1.dp,
-        if (isUser) Color(0xFF38BDF8).copy(alpha = 0.4f) else Color(0xFF334155).copy(alpha = 0.6f)
-      ),
+      color = if (isUser) Color(0xD90369A1) else Color(0x991E293B),
+      border = null,
       modifier = Modifier.widthIn(max = 380.dp)
     ) {
       Text(
@@ -507,7 +472,7 @@ private fun ChatMessageBubble(message: GeminiChatMessage) {
           fontSize = 13.sp,
           lineHeight = 18.sp
         ),
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
       )
     }
   }
@@ -541,28 +506,6 @@ private fun GeminiTypingIndicator() {
       style = MaterialTheme.typography.labelSmall,
       color = Color(0xFF38BDF8).copy(alpha = alpha),
       fontSize = 11.sp
-    )
-  }
-}
-
-@Composable
-private fun SuggestionPill(
-  text: String,
-  onClick: () -> Unit
-) {
-  Surface(
-    shape = RoundedCornerShape(12.dp),
-    color = Color(0xFF1E293B).copy(alpha = 0.8f),
-    border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f)),
-    modifier = Modifier.clickable(onClick = onClick)
-  ) {
-    Text(
-      text = text,
-      style = MaterialTheme.typography.labelSmall,
-      color = Color(0xFFBAE6FD),
-      fontSize = 11.sp,
-      fontWeight = FontWeight.Medium,
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
     )
   }
 }

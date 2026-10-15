@@ -53,7 +53,8 @@ class VocabularyViewModel @Inject constructor(
   private val ttsManager: TtsManager,
   private val speechToTextManager: SpeechToTextManager? = null,
   private val translationManager: TranslationManager? = null,
-  private val geminiChatService: com.example.data.gemini.GeminiChatService = com.example.data.gemini.GeminiChatService()
+  private val geminiChatService: com.example.data.gemini.GeminiChatService = com.example.data.gemini.GeminiChatService(),
+  private val context: android.content.Context? = null
 ) : ViewModel() {
 
   // Estado de la bandeja de consulta a Gemini IA
