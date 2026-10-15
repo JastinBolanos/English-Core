@@ -47,7 +47,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ElectricBolt
@@ -142,7 +141,6 @@ fun getWordSyntaxColor(word: Word): Color {
 fun VocabularyScreen(
   viewModel: VocabularyViewModel,
   onBack: () -> Unit = {},
-  onNavigateToAlarms: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   BackHandler(onBack = onBack)
@@ -248,12 +246,13 @@ fun VocabularyScreen(
           }
         },
         actions = {
-          // Píldora táctica discreta '🗺️ Ruta' entre el contador y la alarma
+          // Píldora táctica discreta 'Ruta' alineada limpiamente a la derecha
           Surface(
             shape = RoundedCornerShape(10.dp),
             color = Color(0xFF0F172A),
             border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.55f)),
             modifier = Modifier
+              .padding(end = 12.dp)
               .clickable { showRoadmapDialog = true }
               .testTag("btn_roadmap_shortcut")
           ) {
@@ -274,19 +273,6 @@ fun VocabularyScreen(
                 color = Color(0xFFE0F2FE),
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp
-              )
-            }
-          }
-
-          if (onNavigateToAlarms != null) {
-            IconButton(
-              onClick = onNavigateToAlarms,
-              modifier = Modifier.testTag("btn_alarm_shortcut")
-            ) {
-              Icon(
-                imageVector = Icons.Default.Alarm,
-                contentDescription = stringResource(id = R.string.btn_alarmas),
-                tint = MaterialTheme.colorScheme.primary
               )
             }
           }

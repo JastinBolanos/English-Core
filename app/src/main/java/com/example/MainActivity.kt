@@ -118,8 +118,7 @@ fun EnglishApp() {
       AppScreen.VOCABULARIO -> {
         com.example.presentation.vocabulary.VocabularyScreen(
           viewModel = vocabularyViewModel,
-          onBack = { /* Primary screen */ },
-          onNavigateToAlarms = { currentScreen = AppScreen.ALARMAS }
+          onBack = { /* Primary screen */ }
         )
       }
       AppScreen.ALARMAS -> {

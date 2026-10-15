@@ -47,7 +47,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `navigate to alarmas screen from vocabulario shortcut`() {
+  fun `alarm shortcut button is removed from vocabulary header and roadmap button is present`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -55,9 +55,19 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("btn_alarm_shortcut").performClick()
-    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
+  }
 
+  @Test
+  fun `alarms screen renders time picker and save button`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.alarm.AlarmsScreen(onBack = {})
+      }
+    }
+
+    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("time_picker_card").assertExists()
     composeTestRule.onNodeWithTag("btn_save_alarm").assertExists()
   }
