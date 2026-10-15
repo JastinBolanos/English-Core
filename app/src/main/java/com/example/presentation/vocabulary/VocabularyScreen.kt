@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -62,10 +63,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
+import com.example.domain.translation.TranslationState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -160,6 +163,8 @@ fun VocabularyScreen(
   val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
   val draftWords by viewModel.draftWords.collectAsStateWithLifecycle()
   val isPhraseUpdated by viewModel.isPhraseUpdated.collectAsStateWithLifecycle()
+  val isTranslationTrayExpanded by viewModel.isTranslationTrayExpanded.collectAsStateWithLifecycle()
+  val translationState by viewModel.translationState.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
 
@@ -285,6 +290,9 @@ fun VocabularyScreen(
       DraftScratchpadHeader(
         draftWords = draftWords,
         isPhraseUpdated = isPhraseUpdated,
+        isTranslationTrayExpanded = isTranslationTrayExpanded,
+        translationState = translationState,
+        onToggleTranslationTray = { viewModel.toggleTranslationTray() },
         onTranslate = {
           val phrase = draftWords.joinToString(" ") { it.lemma }
           openGoogleTranslate(context, phrase)
@@ -1021,6 +1029,9 @@ fun openGoogleTranslate(context: Context, phrase: String) {
 private fun DraftScratchpadHeader(
   draftWords: List<Word>,
   isPhraseUpdated: Boolean,
+  isTranslationTrayExpanded: Boolean,
+  translationState: TranslationState,
+  onToggleTranslationTray: () -> Unit,
   onTranslate: () -> Unit,
   onRemoveWord: (Int) -> Unit,
   onMoveLeft: (Int) -> Unit,
@@ -1208,7 +1219,7 @@ private fun DraftScratchpadHeader(
         }
       }
 
-      // Fila desplazable de bloques (Chips de frase armada)
+      // Fila desplazable de bloques (Chips de frase armada) con botón de flecha hacia abajo a la izquierda
       if (draftWords.isEmpty()) {
         Box(
           modifier = Modifier
@@ -1225,26 +1236,182 @@ private fun DraftScratchpadHeader(
           )
         }
       } else {
-        LazyRow(
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("draft_chips_row"),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+          modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
-          contentPadding = PaddingValues(vertical = 4.dp)
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-          itemsIndexed(
-            items = draftWords,
-            key = { index, word -> "${index}_${word.id}_${word.lemma}" }
-          ) { index, word ->
-            DraftChip(
-              word = word,
-              index = index,
-              totalCount = draftWords.size,
-              onMoveLeft = { onMoveLeft(index) },
-              onMoveRight = { onMoveRight(index) },
-              onClickRemove = { onRemoveWord(index) }
-            )
+          // Botón con la flecha mirando hacia abajo al principio de la fila de bloques, a la izquierda de la primera palabra
+          val arrowRotation by animateFloatAsState(
+            targetValue = if (isTranslationTrayExpanded) 180f else 0f,
+            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+            label = "ArrowRotation"
+          )
+
+          Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = if (isTranslationTrayExpanded) Color(0xFF38BDF8).copy(alpha = 0.22f) else Color(0xFF0F172A),
+            border = BorderStroke(
+              1.dp,
+              if (isTranslationTrayExpanded) Color(0xFF38BDF8) else Color(0xFF475569)
+            ),
+            modifier = Modifier
+              .size(34.dp)
+              .clickable(onClick = onToggleTranslationTray)
+              .testTag("btn_toggle_translation_tray")
+          ) {
+            Box(
+              modifier = Modifier.fillMaxSize(),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isTranslationTrayExpanded) "Ocultar traducción" else "Traducir frase con ML Kit",
+                tint = if (isTranslationTrayExpanded) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                modifier = Modifier
+                  .size(22.dp)
+                  .graphicsLayer { rotationZ = arrowRotation }
+              )
+            }
+          }
+
+          LazyRow(
+            modifier = Modifier
+              .weight(1f)
+              .testTag("draft_chips_row"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            contentPadding = PaddingValues(vertical = 4.dp)
+          ) {
+            itemsIndexed(
+              items = draftWords,
+              key = { index, word -> "${index}_${word.id}_${word.lemma}" }
+            ) { index, word ->
+              DraftChip(
+                word = word,
+                index = index,
+                totalCount = draftWords.size,
+                onMoveLeft = { onMoveLeft(index) },
+                onMoveRight = { onMoveRight(index) },
+                onClickRemove = { onRemoveWord(index) }
+              )
+            }
+          }
+        }
+
+        // Bandeja desplegable justo debajo de los bloques de palabras con la traducción al español usando Google ML Kit
+        AnimatedVisibility(
+          visible = isTranslationTrayExpanded,
+          enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(300)),
+          exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(250))
+        ) {
+          Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f)),
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 4.dp)
+              .testTag("translation_tray")
+          ) {
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFF0284C7).copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f))
+              ) {
+                Text(
+                  text = "ES",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF38BDF8),
+                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                  fontSize = 10.sp
+                )
+              }
+
+              when (translationState) {
+                is TranslationState.DownloadingModel -> {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                  ) {
+                    CircularProgressIndicator(
+                      modifier = Modifier.size(14.dp),
+                      strokeWidth = 2.dp,
+                      color = Color(0xFF38BDF8)
+                    )
+                    Text(
+                      text = "Descargando modelo...",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = Color(0xFF94A3B8),
+                      fontSize = 12.sp,
+                      modifier = Modifier.testTag("text_translation_downloading")
+                    )
+                  }
+                }
+                is TranslationState.Translating -> {
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                  ) {
+                    CircularProgressIndicator(
+                      modifier = Modifier.size(14.dp),
+                      strokeWidth = 2.dp,
+                      color = Color(0xFF38BDF8)
+                    )
+                    Text(
+                      text = "Traduciendo frase...",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = Color(0xFF94A3B8),
+                      fontSize = 12.sp,
+                      modifier = Modifier.testTag("text_translation_loading")
+                    )
+                  }
+                }
+                is TranslationState.Success -> {
+                  Text(
+                    text = translationState.translation,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                      fontWeight = FontWeight.SemiBold,
+                      color = Color(0xFFF1F5F9),
+                      fontSize = 14.sp
+                    ),
+                    modifier = Modifier
+                      .weight(1f)
+                      .testTag("text_translated_phrase")
+                  )
+                }
+                is TranslationState.Error -> {
+                  Text(
+                    text = translationState.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFF87171),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                      .weight(1f)
+                      .testTag("text_translation_error")
+                  )
+                }
+                TranslationState.Idle -> {
+                  Text(
+                    text = "Arma una frase para ver la traducción instantánea",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B),
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 12.sp
+                  )
+                }
+              }
+            }
           }
         }
 

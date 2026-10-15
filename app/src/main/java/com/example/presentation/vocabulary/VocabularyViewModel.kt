@@ -19,6 +19,9 @@ import javax.inject.Inject
 
 import com.example.data.stt.SpeechToTextManager
 
+import com.example.domain.translation.TranslationManager
+import com.example.domain.translation.TranslationState
+
 /**
  * Filtro interactivo de sintaxis desde el Guiador Superior (Brújula de Aprendizaje).
  */
@@ -48,7 +51,8 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
 class VocabularyViewModel @Inject constructor(
   private val repository: VocabularyRepository,
   private val ttsManager: TtsManager,
-  private val speechToTextManager: SpeechToTextManager? = null
+  private val speechToTextManager: SpeechToTextManager? = null,
+  private val translationManager: TranslationManager? = null
 ) : ViewModel() {
 
   private val _isLoading = MutableStateFlow(false)
@@ -81,6 +85,13 @@ class VocabularyViewModel @Inject constructor(
   // Indica si la frase fue actualizada/reordenada y está lista para sonar en su nueva posición
   private val _isPhraseUpdated = MutableStateFlow(false)
   val isPhraseUpdated: StateFlow<Boolean> = _isPhraseUpdated.asStateFlow()
+
+  // Estado de la bandeja desplegable de traducción con Google ML Kit
+  private val _isTranslationTrayExpanded = MutableStateFlow(false)
+  val isTranslationTrayExpanded: StateFlow<Boolean> = _isTranslationTrayExpanded.asStateFlow()
+
+  val translationState: StateFlow<TranslationState> = translationManager?.translationState
+    ?: MutableStateFlow(TranslationState.Idle)
 
   // Control global de velocidad TTS (1.0f ➔ 0.8f ➔ 0.5f ➔ 1.0f)
   val currentSpeechSpeed: StateFlow<Float> = ttsManager.currentSpeechRate
@@ -155,14 +166,40 @@ class VocabularyViewModel @Inject constructor(
 
   init {
     viewModelScope.launch {
-      _isLoading.value = true
-      repository.prePopulateDatabaseIfNeeded()
-      _isLoading.value = false
+      try {
+        _isLoading.value = true
+        repository.prePopulateDatabaseIfNeeded()
+        _isLoading.value = false
+      } catch (_: Exception) {}
     }
   }
 
   fun updateSearchQuery(query: String) {
     _searchQuery.value = query
+  }
+
+  /**
+   * Alterna la visibilidad de la bandeja de traducción offline desplegable.
+   * Si se abre, traduce inmediatamente la frase actual armada en el lienzo.
+   */
+  fun toggleTranslationTray() {
+    val nextState = !_isTranslationTrayExpanded.value
+    _isTranslationTrayExpanded.value = nextState
+    if (nextState) {
+      translateCurrentDraft()
+    }
+  }
+
+  /**
+   * Envía la frase completa al motor offline de Google ML Kit para traducirla al español.
+   */
+  fun translateCurrentDraft() {
+    val phrase = _draftWords.value.joinToString(" ") { it.lemma }
+    if (phrase.isNotBlank()) {
+      translationManager?.translate(phrase)
+    } else {
+      translationManager?.reset()
+    }
   }
 
   /**
@@ -173,8 +210,13 @@ class VocabularyViewModel @Inject constructor(
     _draftWords.value = _draftWords.value + word
     _isPhraseUpdated.value = true
     ttsManager.speak(word.lemma)
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
     viewModelScope.launch {
-      repository.incrementWordUseCount(word.id, word.lemma)
+      try {
+        repository.incrementWordUseCount(word.id, word.lemma)
+      } catch (_: Exception) {}
     }
   }
 
@@ -190,6 +232,9 @@ class VocabularyViewModel @Inject constructor(
       updated.add(toIndex, item)
       _draftWords.value = updated
       _isPhraseUpdated.value = true
+      if (_isTranslationTrayExpanded.value) {
+        translateCurrentDraft()
+      }
     }
   }
 
@@ -220,6 +265,9 @@ class VocabularyViewModel @Inject constructor(
       updated.removeAt(index)
       _draftWords.value = updated
       _isPhraseUpdated.value = updated.isNotEmpty()
+      if (_isTranslationTrayExpanded.value) {
+        translateCurrentDraft()
+      }
     }
   }
 
@@ -229,6 +277,7 @@ class VocabularyViewModel @Inject constructor(
   fun clearDraft() {
     _draftWords.value = emptyList()
     _isPhraseUpdated.value = false
+    translationManager?.reset()
   }
 
   /**
@@ -259,16 +308,19 @@ class VocabularyViewModel @Inject constructor(
     super.onCleared()
     ttsManager.stop()
     speechToTextManager?.destroy()
+    translationManager?.close()
   }
 
   class Factory(
     private val repository: VocabularyRepository,
     private val ttsManager: TtsManager,
-    private val speechToTextManager: SpeechToTextManager? = null
+    private val speechToTextManager: SpeechToTextManager? = null,
+    private val translationManager: TranslationManager? = null
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-      return VocabularyViewModel(repository, ttsManager, speechToTextManager) as T
+      val tManager = translationManager ?: com.example.data.translation.MlKitTranslationManager()
+      return VocabularyViewModel(repository, ttsManager, speechToTextManager, tManager) as T
     }
   }
 }

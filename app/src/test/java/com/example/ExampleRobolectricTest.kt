@@ -333,8 +333,71 @@ class ExampleRobolectricTest {
     viewModel.playFullDraftPhrase()
     assertEquals("play the month", spokenText)
     assertFalse("isPhraseUpdated debe ser false tras reproducirse", viewModel.isPhraseUpdated.value)
+  }
 
-    db.close()
+  @Test
+  fun `verify translation tray toggle and on-device translation in ViewModel`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+
+    val translationFlow = kotlinx.coroutines.flow.MutableStateFlow<com.example.domain.translation.TranslationState>(
+      com.example.domain.translation.TranslationState.Idle
+    )
+    var lastTranslatedText: String? = null
+
+    val fakeTranslator = object : com.example.domain.translation.TranslationManager {
+      override val translationState = translationFlow
+      override fun translate(text: String) {
+        lastTranslatedText = text
+        translationFlow.value = com.example.domain.translation.TranslationState.Success("traducción: $text")
+      }
+      override fun reset() {
+        translationFlow.value = com.example.domain.translation.TranslationState.Idle
+      }
+      override fun close() {}
+    }
+
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(
+      repository = repo,
+      ttsManager = fakeTts,
+      speechToTextManager = null,
+      translationManager = fakeTranslator
+    )
+
+    // Tray initially closed
+    assertFalse("Bandeja inicialmente cerrada", viewModel.isTranslationTrayExpanded.value)
+
+    viewModel.addWordToDraft(Word(id = 1, lemma = "play", partOfSpeech = PartOfSpeech.VERB))
+    viewModel.addWordToDraft(Word(id = 2, lemma = "time", partOfSpeech = PartOfSpeech.NOUN))
+
+    // Toggle tray open -> should trigger translation
+    viewModel.toggleTranslationTray()
+    assertTrue("Bandeja abierta tras toggle", viewModel.isTranslationTrayExpanded.value)
+    assertEquals("play time", lastTranslatedText)
+    assertTrue(viewModel.translationState.value is com.example.domain.translation.TranslationState.Success)
+    assertEquals("traducción: play time", (viewModel.translationState.value as com.example.domain.translation.TranslationState.Success).translation)
+
+    // Move word while tray is open -> should auto-update translation
+    viewModel.moveWordLeft(1)
+    assertEquals("time play", lastTranslatedText)
+    assertEquals("traducción: time play", (viewModel.translationState.value as com.example.domain.translation.TranslationState.Success).translation)
+
+    // Toggle tray closed
+    viewModel.toggleTranslationTray()
+    assertFalse("Bandeja cerrada tras segundo toggle", viewModel.isTranslationTrayExpanded.value)
   }
 }
 
