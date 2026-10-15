@@ -59,6 +59,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ElectricBolt
@@ -167,6 +168,11 @@ fun VocabularyScreen(
   val translationState by viewModel.translationState.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
+  val showGeminiDialog by viewModel.showGeminiDialog.collectAsStateWithLifecycle()
+  val geminiMessages by viewModel.geminiMessages.collectAsStateWithLifecycle()
+  val isGeminiLoading by viewModel.isGeminiLoading.collectAsStateWithLifecycle()
+  val geminiInputText by viewModel.geminiInputText.collectAsStateWithLifecycle()
+  val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
 
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
@@ -236,6 +242,38 @@ fun VocabularyScreen(
           }
         },
         actions = {
+          // Botón de Gemini con estrella de Gemini (ubicado justo entre la píldora de 2809 palabras y el botón de Ruta)
+          Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.75f)),
+            modifier = Modifier
+              .clickable { viewModel.openGeminiDialog() }
+              .testTag("btn_gemini_shortcut")
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Filled.AutoAwesome,
+                contentDescription = "Consultar a Gemini IA",
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(15.dp)
+              )
+              Text(
+                text = "Gemini",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFE0F2FE),
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp
+              )
+            }
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
           // Píldora táctica discreta 'Ruta' alineada limpiamente a la derecha
           Surface(
             shape = RoundedCornerShape(10.dp),
@@ -451,6 +489,20 @@ fun VocabularyScreen(
   if (showRoadmapDialog) {
     TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
   }
+
+  GeminiConsultationTray(
+    isOpen = showGeminiDialog,
+    onDismiss = { viewModel.closeGeminiDialog() },
+    messages = geminiMessages,
+    isLoading = isGeminiLoading,
+    inputText = geminiInputText,
+    onInputTextChanged = { viewModel.updateGeminiInputText(it) },
+    onSendMessage = { viewModel.sendGeminiQuery(it) },
+    onClearChat = { viewModel.clearGeminiChat() },
+    apiKey = geminiApiKey,
+    onApiKeyChanged = { viewModel.updateGeminiApiKey(it) },
+    draftPhrase = draftWords.joinToString(" ") { it.lemma }
+  )
 }
 
 /**

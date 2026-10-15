@@ -58,6 +58,62 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
+    composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertExists()
+
+    // Click Gemini shortcut button to open consultation tray
+    composeTestRule.onNodeWithTag("btn_gemini_shortcut").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("gemini_consultation_dialog").assertExists()
+    composeTestRule.onNodeWithTag("input_gemini_query").assertExists()
+
+    // Close Gemini tray
+    composeTestRule.onNodeWithTag("btn_close_gemini_tray").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("gemini_consultation_dialog").assertDoesNotExist()
+  }
+
+  @Test
+  fun `verify gemini chat persistence across closing and reopening in ViewModel`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    // Initially closed and empty
+    assertFalse(viewModel.showGeminiDialog.value)
+    assertTrue(viewModel.geminiMessages.value.isEmpty())
+
+    // Open dialog and send a message
+    viewModel.openGeminiDialog()
+    assertTrue(viewModel.showGeminiDialog.value)
+
+    viewModel.sendGeminiQuery("¿Qué significa la palabra 'challenge'?")
+    assertEquals(1, viewModel.geminiMessages.value.size)
+    assertEquals("¿Qué significa la palabra 'challenge'?", viewModel.geminiMessages.value.first().text)
+
+    // User closes the dialog (tap outside)
+    viewModel.closeGeminiDialog()
+    assertFalse(viewModel.showGeminiDialog.value)
+
+    // User reopens the dialog: conversation is completely preserved
+    viewModel.openGeminiDialog()
+    assertTrue(viewModel.showGeminiDialog.value)
+    assertEquals(1, viewModel.geminiMessages.value.size)
+    assertEquals("¿Qué significa la palabra 'challenge'?", viewModel.geminiMessages.value.first().text)
+
+    db.close()
   }
 
   @Test

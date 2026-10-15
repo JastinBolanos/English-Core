@@ -52,8 +52,93 @@ class VocabularyViewModel @Inject constructor(
   private val repository: VocabularyRepository,
   private val ttsManager: TtsManager,
   private val speechToTextManager: SpeechToTextManager? = null,
-  private val translationManager: TranslationManager? = null
+  private val translationManager: TranslationManager? = null,
+  private val geminiChatService: com.example.data.gemini.GeminiChatService = com.example.data.gemini.GeminiChatService()
 ) : ViewModel() {
+
+  // Estado de la bandeja de consulta a Gemini IA
+  private val _showGeminiDialog = MutableStateFlow(false)
+  val showGeminiDialog: StateFlow<Boolean> = _showGeminiDialog.asStateFlow()
+
+  private val _geminiMessages = MutableStateFlow<List<com.example.data.gemini.GeminiChatMessage>>(emptyList())
+  val geminiMessages: StateFlow<List<com.example.data.gemini.GeminiChatMessage>> = _geminiMessages.asStateFlow()
+
+  private val _isGeminiLoading = MutableStateFlow(false)
+  val isGeminiLoading: StateFlow<Boolean> = _isGeminiLoading.asStateFlow()
+
+  private val _geminiApiKey = MutableStateFlow(
+    if (com.example.BuildConfig.GEMINI_API_KEY == "your_gemini_api_key_here") "" else com.example.BuildConfig.GEMINI_API_KEY
+  )
+  val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
+
+  private val _geminiInputText = MutableStateFlow("")
+  val geminiInputText: StateFlow<String> = _geminiInputText.asStateFlow()
+
+  fun openGeminiDialog() {
+    _showGeminiDialog.value = true
+  }
+
+  fun closeGeminiDialog() {
+    _showGeminiDialog.value = false
+  }
+
+  fun updateGeminiInputText(text: String) {
+    _geminiInputText.value = text
+  }
+
+  fun updateGeminiApiKey(key: String) {
+    _geminiApiKey.value = key.trim()
+  }
+
+  fun clearGeminiChat() {
+    _geminiMessages.value = emptyList()
+  }
+
+  fun sendGeminiQuery(customPrompt: String? = null) {
+    val prompt = (customPrompt ?: _geminiInputText.value).trim()
+    if (prompt.isBlank() || _isGeminiLoading.value) return
+
+    val userMessage = com.example.data.gemini.GeminiChatMessage(
+      text = prompt,
+      isFromUser = true
+    )
+    val currentHistory = _geminiMessages.value
+    _geminiMessages.value = currentHistory + userMessage
+    _geminiInputText.value = ""
+    _isGeminiLoading.value = true
+
+    viewModelScope.launch {
+      val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+        ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+        ?: ""
+      val result = geminiChatService.askGemini(currentHistory, prompt, key)
+      _isGeminiLoading.value = false
+      result.onSuccess { responseText ->
+        _geminiMessages.value = _geminiMessages.value + com.example.data.gemini.GeminiChatMessage(
+          text = responseText,
+          isFromUser = false
+        )
+      }.onFailure { error ->
+        _geminiMessages.value = _geminiMessages.value + com.example.data.gemini.GeminiChatMessage(
+          text = "⚠️ Error: ${error.localizedMessage ?: "No se pudo conectar con Gemini"}",
+          isFromUser = false
+        )
+      }
+    }
+  }
+
+  fun askGeminiAboutWord(word: String) {
+    openGeminiDialog()
+    sendGeminiQuery("¿Cómo se usa la palabra '$word' en inglés? Dame su significado, categoría gramatical y 3 ejemplos breves con traducción.")
+  }
+
+  fun askGeminiAboutDraft() {
+    val phrase = _draftWords.value.joinToString(" ") { it.lemma }
+    if (phrase.isNotBlank()) {
+      openGeminiDialog()
+      sendGeminiQuery("Explícame la frase '$phrase'. ¿Es gramaticalmente correcta en inglés, qué significa exactamente y cómo sonaría de forma más natural?")
+    }
+  }
 
   private val _isLoading = MutableStateFlow(false)
   val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
