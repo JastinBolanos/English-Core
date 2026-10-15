@@ -331,5 +331,31 @@ class ExampleUnitTest {
     assertFalse(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR.matchesWord(onlyWord))
     assertTrue(com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR.matchesWord(becauseWord))
   }
+
+  @Test
+  fun testDraftReorderingAndUpdatedStateLogic() {
+    val word1 = Word(id = 1, lemma = "the", partOfSpeech = PartOfSpeech.MODIFIER)
+    val word2 = Word(id = 2, lemma = "month", partOfSpeech = PartOfSpeech.NOUN)
+    val word3 = Word(id = 3, lemma = "play", partOfSpeech = PartOfSpeech.VERB)
+
+    var draft = listOf(word1, word2, word3)
+    assertEquals("the month play", draft.joinToString(" ") { it.lemma })
+
+    // Mover 'play' (índice 2) a la primera posición (índice 0)
+    fun moveWord(list: List<Word>, from: Int, to: Int): List<Word> {
+      val mutable = list.toMutableList()
+      val item = mutable.removeAt(from)
+      mutable.add(to, item)
+      return mutable
+    }
+
+    draft = moveWord(draft, 2, 0)
+    assertEquals("play the month", draft.joinToString(" ") { it.lemma })
+
+    // Mover 'month' (índice 2) a la posición 1
+    draft = moveWord(draft, 2, 1)
+    assertEquals("play month the", draft.joinToString(" ") { it.lemma })
+  }
 }
+
 

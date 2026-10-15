@@ -78,6 +78,10 @@ class VocabularyViewModel @Inject constructor(
   private val _draftWords = MutableStateFlow<List<Word>>(emptyList())
   val draftWords: StateFlow<List<Word>> = _draftWords.asStateFlow()
 
+  // Indica si la frase fue actualizada/reordenada y está lista para sonar en su nueva posición
+  private val _isPhraseUpdated = MutableStateFlow(false)
+  val isPhraseUpdated: StateFlow<Boolean> = _isPhraseUpdated.asStateFlow()
+
   // Control global de velocidad TTS (1.0f ➔ 0.8f ➔ 0.5f ➔ 1.0f)
   val currentSpeechSpeed: StateFlow<Float> = ttsManager.currentSpeechRate
 
@@ -167,9 +171,43 @@ class VocabularyViewModel @Inject constructor(
    */
   fun addWordToDraft(word: Word) {
     _draftWords.value = _draftWords.value + word
+    _isPhraseUpdated.value = true
     ttsManager.speak(word.lemma)
     viewModelScope.launch {
       repository.incrementWordUseCount(word.id, word.lemma)
+    }
+  }
+
+  /**
+   * Desplaza o reordena un bloque de palabra de una posición a otra en el lienzo.
+   * Marca la frase como actualizada para que el icono de Play notifique el cambio.
+   */
+  fun moveWordInDraft(fromIndex: Int, toIndex: Int) {
+    val current = _draftWords.value
+    if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
+      val updated = current.toMutableList()
+      val item = updated.removeAt(fromIndex)
+      updated.add(toIndex, item)
+      _draftWords.value = updated
+      _isPhraseUpdated.value = true
+    }
+  }
+
+  /**
+   * Mueve el bloque un paso hacia la izquierda en el lienzo.
+   */
+  fun moveWordLeft(index: Int) {
+    if (index > 0) {
+      moveWordInDraft(index, index - 1)
+    }
+  }
+
+  /**
+   * Mueve el bloque un paso hacia la derecha en el lienzo.
+   */
+  fun moveWordRight(index: Int) {
+    if (index < _draftWords.value.lastIndex) {
+      moveWordInDraft(index, index + 1)
     }
   }
 
@@ -181,6 +219,7 @@ class VocabularyViewModel @Inject constructor(
       val updated = _draftWords.value.toMutableList()
       updated.removeAt(index)
       _draftWords.value = updated
+      _isPhraseUpdated.value = updated.isNotEmpty()
     }
   }
 
@@ -189,15 +228,18 @@ class VocabularyViewModel @Inject constructor(
    */
   fun clearDraft() {
     _draftWords.value = emptyList()
+    _isPhraseUpdated.value = false
   }
 
   /**
-   * Lee la frase completa armada en el borrador de corrido con TTS.
+   * Lee la frase completa armada en el borrador con la nueva disposición posicional.
+   * Restablece el estado de actualización para indicar que la versión actual ya sonó.
    */
   fun playFullDraftPhrase() {
     val phrase = _draftWords.value.joinToString(" ") { it.lemma }
     if (phrase.isNotBlank()) {
       ttsManager.speak(phrase)
+      _isPhraseUpdated.value = false
     }
   }
 

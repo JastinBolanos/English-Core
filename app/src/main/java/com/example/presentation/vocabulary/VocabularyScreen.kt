@@ -1,6 +1,12 @@
 package com.example.presentation.vocabulary
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
@@ -10,6 +16,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +55,8 @@ import android.widget.Toast
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -81,12 +90,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -146,6 +159,7 @@ fun VocabularyScreen(
   val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
   val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
   val draftWords by viewModel.draftWords.collectAsStateWithLifecycle()
+  val isPhraseUpdated by viewModel.isPhraseUpdated.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
 
@@ -270,11 +284,14 @@ fun VocabularyScreen(
       // 2. LA BARRA DE BORRADOR ("Scratchpad" de Frases) con enlace directo a Google Translate
       DraftScratchpadHeader(
         draftWords = draftWords,
+        isPhraseUpdated = isPhraseUpdated,
         onTranslate = {
           val phrase = draftWords.joinToString(" ") { it.lemma }
           openGoogleTranslate(context, phrase)
         },
         onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+        onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+        onMoveRight = { index -> viewModel.moveWordRight(index) },
         onPlayPhrase = { viewModel.playFullDraftPhrase() },
         onClearDraft = { viewModel.clearDraft() }
       )
@@ -1003,8 +1020,11 @@ fun openGoogleTranslate(context: Context, phrase: String) {
 @Composable
 private fun DraftScratchpadHeader(
   draftWords: List<Word>,
+  isPhraseUpdated: Boolean,
   onTranslate: () -> Unit,
   onRemoveWord: (Int) -> Unit,
+  onMoveLeft: (Int) -> Unit,
+  onMoveRight: (Int) -> Unit,
   onPlayPhrase: () -> Unit,
   onClearDraft: () -> Unit
 ) {
@@ -1032,7 +1052,7 @@ private fun DraftScratchpadHeader(
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
           Text(
             text = "LIENZO DE PRUEBAS",
@@ -1055,6 +1075,33 @@ private fun DraftScratchpadHeader(
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                 fontSize = 10.sp
               )
+            }
+
+            if (isPhraseUpdated) {
+              Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF064E3B),
+                border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.7f))
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                  Box(
+                    modifier = Modifier
+                      .size(5.dp)
+                      .background(Color(0xFF34D399), CircleShape)
+                  )
+                  Text(
+                    text = "Actualizada",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF6EE7B7),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 9.sp
+                  )
+                }
+              }
             }
           }
         }
@@ -1081,19 +1128,67 @@ private fun DraftScratchpadHeader(
             }
           }
 
-          IconButton(
-            onClick = onPlayPhrase,
-            enabled = draftWords.isNotEmpty(),
-            modifier = Modifier
-              .size(32.dp)
-              .testTag("btn_play_draft")
+          // Animación pulsante para el botón Play cuando la frase fue actualizada/reordenada
+          val infiniteTransition = rememberInfiniteTransition(label = "PlayGlowTransition")
+          val glowAlpha by infiniteTransition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 0.95f,
+            animationSpec = infiniteRepeatable(
+              animation = tween(800, easing = FastOutSlowInEasing),
+              repeatMode = RepeatMode.Reverse
+            ),
+            label = "GlowAlpha"
+          )
+          val pulseScale by infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.12f,
+            animationSpec = infiniteRepeatable(
+              animation = tween(800, easing = FastOutSlowInEasing),
+              repeatMode = RepeatMode.Reverse
+            ),
+            label = "PulseScale"
+          )
+
+          val shouldPulse = draftWords.isNotEmpty() && isPhraseUpdated
+
+          Surface(
+            shape = CircleShape,
+            color = if (shouldPulse) Color(0xFF10B981).copy(alpha = glowAlpha * 0.28f) else Color.Transparent,
+            border = if (shouldPulse) BorderStroke(1.5.dp, Color(0xFF34D399).copy(alpha = glowAlpha)) else null,
+            modifier = Modifier.graphicsLayer {
+              if (shouldPulse) {
+                scaleX = pulseScale
+                scaleY = pulseScale
+              }
+            }
           ) {
-            Icon(
-              imageVector = Icons.Default.PlayArrow,
-              contentDescription = "Escuchar frase completa",
-              tint = if (draftWords.isNotEmpty()) Color(0xFF4ADE80) else Color(0xFF475569),
-              modifier = Modifier.size(22.dp)
-            )
+            IconButton(
+              onClick = onPlayPhrase,
+              enabled = draftWords.isNotEmpty(),
+              modifier = Modifier
+                .size(32.dp)
+                .testTag("btn_play_draft")
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                  imageVector = Icons.Default.PlayArrow,
+                  contentDescription = if (isPhraseUpdated) "Escuchar frase actualizada en nueva posición" else "Escuchar frase completa",
+                  tint = if (draftWords.isNotEmpty()) {
+                    if (isPhraseUpdated) Color(0xFF22C55E) else Color(0xFF4ADE80)
+                  } else Color(0xFF475569),
+                  modifier = Modifier.size(22.dp)
+                )
+                if (shouldPulse) {
+                  Box(
+                    modifier = Modifier
+                      .align(Alignment.TopEnd)
+                      .padding(1.dp)
+                      .size(6.dp)
+                      .background(Color(0xFF34D399), CircleShape)
+                  )
+                }
+              }
+            }
           }
 
           IconButton(
@@ -1135,7 +1230,8 @@ private fun DraftScratchpadHeader(
             .fillMaxWidth()
             .testTag("draft_chips_row"),
           horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically
+          verticalAlignment = Alignment.CenterVertically,
+          contentPadding = PaddingValues(vertical = 4.dp)
         ) {
           itemsIndexed(
             items = draftWords,
@@ -1143,9 +1239,22 @@ private fun DraftScratchpadHeader(
           ) { index, word ->
             DraftChip(
               word = word,
+              index = index,
+              totalCount = draftWords.size,
+              onMoveLeft = { onMoveLeft(index) },
+              onMoveRight = { onMoveRight(index) },
               onClickRemove = { onRemoveWord(index) }
             )
           }
+        }
+
+        if (draftWords.size > 1) {
+          Text(
+            text = "💡 Toca ◀ ▶ o mantén presionado para desplazar bloques en el lienzo",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF64748B),
+            fontSize = 10.sp
+          )
         }
       }
     }
@@ -1154,38 +1263,131 @@ private fun DraftScratchpadHeader(
 
 
 /**
- * Chip interactivo del borrador.
+ * Chip interactivo del borrador con soporte para desplazamiento posicional y arrastre.
  */
 @Composable
 private fun DraftChip(
   word: Word,
+  index: Int,
+  totalCount: Int,
+  onMoveLeft: () -> Unit,
+  onMoveRight: () -> Unit,
   onClickRemove: () -> Unit
 ) {
   val chipColor = getWordSyntaxColor(word)
+  var accumulatedDrag by remember { mutableStateOf(0f) }
+  var isDragging by remember { mutableStateOf(false) }
 
   Surface(
-    shape = RoundedCornerShape(8.dp),
-    color = chipColor.copy(alpha = 0.2f),
-    border = BorderStroke(1.dp, chipColor),
-    modifier = Modifier.clickable(onClick = onClickRemove)
+    shape = RoundedCornerShape(10.dp),
+    color = chipColor.copy(alpha = if (isDragging) 0.38f else 0.2f),
+    border = BorderStroke(if (isDragging) 2.dp else 1.dp, chipColor),
+    modifier = Modifier
+      .testTag("chip_word_${word.lemma}_$index")
+      .graphicsLayer {
+        translationX = accumulatedDrag
+        if (isDragging) {
+          scaleX = 1.08f
+          scaleY = 1.08f
+          shadowElevation = 8f
+        }
+      }
+      .pointerInput(index, totalCount) {
+        detectDragGesturesAfterLongPress(
+          onDragStart = {
+            isDragging = true
+            accumulatedDrag = 0f
+          },
+          onDragEnd = {
+            isDragging = false
+            accumulatedDrag = 0f
+          },
+          onDragCancel = {
+            isDragging = false
+            accumulatedDrag = 0f
+          },
+          onDrag = { change, dragAmount ->
+            change.consume()
+            accumulatedDrag += dragAmount.x
+            val currentDrag = accumulatedDrag.toDouble()
+            if (currentDrag > 90.0 && index < totalCount - 1) {
+              onMoveRight()
+              accumulatedDrag = 0f
+            } else if (currentDrag < -90.0 && index > 0) {
+              onMoveLeft()
+              accumulatedDrag = 0f
+            }
+          }
+        )
+      }
   ) {
     Row(
-      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(5.dp)
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+      // Desplazar a la izquierda
+      if (totalCount > 1 && index > 0) {
+        Box(
+          modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onMoveLeft)
+            .testTag("btn_move_left_$index"),
+          contentAlignment = Alignment.Center
+        ) {
+          Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+            contentDescription = "Mover ${word.lemma} a la izquierda",
+            tint = chipColor.copy(alpha = 0.9f),
+            modifier = Modifier.size(16.dp)
+          )
+        }
+      }
+
       Text(
         text = word.lemma,
         color = chipColor,
         fontWeight = FontWeight.Bold,
-        fontSize = 13.sp
+        fontSize = 13.sp,
+        modifier = Modifier.padding(horizontal = 2.dp)
       )
-      Icon(
-        imageVector = Icons.Default.Close,
-        contentDescription = "Eliminar ${word.lemma}",
-        tint = chipColor.copy(alpha = 0.8f),
-        modifier = Modifier.size(13.dp)
-      )
+
+      // Desplazar a la derecha
+      if (totalCount > 1 && index < totalCount - 1) {
+        Box(
+          modifier = Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onMoveRight)
+            .testTag("btn_move_right_$index"),
+          contentAlignment = Alignment.Center
+        ) {
+          Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "Mover ${word.lemma} a la derecha",
+            tint = chipColor.copy(alpha = 0.9f),
+            modifier = Modifier.size(16.dp)
+          )
+        }
+      }
+
+      // Eliminar palabra del borrador
+      Box(
+        modifier = Modifier
+          .size(22.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onClickRemove)
+          .testTag("btn_remove_chip_$index"),
+        contentAlignment = Alignment.Center
+      ) {
+        Icon(
+          imageVector = Icons.Default.Close,
+          contentDescription = "Eliminar ${word.lemma}",
+          tint = chipColor.copy(alpha = 0.8f),
+          modifier = Modifier.size(13.dp)
+        )
+      }
     }
   }
 }

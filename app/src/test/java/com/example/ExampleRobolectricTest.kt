@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 
 import androidx.test.core.app.ApplicationProvider
 import com.example.domain.model.PartOfSpeech
+import com.example.domain.model.Word
 import com.example.domain.util.WordDictionary
 import com.example.ui.theme.EnglishAppTheme
 import org.junit.Assert.assertEquals
@@ -284,6 +285,54 @@ class ExampleRobolectricTest {
     val rankWord = dao.getWordByLemma("rank")
     assertNotNull("La palabra 'rank' debe estar presente", rankWord)
     assertEquals(2809, dao.getWordCount())
+
+    db.close()
+  }
+
+  @Test
+  fun `verify canvas block displacement and updated play button state in ViewModel and UI`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    var spokenText: String? = null
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) { spokenText = text }
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    val word1 = Word(id = 1, lemma = "the", partOfSpeech = PartOfSpeech.MODIFIER)
+    val word2 = Word(id = 2, lemma = "month", partOfSpeech = PartOfSpeech.NOUN)
+    val word3 = Word(id = 3, lemma = "play", partOfSpeech = PartOfSpeech.VERB)
+
+    viewModel.addWordToDraft(word1)
+    viewModel.addWordToDraft(word2)
+    viewModel.addWordToDraft(word3)
+
+    assertEquals(3, viewModel.draftWords.value.size)
+    assertEquals(listOf("the", "month", "play"), viewModel.draftWords.value.map { it.lemma })
+
+    // Move 'play' (index 2) to the left (index 1)
+    viewModel.moveWordLeft(2)
+    assertEquals(listOf("the", "play", "month"), viewModel.draftWords.value.map { it.lemma })
+    assertTrue("La frase debe estar marcada como actualizada", viewModel.isPhraseUpdated.value)
+
+    // Move 'play' (index 1) to the left (index 0)
+    viewModel.moveWordLeft(1)
+    assertEquals(listOf("play", "the", "month"), viewModel.draftWords.value.map { it.lemma })
+
+    // Play full phrase in the new position
+    viewModel.playFullDraftPhrase()
+    assertEquals("play the month", spokenText)
+    assertFalse("isPhraseUpdated debe ser false tras reproducirse", viewModel.isPhraseUpdated.value)
 
     db.close()
   }
