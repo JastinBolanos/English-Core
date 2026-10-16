@@ -173,6 +173,8 @@ fun VocabularyScreen(
   val isGeminiLoading by viewModel.isGeminiLoading.collectAsStateWithLifecycle()
   val geminiInputText by viewModel.geminiInputText.collectAsStateWithLifecycle()
   val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
+  val spanishInputText by viewModel.spanishInputText.collectAsStateWithLifecycle()
+  val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
 
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
@@ -343,6 +345,17 @@ fun VocabularyScreen(
         onMoveRight = { index -> viewModel.moveWordRight(index) },
         onPlayPhrase = { viewModel.playFullDraftPhrase() },
         onClearDraft = { viewModel.clearDraft() }
+      )
+
+      // 3. BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS (Justo abajo del lienzo de pruebas)
+      SpanishToEnglishWriterCard(
+        spanishText = spanishInputText,
+        onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
+        onTranslateNow = { viewModel.translateSpanishNow() },
+        onClear = { viewModel.clearSpanishTranslator() },
+        translationState = spanishTranslationState,
+        onSpeakEnglish = { viewModel.speakWord(it) },
+        onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) }
       )
 
       // Fila de Buscadores: Búsqueda por texto (izquierda) + Mini-Buscador de Salto por número (# 1-2809) (derecha)

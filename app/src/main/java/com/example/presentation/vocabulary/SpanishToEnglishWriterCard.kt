@@ -1,0 +1,425 @@
+package com.example.presentation.vocabulary
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.domain.translation.TranslationState
+
+/**
+ * Bandeja / Escritor Traductor de alta precisión: Español ➔ Inglés.
+ * Ubicada justo debajo del Lienzo de Pruebas.
+ *
+ * Flujo:
+ * - El usuario escribe palabras o frases en español en el escritor superior.
+ * - Inmediatamente abajo dentro del mismo escritor se despliega la traducción al inglés.
+ * - Incluye reproducción auditiva nativa (TTS), copiado al portapapeles y botón para subir al lienzo.
+ */
+@Composable
+fun SpanishToEnglishWriterCard(
+  spanishText: String,
+  onSpanishTextChanged: (String) -> Unit,
+  onTranslateNow: () -> Unit,
+  onClear: () -> Unit,
+  translationState: TranslationState,
+  onSpeakEnglish: (String) -> Unit,
+  onAddToCanvas: (String) -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val context = LocalContext.current
+  val focusManager = LocalFocusManager.current
+
+  val englishText = (translationState as? TranslationState.Success)?.translation ?: ""
+  val isTranslating = translationState is TranslationState.Translating || translationState is TranslationState.DownloadingModel
+  val hasContent = spanishText.isNotBlank() || englishText.isNotBlank()
+
+  Surface(
+    modifier = modifier
+      .fillMaxWidth()
+      .padding(horizontal = 16.dp, vertical = 4.dp)
+      .testTag("spanish_english_writer_card"),
+    shape = RoundedCornerShape(14.dp),
+    color = Color(0xFF1E293B),
+    border = BorderStroke(
+      width = 1.dp,
+      color = if (hasContent) Color(0xFF38BDF8).copy(alpha = 0.8f) else Color(0xFF334155)
+    ),
+    shadowElevation = 3.dp
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+      // Cabecera del Escritor Traductor
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          Icon(
+            imageVector = Icons.Default.Translate,
+            contentDescription = null,
+            tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(16.dp)
+          )
+          Text(
+            text = "TRADUCTOR: ESPAÑOL ➔ INGLÉS",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color(0xFF38BDF8),
+            fontSize = 11.sp
+          )
+          Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f))
+          ) {
+            Text(
+              text = "ES ➔ EN",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color(0xFF34D399),
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+              fontSize = 9.sp
+            )
+          }
+        }
+
+        if (spanishText.isNotEmpty() || englishText.isNotEmpty()) {
+          Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(1.dp, Color(0xFF475569)),
+            modifier = Modifier
+              .clickable { onClear() }
+              .testTag("btn_clear_spanish_writer")
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Limpiar escritor",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(13.dp)
+              )
+              Text(
+                text = "Limpiar",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF94A3B8),
+                fontSize = 10.sp
+              )
+            }
+          }
+        }
+      }
+
+      // 1. Escritor en Español (Input)
+      OutlinedTextField(
+        value = spanishText,
+        onValueChange = onSpanishTextChanged,
+        placeholder = {
+          Text(
+            text = "Escribe una palabra o frase en español...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color(0xFF64748B),
+            fontSize = 13.sp
+          )
+        },
+        trailingIcon = {
+          if (isTranslating) {
+            CircularProgressIndicator(
+              modifier = Modifier.size(18.dp),
+              strokeWidth = 2.dp,
+              color = Color(0xFF38BDF8)
+            )
+          } else if (spanishText.isNotBlank()) {
+            IconButton(
+              onClick = {
+                focusManager.clearFocus()
+                onTranslateNow()
+              },
+              modifier = Modifier.testTag("btn_trigger_translation")
+            ) {
+              Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = "Traducir al inglés",
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(18.dp)
+              )
+            }
+          }
+        },
+        keyboardOptions = KeyboardOptions(
+          imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(
+          onDone = {
+            focusManager.clearFocus()
+            onTranslateNow()
+          }
+        ),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedContainerColor = Color(0xFF0F172A),
+          unfocusedContainerColor = Color(0xFF0F172A),
+          focusedBorderColor = Color(0xFF38BDF8),
+          unfocusedBorderColor = Color(0xFF334155),
+          focusedTextColor = Color(0xFFF8FAFC),
+          unfocusedTextColor = Color(0xFFF8FAFC),
+          cursorColor = Color(0xFF38BDF8)
+        ),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+          fontSize = 14.sp,
+          fontWeight = FontWeight.Medium
+        ),
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("input_spanish_text")
+      )
+
+      // 2. Despliegue de la versión en inglés justo más abajo en este escritor
+      AnimatedVisibility(
+        visible = englishText.isNotBlank() || isTranslating,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+      ) {
+        Surface(
+          shape = RoundedCornerShape(10.dp),
+          color = Color(0xFF0F172A),
+          border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.55f)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("english_translation_result_box")
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+          ) {
+            // Fila superior del resultado: Píldora de idioma y acciones rápidas
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+              ) {
+                Surface(
+                  shape = RoundedCornerShape(5.dp),
+                  color = Color(0xFF064E3B),
+                  border = BorderStroke(1.dp, Color(0xFF34D399))
+                ) {
+                  Text(
+                    text = "VERSIÓN EN INGLÉS",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF34D399),
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                  )
+                }
+              }
+
+              if (englishText.isNotBlank()) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                  // Botón TTS: Pronunciar en inglés
+                  Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = Color(0xFF1E293B),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
+                    modifier = Modifier
+                      .clickable { onSpeakEnglish(englishText) }
+                      .testTag("btn_speak_english_translation")
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                      Icon(
+                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Escuchar pronunciación",
+                        tint = Color(0xFF38BDF8),
+                        modifier = Modifier.size(14.dp)
+                      )
+                      Text(
+                        text = "Voz",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF38BDF8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                      )
+                    }
+                  }
+
+                  // Botón Copiar al portapapeles
+                  Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = Color(0xFF1E293B),
+                    border = BorderStroke(1.dp, Color(0xFF475569)),
+                    modifier = Modifier
+                      .clickable {
+                        try {
+                          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                          val clip = ClipData.newPlainText("Traducción en inglés", englishText)
+                          clipboard?.setPrimaryClip(clip)
+                          Toast.makeText(context, "Copiado al portapapeles", Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {}
+                      }
+                      .testTag("btn_copy_english_translation")
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                      Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copiar",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(13.dp)
+                      )
+                      Text(
+                        text = "Copiar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                      )
+                    }
+                  }
+
+                  // Botón para subir piezas al lienzo de pruebas
+                  Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.8f)),
+                    modifier = Modifier
+                      .clickable { onAddToCanvas(englishText) }
+                      .testTag("btn_add_translation_to_canvas")
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                      Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Subir al lienzo",
+                        tint = Color(0xFF38BDF8),
+                        modifier = Modifier.size(13.dp)
+                      )
+                      Text(
+                        text = "Lienzo",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF38BDF8),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                      )
+                    }
+                  }
+                }
+              }
+            }
+
+            // Contenido traducido al inglés
+            if (englishText.isNotBlank()) {
+              Text(
+                text = englishText,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                  fontSize = 15.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  lineHeight = 20.sp
+                ),
+                color = Color(0xFFF1F5F9),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("text_english_translation_result")
+              )
+            } else if (isTranslating) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(vertical = 4.dp)
+              ) {
+                CircularProgressIndicator(
+                  modifier = Modifier.size(14.dp),
+                  strokeWidth = 2.dp,
+                  color = Color(0xFF38BDF8)
+                )
+                Text(
+                  text = "Traduciendo con precisión...",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = Color(0xFF94A3B8),
+                  fontSize = 12.sp
+                )
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

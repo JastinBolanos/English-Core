@@ -46,8 +46,28 @@ object WordDictionary {
 
   fun getLoadedCount(): Int = loadedTranslations.size
 
+  private val reverseTranslations = ConcurrentHashMap<String, String>()
+
+  fun getReverseTranslations(): Map<String, String> {
+    if (reverseTranslations.isEmpty() && loadedTranslations.isNotEmpty()) {
+      for ((enWord, esTrans) in loadedTranslations) {
+        val cleanEn = enWord.trim().lowercase(Locale.ROOT)
+        val cleanEsRaw = esTrans.replace(Regex("\\(.*?\\)"), "").trim()
+        val parts = cleanEsRaw.split(Regex("[,;/]"))
+        for (part in parts) {
+          val cleanPart = part.trim().lowercase(Locale.ROOT)
+          if (cleanPart.isNotBlank() && !reverseTranslations.containsKey(cleanPart)) {
+            reverseTranslations[cleanPart] = cleanEn
+          }
+        }
+      }
+    }
+    return reverseTranslations
+  }
+
   fun injectTranslations(map: Map<String, String>) {
     loadedTranslations.putAll(map)
+    reverseTranslations.clear()
   }
 
   val connectorWords = setOf(

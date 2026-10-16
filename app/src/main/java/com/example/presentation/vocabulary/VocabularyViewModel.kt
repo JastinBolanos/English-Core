@@ -75,6 +75,53 @@ class VocabularyViewModel @Inject constructor(
   private val _geminiInputText = MutableStateFlow("")
   val geminiInputText: StateFlow<String> = _geminiInputText.asStateFlow()
 
+  // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
+  private val spanishToEnglishTranslator = com.example.data.translation.SpanishToEnglishTranslationManager(geminiChatService)
+  val spanishTranslationState: StateFlow<com.example.domain.translation.TranslationState> = spanishToEnglishTranslator.translationState
+
+  private val _spanishInputText = MutableStateFlow("")
+  val spanishInputText: StateFlow<String> = _spanishInputText.asStateFlow()
+
+  fun updateSpanishInputText(text: String) {
+    _spanishInputText.value = text
+    val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+      ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+      ?: ""
+    spanishToEnglishTranslator.translate(text, key, viewModelScope)
+  }
+
+  fun translateSpanishNow() {
+    val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+      ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+      ?: ""
+    spanishToEnglishTranslator.translate(_spanishInputText.value, key, viewModelScope)
+  }
+
+  fun clearSpanishTranslator() {
+    _spanishInputText.value = ""
+    spanishToEnglishTranslator.reset()
+  }
+
+  fun addSpanishTranslationToDraft(englishPhrase: String) {
+    val clean = englishPhrase.trim()
+    if (clean.isBlank()) return
+    val tokens = clean.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
+    if (tokens.isEmpty()) return
+    val allWords = words.value
+    val newWords = tokens.map { token ->
+      val cleanToken = token.lowercase(java.util.Locale.ROOT)
+      allWords.firstOrNull { it.lemma.equals(cleanToken, ignoreCase = true) }
+        ?: Word(
+          id = (cleanToken.hashCode().toLong() and 0x7FFFFFFFL),
+          lemma = cleanToken,
+          partOfSpeech = PartOfSpeech.OTHER
+        )
+    }
+    _draftWords.value = _draftWords.value + newWords
+    _isPhraseUpdated.value = true
+    ttsManager.speak(clean)
+  }
+
   fun openGeminiDialog() {
     _showGeminiDialog.value = true
   }
@@ -395,6 +442,7 @@ class VocabularyViewModel @Inject constructor(
     ttsManager.stop()
     speechToTextManager?.destroy()
     translationManager?.close()
+    spanishToEnglishTranslator.close()
   }
 
   class Factory(

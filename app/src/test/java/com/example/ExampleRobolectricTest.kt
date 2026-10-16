@@ -455,6 +455,53 @@ class ExampleRobolectricTest {
     viewModel.toggleTranslationTray()
     assertFalse("Bandeja cerrada tras segundo toggle", viewModel.isTranslationTrayExpanded.value)
   }
+
+  @Test
+  fun `verify spanish to english writer card exists right below canvas`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertExists()
+    composeTestRule.onNodeWithTag("input_spanish_text").assertExists()
+  }
+
+  @Test
+  fun `verify spanish translation and clearing in ViewModel`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    WordDictionary.loadTranslationsFromContext(context)
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    // Initial state: empty
+    assertEquals("", viewModel.spanishInputText.value)
+
+    // Update text with a Spanish word
+    viewModel.updateSpanishInputText("palabra")
+    assertEquals("palabra", viewModel.spanishInputText.value)
+
+    // Clear
+    viewModel.clearSpanishTranslator()
+    assertEquals("", viewModel.spanishInputText.value)
+
+    db.close()
+  }
 }
 
 
