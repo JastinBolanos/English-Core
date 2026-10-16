@@ -246,7 +246,7 @@ class VocabularyViewModel @Inject constructor(
 
   /**
    * Flujo filtrado por búsqueda y categoría seleccionada en el Guiador Educativo Superior,
-   * manteniendo estrictamente el orden de combate (rank ASC).
+   * manteniendo el orden y priorizando la coincidencia exacta en primera fila al buscar.
    */
   val filteredWords: StateFlow<List<Word>> = combine(
     words,
@@ -258,7 +258,32 @@ class VocabularyViewModel @Inject constructor(
       result = result.filter { filter.matchesWord(it) }
     }
     if (query.isNotBlank()) {
-      result = result.filter { it.lemma.contains(query.trim(), ignoreCase = true) }
+      val trimmed = query.trim()
+      val matches = result.filter { word ->
+        word.lemma.contains(trimmed, ignoreCase = true) ||
+          (trimmed.equals("am", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+          (trimmed.equals("is", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+          (trimmed.equals("are", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+          (trimmed.equals("was", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+          (trimmed.equals("were", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+          (trimmed.endsWith("ing", ignoreCase = true) && trimmed.length > 3 && word.lemma.equals(trimmed.dropLast(3), ignoreCase = true)) ||
+          (trimmed.endsWith("ed", ignoreCase = true) && trimmed.length > 2 && word.lemma.equals(trimmed.dropLast(2), ignoreCase = true))
+      }
+      result = matches.sortedWith(
+        compareBy(
+          { word ->
+            val isExact = word.lemma.equals(trimmed, ignoreCase = true) ||
+              (trimmed.equals("am", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmed.equals("is", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmed.equals("are", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true))
+            if (isExact) 0 else 1
+          },
+          { word ->
+            if (word.lemma.startsWith(trimmed, ignoreCase = true)) 0 else 1
+          },
+          { word -> word.rank }
+        )
+      )
     }
     result
   }.stateIn(

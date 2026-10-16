@@ -40,7 +40,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,7 +68,9 @@ import com.example.domain.translation.TranslationState
  * - El usuario escribe palabras o frases en español en el escritor superior.
  * - Inmediatamente abajo dentro del mismo escritor se despliega la traducción al inglés.
  * - Incluye reproducción auditiva nativa (TTS), copiado al portapapeles y botón para subir al lienzo.
+ * - Cada palabra en inglés es interactiva y al tocarla busca esa palabra en el vocabulario (#1-2809).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpanishToEnglishWriterCard(
   spanishText: String,
@@ -71,10 +80,13 @@ fun SpanishToEnglishWriterCard(
   translationState: TranslationState,
   onSpeakEnglish: (String) -> Unit,
   onAddToCanvas: (String) -> Unit,
+  onWordClick: (String) -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
   val focusManager = LocalFocusManager.current
+
+  var selectedWord by remember { mutableStateOf<String?>(null) }
 
   val englishText = (translationState as? TranslationState.Success)?.translation ?: ""
   val isTranslating = translationState is TranslationState.Translating || translationState is TranslationState.DownloadingModel
@@ -144,7 +156,10 @@ fun SpanishToEnglishWriterCard(
             color = Color(0xFF0F172A),
             border = BorderStroke(1.dp, Color(0xFF475569)),
             modifier = Modifier
-              .clickable { onClear() }
+              .clickable {
+                selectedWord = null
+                onClear()
+              }
               .testTag("btn_clear_spanish_writer")
           ) {
             Row(
@@ -384,20 +399,70 @@ fun SpanishToEnglishWriterCard(
               }
             }
 
-            // Contenido traducido al inglés
+            // Contenido traducido al inglés (con palabras interactivas para búsqueda táctil)
             if (englishText.isNotBlank()) {
-              Text(
-                text = englishText,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                  fontSize = 15.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  lineHeight = 20.sp
-                ),
-                color = Color(0xFFF1F5F9),
+              val words = remember(englishText) {
+                englishText.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+              }
+
+              FlowRow(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .testTag("text_english_translation_result")
-              )
+                  .testTag("text_english_translation_result"),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+              ) {
+                words.forEach { rawWord ->
+                  val cleanWord = rawWord.filter { it.isLetterOrDigit() || it == '\'' }
+                  val isSelected = selectedWord?.equals(cleanWord, ignoreCase = true) == true
+
+                  Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF0369A1).copy(alpha = 0.5f) else Color(0xFF1E293B),
+                    border = BorderStroke(
+                      width = 1.dp,
+                      color = if (isSelected) Color(0xFF38BDF8) else Color(0xFF38BDF8).copy(alpha = 0.45f)
+                    ),
+                    modifier = Modifier
+                      .clickable {
+                        if (cleanWord.isNotBlank()) {
+                          selectedWord = cleanWord
+                          onWordClick(cleanWord)
+                        }
+                      }
+                      .testTag("translated_word_$cleanWord")
+                  ) {
+                    Text(
+                      text = rawWord,
+                      style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 15.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                      ),
+                      color = if (isSelected) Color(0xFF38BDF8) else Color(0xFFF1F5F9),
+                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                    )
+                  }
+                }
+              }
+
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 2.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Search,
+                  contentDescription = null,
+                  tint = Color(0xFF38BDF8).copy(alpha = 0.85f),
+                  modifier = Modifier.size(12.dp)
+                )
+                Text(
+                  text = "Toca cualquier palabra para buscarla en el vocabulario (#1-2809)",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = Color(0xFF94A3B8),
+                  fontSize = 10.sp
+                )
+              }
             } else if (isTranslating) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,

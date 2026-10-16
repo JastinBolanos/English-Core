@@ -355,7 +355,17 @@ fun VocabularyScreen(
         onClear = { viewModel.clearSpanishTranslator() },
         translationState = spanishTranslationState,
         onSpeakEnglish = { viewModel.speakWord(it) },
-        onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) }
+        onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+        onWordClick = { word ->
+          if (jumpRankInput.isNotEmpty()) {
+            jumpRankInput = ""
+          }
+          viewModel.clearSyntaxFilter()
+          viewModel.updateSearchQuery(word)
+          coroutineScope.launch {
+            listState.scrollToItem(0)
+          }
+        }
       )
 
       // Fila de Buscadores: Búsqueda por texto (izquierda) + Mini-Buscador de Salto por número (# 1-2809) (derecha)
