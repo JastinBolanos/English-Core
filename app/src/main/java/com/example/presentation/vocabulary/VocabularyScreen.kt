@@ -774,11 +774,6 @@ fun AddCustomWordDialog(
               }
             }
 
-            // Pill de imán
-            MagnetIndicatorPill(nextCategories = previewPartOfSpeech.nextExpectedCategories)
-
-            Spacer(modifier = Modifier.width(6.dp))
-
             // Icono de volumen preview
             IconButton(
               onClick = {
@@ -2201,11 +2196,6 @@ fun WordHudCard(
           )
         }
 
-        // Indicador de "Imán" (Acepta después...)
-        MagnetIndicatorPill(nextCategories = word.nextExpectedCategories)
-
-        Spacer(modifier = Modifier.width(8.dp))
-
         // Icono de audio (solo reproduce el audio de la palabra en inglés, no la sube al lienzo de pruebas)
         IconButton(
           onClick = onSpeak,
@@ -2323,31 +2313,4 @@ fun WordHudCard(
   }
 }
 
-@Composable
-private fun MagnetIndicatorPill(nextCategories: List<PartOfSpeech>) {
-  Surface(
-    shape = RoundedCornerShape(12.dp),
-    color = Color(0xFF0F172A),
-    border = BorderStroke(1.dp, Color(0xFF334155))
-  ) {
-    Row(
-      modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-      Text(
-        text = "➔",
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFF64748B)
-      )
-      nextCategories.take(3).forEach { category ->
-        Box(
-          modifier = Modifier
-            .size(8.dp)
-            .background(getWordSyntaxColor(category), shape = CircleShape)
-        )
-      }
-    }
-  }
-}
+
