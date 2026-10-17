@@ -664,6 +664,32 @@ class ExampleRobolectricTest {
 
     composeTestRule.onNodeWithTag("dialog_add_custom_word").assertDoesNotExist()
   }
+
+  @Test
+  fun `verify syntax explanation tray displays what type is responsible for and can be dismissed`() {
+    var dismissed = false
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.vocabulary.SyntaxExplanationTray(
+          filter = com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR,
+          onDismiss = { dismissed = true }
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify tray elements
+    composeTestRule.onNodeWithTag("syntax_explanation_tray").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_syntax_tray_x").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_syntax_tray").assertExists()
+
+    // Click close button
+    composeTestRule.onNodeWithTag("btn_close_syntax_tray").performClick()
+    composeTestRule.waitForIdle()
+
+    assertTrue("Tray must call onDismiss when closing", dismissed)
+  }
 }
 
 

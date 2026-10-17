@@ -17,8 +17,12 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +33,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +51,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -98,8 +105,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -181,6 +191,7 @@ fun VocabularyScreen(
 
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
+  var explainedFilter by rememberSaveable { mutableStateOf<SyntaxFilter?>(null) }
   val listState = rememberLazyListState()
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
@@ -339,6 +350,7 @@ fun VocabularyScreen(
       SyntaxCompassHeader(
         selectedFilter = selectedSyntaxFilter,
         onSelectFilter = { filter -> viewModel.selectSyntaxFilter(filter) },
+        onExplainFilter = { filter -> explainedFilter = filter },
         onClearFilter = { viewModel.clearSyntaxFilter() }
       )
 
@@ -543,6 +555,13 @@ fun VocabularyScreen(
         }
       },
       onPreviewSpeak = { text -> viewModel.speakWord(text) }
+    )
+  }
+
+  if (explainedFilter != null) {
+    SyntaxExplanationTray(
+      filter = explainedFilter!!,
+      onDismiss = { explainedFilter = null }
     )
   }
 
@@ -1321,6 +1340,7 @@ private fun RoadmapExternalMissionCard(
 private fun SyntaxCompassHeader(
   selectedFilter: SyntaxFilter?,
   onSelectFilter: (SyntaxFilter) -> Unit,
+  onExplainFilter: (SyntaxFilter) -> Unit = {},
   onClearFilter: () -> Unit
 ) {
   val isConnectorSelected = selectedFilter == SyntaxFilter.CONNECTOR
@@ -1356,6 +1376,7 @@ private fun SyntaxCompassHeader(
           label = "🟡 Conector",
           isSelected = isConnectorSelected,
           onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
+          onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
           testTag = "compass_chip_Conector"
         )
         Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
@@ -1364,6 +1385,7 @@ private fun SyntaxCompassHeader(
           label = "🟣 Sujeto",
           isSelected = isPronounSelected,
           onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
+          onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
           testTag = "compass_chip_Sujeto"
         )
         Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
@@ -1372,6 +1394,7 @@ private fun SyntaxCompassHeader(
           label = "🔵 Verbo",
           isSelected = isVerbSelected,
           onClick = { onSelectFilter(SyntaxFilter.VERB) },
+          onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
           testTag = "compass_chip_Verbo"
         )
         Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
@@ -1380,6 +1403,7 @@ private fun SyntaxCompassHeader(
           label = "🟢 Sustantivo",
           isSelected = isNounSelected,
           onClick = { onSelectFilter(SyntaxFilter.NOUN) },
+          onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
           testTag = "compass_chip_Sustantivo"
         )
         Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
@@ -1388,6 +1412,7 @@ private fun SyntaxCompassHeader(
           label = "⚪ Modificador",
           isSelected = isModifierSelected,
           onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
+          onLongClick = { onExplainFilter(SyntaxFilter.MODIFIER) },
           testTag = "compass_chip_Modificador"
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -1436,8 +1461,13 @@ private fun CompassStepChip(
   label: String,
   isSelected: Boolean = false,
   onClick: () -> Unit = {},
+  onLongClick: () -> Unit = {},
   testTag: String = "compass_chip_${label.filter { it.isLetter() }}"
 ) {
+  val haptic = LocalHapticFeedback.current
+  val currentOnClick by rememberUpdatedState(onClick)
+  val currentOnLongClick by rememberUpdatedState(onLongClick)
+
   Surface(
     shape = RoundedCornerShape(7.dp),
     color = if (isSelected) color.copy(alpha = 0.35f) else color.copy(alpha = 0.12f),
@@ -1446,8 +1476,47 @@ private fun CompassStepChip(
       color = if (isSelected) color else color.copy(alpha = 0.45f)
     ),
     modifier = Modifier
-      .clickable(onClick = onClick)
       .testTag(testTag)
+      .pointerInput(Unit) {
+        coroutineScope {
+          awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val downPosition = down.position
+            val touchSlop = viewConfiguration.touchSlop
+            var longPressTriggered = false
+
+            val timerJob = launch {
+              delay(2000L) // 2 segundos exactos requeridos por el usuario
+              longPressTriggered = true
+              try {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              } catch (_: Exception) {}
+              currentOnLongClick()
+            }
+
+            while (true) {
+              val event = awaitPointerEvent()
+              val pointer = event.changes.firstOrNull { it.id == down.id }
+              if (pointer == null || !pointer.pressed) {
+                // El usuario levantó el dedo
+                timerJob.cancel()
+                if (!longPressTriggered && pointer != null) {
+                  currentOnClick()
+                }
+                break
+              }
+              // Si el usuario arrastra más allá de touchSlop (ej. haciendo scroll horizontal en la fila)
+              val dx = pointer.position.x - downPosition.x
+              val dy = pointer.position.y - downPosition.y
+              val distance = kotlin.math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+              if (distance > touchSlop) {
+                timerJob.cancel()
+                break
+              }
+            }
+          }
+        }
+      }
   ) {
     Text(
       text = label,
@@ -1458,6 +1527,288 @@ private fun CompassStepChip(
       softWrap = false,
       modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
     )
+  }
+}
+
+private data class SyntaxTypeInfo(
+  val title: String,
+  val badgeEmoji: String,
+  val role: String,
+  val positionInPhrase: String,
+  val examples: String,
+  val pedagogicalTip: String
+)
+
+private fun getSyntaxTypeInfo(filter: SyntaxFilter): SyntaxTypeInfo {
+  return when (filter) {
+    SyntaxFilter.CONNECTOR -> SyntaxTypeInfo(
+      title = "CONECTOR",
+      badgeEmoji = "🟡",
+      role = "Une ideas, oraciones y cláusulas para dar fluidez, causa, efecto o contraste lógico al pensamiento.",
+      positionInPhrase = "Se ubica al inicio de la frase o como puente entre dos ideas completas.",
+      examples = "because (porque), and (y), however (sin embargo), although (aunque), so (así que), but (pero), if (si).",
+      pedagogicalTip = "💡 Te permite pensar en bloques continuos sin traducir palabra por palabra."
+    )
+    SyntaxFilter.SUBJECT -> SyntaxTypeInfo(
+      title = "SUJETO / PRONOMBRE",
+      badgeEmoji = "🟣",
+      role = "Representa quién o qué realiza la acción o sobre quién se afirma algo en la frase.",
+      positionInPhrase = "Va al principio de oraciones afirmativas, posicionado antes del verbo.",
+      examples = "I (yo), you (tú/ustedes), he (él), she (ella), it (eso/ello), we (nosotros), they (ellos).",
+      pedagogicalTip = "💡 En inglés el sujeto casi NUNCA se omite, a diferencia del español."
+    )
+    SyntaxFilter.VERB -> SyntaxTypeInfo(
+      title = "VERBO",
+      badgeEmoji = "🔵",
+      role = "Expresa la acción, estado, proceso o movimiento. Es el motor indispensable de toda oración.",
+      positionInPhrase = "Sigue directamente al sujeto y determina el tiempo verbal (presente, pasado, futuro).",
+      examples = "be (ser/estar), have (tener/haber), do (hacer), go (ir), want (querer), can (poder), make (hacer).",
+      pedagogicalTip = "💡 Sin verbo no hay frase; es el motor que da vida a tus ideas."
+    )
+    SyntaxFilter.NOUN -> SyntaxTypeInfo(
+      title = "SUSTANTIVO / OBJETO",
+      badgeEmoji = "🟢",
+      role = "Nombra personas, cosas, lugares, objetos o conceptos sobre los que recae la acción.",
+      positionInPhrase = "Suele ubicarse después del verbo como objetivo o complemento de la frase.",
+      examples = "time (tiempo), year (año), people (personas), world (mundo), water (agua), house (casa), life (vida).",
+      pedagogicalTip = "💡 Es el destino o meta concreta hacia donde apunta la acción del verbo."
+    )
+    SyntaxFilter.MODIFIER -> SyntaxTypeInfo(
+      title = "MODIFICADOR",
+      badgeEmoji = "⚪",
+      role = "Describe, califica, delimita o matiza el significado de sustantivos y verbos (artículos, adjetivos, adverbios).",
+      positionInPhrase = "En inglés los adjetivos van SIEMPRE antes del sustantivo que modifican.",
+      examples = "the (el/la), a (un/una), good (bueno), new (nuevo), big (grande), first (primero), very (muy).",
+      pedagogicalTip = "💡 Agrega detalle, cantidad y color específico a tu frase (ej: 'a new world')."
+    )
+  }
+}
+
+/**
+ * Bandeja flotante minimalista que explica de qué se encarga el tipo de palabra al mantenerlo presionado durante 2 segundos.
+ * Flota en la parte inferior, ocupa muy poca pantalla, tiene manija para deslizar hacia abajo y su contenido es deslizable.
+ */
+@Composable
+fun SyntaxExplanationTray(
+  filter: SyntaxFilter,
+  onDismiss: () -> Unit
+) {
+  val info = remember(filter) { getSyntaxTypeInfo(filter) }
+  val syntaxColor = when (filter) {
+    SyntaxFilter.CONNECTOR -> Color(0xFFFACC15)
+    SyntaxFilter.SUBJECT -> Color(0xFFA855F7)
+    SyntaxFilter.VERB -> Color(0xFF3B82F6)
+    SyntaxFilter.NOUN -> Color(0xFF34D399)
+    SyntaxFilter.MODIFIER -> Color(0xFFF8FAFC)
+  }
+
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(
+      usePlatformDefaultWidth = false,
+      dismissOnClickOutside = true,
+      dismissOnBackPress = true
+    )
+  ) {
+    Box(
+      modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.45f))
+        .clickable(
+          interactionSource = remember { MutableInteractionSource() },
+          indication = null,
+          onClick = onDismiss
+        ),
+      contentAlignment = Alignment.BottomCenter
+    ) {
+      Surface(
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
+        color = Color(0xF20B132B), // Acrílico oscuro HUD elegante y semi-translúcido
+        border = BorderStroke(1.2.dp, syntaxColor.copy(alpha = 0.70f)),
+        shadowElevation = 16.dp,
+        modifier = Modifier
+          .fillMaxWidth(0.95f)
+          .padding(bottom = 12.dp, start = 8.dp, end = 8.dp)
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = {} // Evitar cerrar al hacer clic dentro de la bandeja
+          )
+          .pointerInput(Unit) {
+            detectVerticalDragGestures { change, dragAmount ->
+              // Deslizable hacia abajo para cerrar la bandeja flotante
+              if (dragAmount > 20f) {
+                change.consume()
+                onDismiss()
+              }
+            }
+          }
+          .testTag("syntax_explanation_tray")
+      ) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+          // Manija superior deslizable hacia abajo (drag handle)
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(bottom = 6.dp),
+            contentAlignment = Alignment.Center
+          ) {
+            Box(
+              modifier = Modifier
+                .size(width = 38.dp, height = 4.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF94A3B8).copy(alpha = 0.6f))
+            )
+          }
+
+          // Cabecera compacta con el tipo y botón cerrar '✕'
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = syntaxColor.copy(alpha = 0.20f),
+              border = BorderStroke(1.dp, syntaxColor)
+            ) {
+              Text(
+                text = "${info.badgeEmoji} ${info.title}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = syntaxColor,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+              )
+            }
+
+            IconButton(
+              onClick = onDismiss,
+              modifier = Modifier
+                .size(26.dp)
+                .testTag("btn_close_syntax_tray_x")
+            ) {
+              Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Cerrar explicación",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(16.dp)
+              )
+            }
+          }
+
+          Spacer(modifier = Modifier.height(6.dp))
+          HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+          Spacer(modifier = Modifier.height(6.dp))
+
+          // Contenido deslizable hacia abajo si es que su contenido es largo
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(max = 220.dp)
+              .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            // 1. ¿De qué se encarga?
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Text(
+                text = "¿DE QUÉ SE ENCARGA?",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF94A3B8),
+                fontSize = 10.sp
+              )
+              Text(
+                text = info.role,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFF8FAFC),
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+              )
+            }
+
+            // 2. Posición en la frase
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Text(
+                text = "POSICIÓN EN LA FRASE:",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF94A3B8),
+                fontSize = 10.sp
+              )
+              Text(
+                text = info.positionInPhrase,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFCBD5E1),
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+              )
+            }
+
+            // 3. Ejemplos clave
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Text(
+                text = "EJEMPLOS CLAVE:",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = syntaxColor,
+                fontSize = 10.sp
+              )
+              Text(
+                text = info.examples,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFE2E8F0),
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+              )
+            }
+
+            // 4. Tip pedagógico
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFF1E293B),
+              border = BorderStroke(1.dp, Color(0xFF334155)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = info.pedagogicalTip,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF38BDF8),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(7.dp)
+              )
+            }
+          }
+
+          Spacer(modifier = Modifier.height(8.dp))
+
+          // Botón minimalista de cierre / entendido
+          Button(
+            onClick = onDismiss,
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(34.dp)
+              .testTag("btn_close_syntax_tray"),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = syntaxColor.copy(alpha = 0.22f)),
+            border = BorderStroke(1.dp, syntaxColor.copy(alpha = 0.8f))
+          ) {
+            Text(
+              text = "Entendido (Desliza hacia abajo para cerrar)",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color.White,
+              fontSize = 11.sp
+            )
+          }
+        }
+      }
+    }
   }
 }
 
