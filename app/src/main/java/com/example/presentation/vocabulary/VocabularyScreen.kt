@@ -2284,29 +2284,6 @@ fun WordHudCard(
               fontWeight = FontWeight.Medium
             )
           }
-
-          Spacer(modifier = Modifier.height(4.dp))
-
-          // 3. Regla de conexión explicada (Interceptada del catálogo)
-          Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            Text(
-              text = "REGLA:",
-              style = MaterialTheme.typography.labelSmall,
-              fontWeight = FontWeight.Bold,
-              color = Color(0xFF38BDF8),
-              fontSize = 10.sp,
-              modifier = Modifier.padding(top = 1.dp)
-            )
-            Text(
-              text = word.connectionRuleNote,
-              style = MaterialTheme.typography.bodySmall,
-              color = Color(0xFF94A3B8),
-              fontSize = 11.sp
-            )
-          }
         }
       }
     }
