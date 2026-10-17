@@ -506,6 +506,7 @@ fun VocabularyScreen(
               WordHudCard(
                 word = word,
                 onTap = { viewModel.addWordToDraft(word) },
+                onSpeak = { viewModel.speakWord(word.lemma) },
                 onSpeakExample = { example -> viewModel.speakWord(example) }
               )
             }
@@ -1704,6 +1705,7 @@ private fun LiveConnectionPredictor(lastWord: Word?) {
 fun WordHudCard(
   word: Word,
   onTap: () -> Unit,
+  onSpeak: () -> Unit = {},
   onSpeakExample: ((String) -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
@@ -1795,14 +1797,16 @@ fun WordHudCard(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Icono de audio (asistente visual)
+        // Icono de audio (solo reproduce el audio de la palabra en inglés, no la sube al lienzo de pruebas)
         IconButton(
-          onClick = onTap,
-          modifier = Modifier.size(34.dp)
+          onClick = onSpeak,
+          modifier = Modifier
+            .size(34.dp)
+            .testTag("btn_speak_word_${word.rank}")
         ) {
           Icon(
             imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-            contentDescription = "Agregar y pronunciar ${word.lemma}",
+            contentDescription = "Pronunciar ${word.lemma}",
             tint = Color(0xFF94A3B8),
             modifier = Modifier.size(19.dp)
           )

@@ -502,6 +502,58 @@ class ExampleRobolectricTest {
 
     db.close()
   }
+
+  @Test
+  fun `verify volume icon only reproduces audio and does not add word to canvas`() {
+    var spokenWord: String? = null
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) { spokenWord = text }
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    val word = Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.MODIFIER)
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.vocabulary.WordHudCard(
+          word = word,
+          onTap = { viewModel.addWordToDraft(word) },
+          onSpeak = { viewModel.speakWord(word.lemma) }
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // 1. Click volume icon: must pronounce the word, but canvas draft remains EMPTY
+    composeTestRule.onNodeWithTag("btn_speak_word_1").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals("the", spokenWord)
+    assertTrue("El lienzo de pruebas debe estar vacío al tocar solo el volumen", viewModel.draftWords.value.isEmpty())
+
+    // 2. Click word card: now it must be added to the canvas draft
+    composeTestRule.onNodeWithTag("word_item_1").performClick()
+    composeTestRule.waitForIdle()
+
+    assertEquals(1, viewModel.draftWords.value.size)
+    assertEquals("the", viewModel.draftWords.value.first().lemma)
+
+    db.close()
+  }
 }
 
 
