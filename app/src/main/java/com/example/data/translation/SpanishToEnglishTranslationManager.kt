@@ -69,12 +69,10 @@ class SpanishToEnglishTranslationManager(
         _translationState.value = TranslationState.Translating
       }
 
-      // 2. Modelo neuronal offline de Google ML Kit (Spanish -> English)
-      executeMlKitTranslation(clean, dictTranslation)
-
-      // 3. Si se cuenta con API key de Gemini, refinar para lograr precisión casi perfecta
+      // 2. Si se cuenta con API key de Gemini, usar Gemini directamente evitando carga de ML Kit
       val cleanKey = apiKey.trim()
       if (cleanKey.isNotBlank() && cleanKey != "your_gemini_api_key_here") {
+        var geminiSuccess = false
         try {
           val prompt = "Translate the following Spanish text into natural, idiomatic, accurate English. " +
             "Respond ONLY with the direct English translation without explanations, quotes, or notes:\n$clean"
@@ -83,9 +81,20 @@ class SpanishToEnglishTranslationManager(
             val cleanRefined = refined.trim().removeSurrounding("\"").removeSurrounding("'")
             if (latestPendingText == clean && cleanRefined.isNotBlank() && !cleanRefined.startsWith("⚠️")) {
               _translationState.value = TranslationState.Success(cleanRefined)
+              geminiSuccess = true
             }
           }
         } catch (_: Exception) {}
+        if (geminiSuccess) return@launch
+      }
+
+      // 3. Modelo neuronal offline de Google ML Kit (Spanish -> English)
+      try {
+        executeMlKitTranslation(clean, dictTranslation)
+      } catch (_: Throwable) {
+        if (dictTranslation.isNotBlank() && latestPendingText == clean) {
+          _translationState.value = TranslationState.Success(dictTranslation)
+        }
       }
     }
   }
@@ -141,7 +150,7 @@ class SpanishToEnglishTranslationManager(
       }
   }
 
-  private fun lookupInDictionary(text: String): String {
+  fun lookupInDictionary(text: String): String {
     val clean = text.lowercase(Locale.ROOT).trim()
     val reverseMap = WordDictionary.getReverseTranslations()
     val direct = reverseMap[clean]

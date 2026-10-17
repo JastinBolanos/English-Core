@@ -182,6 +182,12 @@ fun VocabularyScreen(
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
 
+  androidx.compose.runtime.LaunchedEffect(searchQuery) {
+    if (searchQuery.isNotBlank()) {
+      listState.scrollToItem(0)
+    }
+  }
+
   fun performJumpToRank(input: String) {
     val targetRank = input.trim().toIntOrNull() ?: return
     if (words.isEmpty()) return

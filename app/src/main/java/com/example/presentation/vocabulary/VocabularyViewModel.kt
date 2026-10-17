@@ -82,22 +82,40 @@ class VocabularyViewModel @Inject constructor(
   private val _spanishInputText = MutableStateFlow("")
   val spanishInputText: StateFlow<String> = _spanishInputText.asStateFlow()
 
+  private var spanishTranslationJob: kotlinx.coroutines.Job? = null
+
   fun updateSpanishInputText(text: String) {
     _spanishInputText.value = text
-    val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-      ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-      ?: ""
-    spanishToEnglishTranslator.translate(text, key, viewModelScope)
+    val clean = text.trim()
+    if (clean.isBlank()) {
+      spanishTranslationJob?.cancel()
+      spanishToEnglishTranslator.reset()
+      return
+    }
+
+    spanishTranslationJob?.cancel()
+    spanishTranslationJob = viewModelScope.launch {
+      kotlinx.coroutines.delay(350)
+      if (_spanishInputText.value.trim() != clean) return@launch
+      val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+        ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
+        ?: ""
+      spanishToEnglishTranslator.translate(clean, key, viewModelScope)
+    }
   }
 
   fun translateSpanishNow() {
+    spanishTranslationJob?.cancel()
+    val clean = _spanishInputText.value.trim()
+    if (clean.isBlank()) return
     val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
       ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
       ?: ""
-    spanishToEnglishTranslator.translate(_spanishInputText.value, key, viewModelScope)
+    spanishToEnglishTranslator.translate(clean, key, viewModelScope)
   }
 
   fun clearSpanishTranslator() {
+    spanishTranslationJob?.cancel()
     _spanishInputText.value = ""
     spanishToEnglishTranslator.reset()
   }
@@ -194,6 +212,10 @@ class VocabularyViewModel @Inject constructor(
   private val _searchQuery = MutableStateFlow("")
   val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+  // Traducción interna/mental de la búsqueda cuando el usuario escribe en español
+  private val _translatedSearchQuery = MutableStateFlow("")
+  val translatedSearchQuery: StateFlow<String> = _translatedSearchQuery.asStateFlow()
+
   // Filtro activo por categoría sintáctica desde el Guiador Superior
   private val _selectedSyntaxFilter = MutableStateFlow<SyntaxFilter?>(null)
   val selectedSyntaxFilter: StateFlow<SyntaxFilter?> = _selectedSyntaxFilter.asStateFlow()
@@ -245,45 +267,88 @@ class VocabularyViewModel @Inject constructor(
     )
 
   /**
-   * Flujo filtrado por búsqueda y categoría seleccionada en el Guiador Educativo Superior,
-   * manteniendo el orden y priorizando la coincidencia exacta en primera fila al buscar.
+   * Flujo filtrado por búsqueda y categoría seleccionada en el Guiador Educativo Superior.
+   * Si el usuario escribe en español (ej. "estar"), el sistema traduce internamente y busca la palabra
+   * en inglés ("be"), posicionándola en la primera fila, sin alterar el texto escrito por el usuario.
+   * Si escribió en inglés nativo, busca directamente en la lista como siempre.
    */
   val filteredWords: StateFlow<List<Word>> = combine(
     words,
     _searchQuery,
+    _translatedSearchQuery,
     _selectedSyntaxFilter
-  ) { list: List<Word>, query: String, filter: SyntaxFilter? ->
+  ) { list: List<Word>, query: String, translatedQuery: String, filter: SyntaxFilter? ->
     var result = list
     if (filter != null) {
       result = result.filter { filter.matchesWord(it) }
     }
     if (query.isNotBlank()) {
-      val trimmed = query.trim()
-      val matches = result.filter { word ->
-        word.lemma.contains(trimmed, ignoreCase = true) ||
-          (trimmed.equals("am", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-          (trimmed.equals("is", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-          (trimmed.equals("are", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-          (trimmed.equals("was", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-          (trimmed.equals("were", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-          (trimmed.endsWith("ing", ignoreCase = true) && trimmed.length > 3 && word.lemma.equals(trimmed.dropLast(3), ignoreCase = true)) ||
-          (trimmed.endsWith("ed", ignoreCase = true) && trimmed.length > 2 && word.lemma.equals(trimmed.dropLast(2), ignoreCase = true))
-      }
-      result = matches.sortedWith(
-        compareBy(
-          { word ->
-            val isExact = word.lemma.equals(trimmed, ignoreCase = true) ||
-              (trimmed.equals("am", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-              (trimmed.equals("is", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true)) ||
-              (trimmed.equals("are", ignoreCase = true) && word.lemma.equals("be", ignoreCase = true))
-            if (isExact) 0 else 1
-          },
-          { word ->
-            if (word.lemma.startsWith(trimmed, ignoreCase = true)) 0 else 1
-          },
-          { word -> word.rank }
+      val trimmedQuery = query.trim().lowercase(java.util.Locale.ROOT)
+      val cleanTranslated = translatedQuery.trim().lowercase(java.util.Locale.ROOT)
+        .removePrefix("to ").trim()
+
+      val isNativeEnglish = result.any { it.lemma.equals(trimmedQuery, ignoreCase = true) }
+
+      if (isNativeEnglish || cleanTranslated.isBlank()) {
+        val matches = result.filter { word ->
+          word.lemma.contains(trimmedQuery, ignoreCase = true) ||
+            (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true)) ||
+            (trimmedQuery == "is" && word.lemma.equals("be", ignoreCase = true)) ||
+            (trimmedQuery == "are" && word.lemma.equals("be", ignoreCase = true)) ||
+            (trimmedQuery == "was" && word.lemma.equals("be", ignoreCase = true)) ||
+            (trimmedQuery == "were" && word.lemma.equals("be", ignoreCase = true)) ||
+            (trimmedQuery.endsWith("ing") && trimmedQuery.length > 3 && word.lemma.equals(trimmedQuery.dropLast(3), ignoreCase = true)) ||
+            (trimmedQuery.endsWith("ed") && trimmedQuery.length > 2 && word.lemma.equals(trimmedQuery.dropLast(2), ignoreCase = true)) ||
+            word.displaySpanishTranslation.contains(trimmedQuery, ignoreCase = true)
+        }
+        result = matches.sortedWith(
+          compareBy(
+            { word ->
+              val isExact = word.lemma.equals(trimmedQuery, ignoreCase = true) ||
+                (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true))
+              if (isExact) 0 else 1
+            },
+            { word ->
+              if (word.lemma.startsWith(trimmedQuery, ignoreCase = true)) 0 else 1
+            },
+            { word -> word.rank }
+          )
         )
-      )
+      } else {
+        // Modo traducción interna de español a inglés (ej: "estar" -> "be" en primera fila)
+        val translatedTokens = cleanTranslated.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
+
+        val matches = result.filter { word ->
+          val lemmaLower = word.lemma.lowercase(java.util.Locale.ROOT)
+          val spanishLower = word.displaySpanishTranslation.lowercase(java.util.Locale.ROOT)
+
+          lemmaLower == cleanTranslated ||
+            lemmaLower.contains(cleanTranslated) ||
+            translatedTokens.any { lemmaLower == it || lemmaLower.contains(it) } ||
+            (cleanTranslated == "be" && (lemmaLower == "be" || lemmaLower == "am" || lemmaLower == "is" || lemmaLower == "are")) ||
+            spanishLower.contains(trimmedQuery) ||
+            trimmedQuery.contains(spanishLower)
+        }
+
+        result = matches.sortedWith(
+          compareBy(
+            { word ->
+              val lemmaLower = word.lemma.lowercase(java.util.Locale.ROOT)
+              when {
+                lemmaLower == cleanTranslated -> 0
+                (cleanTranslated == "be" && lemmaLower == "be") -> 0
+                translatedTokens.contains(lemmaLower) -> 1
+                lemmaLower.startsWith(cleanTranslated) -> 2
+                word.displaySpanishTranslation.equals(trimmedQuery, ignoreCase = true) -> 3
+                word.displaySpanishTranslation.startsWith(trimmedQuery, ignoreCase = true) -> 4
+                lemmaLower.contains(cleanTranslated) -> 5
+                else -> 6
+              }
+            },
+            { word -> word.rank }
+          )
+        )
+      }
     }
     result
   }.stateIn(
@@ -334,6 +399,23 @@ class VocabularyViewModel @Inject constructor(
 
   fun updateSearchQuery(query: String) {
     _searchQuery.value = query
+    val clean = query.trim().lowercase(java.util.Locale.ROOT)
+    if (clean.isBlank()) {
+      _translatedSearchQuery.value = ""
+      return
+    }
+
+    // Si coincide exactamente con un lemma en inglés nativo, no traducir
+    val allWords = words.value
+    val isExactEnglish = allWords.any { it.lemma.equals(clean, ignoreCase = true) }
+    if (isExactEnglish) {
+      _translatedSearchQuery.value = ""
+      return
+    }
+
+    // Traducción inmediata y ligera usando nuestro catálogo y diccionario inverso en memoria
+    val instantTrans = translateSpanishQueryToEnglish(clean)
+    _translatedSearchQuery.value = instantTrans
   }
 
   /**
@@ -462,12 +544,201 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
+  private fun translateSpanishQueryToEnglish(query: String): String {
+    val clean = query.trim().lowercase(java.util.Locale.ROOT)
+    if (clean.isBlank()) return ""
+    coreSpanishToEnglishMap[clean]?.let { return it }
+
+    val reverse = com.example.domain.util.WordDictionary.getReverseTranslations()
+    reverse[clean]?.let { return it }
+
+    val tokens = clean.split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (tokens.size > 1) {
+      val mappedTokens = tokens.mapNotNull { token ->
+        coreSpanishToEnglishMap[token] ?: reverse[token]
+      }
+      if (mappedTokens.isNotEmpty()) {
+        return mappedTokens.joinToString(" ")
+      }
+    }
+    return ""
+  }
+
   override fun onCleared() {
     super.onCleared()
     ttsManager.stop()
     speechToTextManager?.destroy()
     translationManager?.close()
     spanishToEnglishTranslator.close()
+  }
+
+  companion object {
+    private val coreSpanishToEnglishMap = mapOf(
+      "estar" to "be",
+      "ser" to "be",
+      "estoy" to "be",
+      "estas" to "be",
+      "estás" to "be",
+      "esta" to "be",
+      "está" to "be",
+      "estamos" to "be",
+      "estan" to "be",
+      "están" to "be",
+      "estaba" to "be",
+      "estuve" to "be",
+      "estuvo" to "be",
+      "sido" to "be",
+      "siendo" to "be",
+      "soy" to "be",
+      "eres" to "be",
+      "es" to "be",
+      "somos" to "be",
+      "son" to "be",
+      "era" to "be",
+      "fui" to "be",
+      "fue" to "be",
+      "haber" to "have",
+      "hay" to "have",
+      "habia" to "have",
+      "había" to "have",
+      "hubo" to "have",
+      "tener" to "have",
+      "tengo" to "have",
+      "tienes" to "have",
+      "tiene" to "have",
+      "tenemos" to "have",
+      "tienen" to "have",
+      "tuve" to "have",
+      "tuvo" to "have",
+      "hacer" to "do",
+      "hago" to "do",
+      "haces" to "do",
+      "hace" to "do",
+      "hacemos" to "do",
+      "hacen" to "do",
+      "hice" to "do",
+      "hizo" to "do",
+      "hecho" to "do",
+      "ir" to "go",
+      "voy" to "go",
+      "vas" to "go",
+      "va" to "go",
+      "vamos" to "go",
+      "van" to "go",
+      "fui" to "go",
+      "fue" to "go",
+      "ido" to "go",
+      "decir" to "say",
+      "digo" to "say",
+      "dices" to "say",
+      "dice" to "say",
+      "decimos" to "say",
+      "dicen" to "say",
+      "dije" to "say",
+      "dijo" to "say",
+      "dicho" to "say",
+      "ver" to "see",
+      "veo" to "see",
+      "ves" to "see",
+      "ve" to "see",
+      "vemos" to "see",
+      "ven" to "see",
+      "vi" to "see",
+      "vio" to "see",
+      "visto" to "see",
+      "dar" to "give",
+      "doy" to "give",
+      "das" to "give",
+      "da" to "give",
+      "damos" to "give",
+      "dan" to "give",
+      "di" to "give",
+      "dio" to "give",
+      "dado" to "give",
+      "saber" to "know",
+      "se" to "know",
+      "sé" to "know",
+      "sabes" to "know",
+      "sabe" to "know",
+      "sabemos" to "know",
+      "saben" to "know",
+      "supe" to "know",
+      "supo" to "know",
+      "sabido" to "know",
+      "poder" to "can",
+      "puedo" to "can",
+      "puedes" to "can",
+      "puede" to "can",
+      "podemos" to "can",
+      "pueden" to "can",
+      "pude" to "can",
+      "pudo" to "can",
+      "querer" to "want",
+      "quiero" to "want",
+      "quieres" to "want",
+      "quiere" to "want",
+      "queremos" to "want",
+      "quieren" to "want",
+      "quise" to "want",
+      "quiso" to "want",
+      "buscar" to "look",
+      "busco" to "look",
+      "buscas" to "look",
+      "busca" to "look",
+      "buscamos" to "look",
+      "buscan" to "look",
+      "comer" to "eat",
+      "como" to "eat",
+      "comes" to "eat",
+      "come" to "eat",
+      "comemos" to "eat",
+      "comen" to "eat",
+      "comida" to "food",
+      "gato" to "cat",
+      "gatos" to "cat",
+      "perro" to "dog",
+      "perros" to "dog",
+      "hola" to "hello",
+      "gracias" to "thank",
+      "por favor" to "please",
+      "amigo" to "friend",
+      "amigos" to "friend",
+      "amiga" to "friend",
+      "amigas" to "friend",
+      "casa" to "house",
+      "casas" to "house",
+      "tiempo" to "time",
+      "año" to "year",
+      "anos" to "year",
+      "años" to "year",
+      "dia" to "day",
+      "día" to "day",
+      "dias" to "day",
+      "días" to "day",
+      "noche" to "night",
+      "noches" to "night",
+      "hombre" to "man",
+      "hombres" to "man",
+      "mujer" to "woman",
+      "mujeres" to "woman",
+      "niño" to "child",
+      "niños" to "child",
+      "chico" to "boy",
+      "chica" to "girl",
+      "agua" to "water",
+      "bueno" to "good",
+      "buena" to "good",
+      "malo" to "bad",
+      "mala" to "bad",
+      "nuevo" to "new",
+      "nueva" to "new",
+      "grande" to "big",
+      "grandes" to "big",
+      "pequeño" to "small",
+      "pequeno" to "small",
+      "pequeña" to "small",
+      "pequena" to "small"
+    )
   }
 
   class Factory(
