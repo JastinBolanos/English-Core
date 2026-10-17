@@ -554,6 +554,116 @@ class ExampleRobolectricTest {
 
     db.close()
   }
+
+  @Test
+  fun `verify custom words storage persists in json file and auto-increments rank from 2809 to 2810`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.local.CustomWordsStorage(context)
+
+    // Ensure clean state for test
+    val jsonFile = java.io.File(context.filesDir, "custom_words.json")
+    if (jsonFile.exists()) jsonFile.delete()
+
+    val record1 = com.example.data.local.CustomWordRecord(
+      rank = 2810,
+      word = "breakthrough",
+      partOfSpeech = "sustantivo",
+      spanishTranslation = "avance importante",
+      microExample = "a great breakthrough"
+    )
+
+    storage.saveCustomWord(record1)
+
+    assertTrue("El archivo custom_words.json debe existir en el almacenamiento local", jsonFile.exists())
+    val loaded = storage.loadCustomWords()
+    assertEquals(1, loaded.size)
+    assertEquals(2810, loaded[0].rank)
+    assertEquals("breakthrough", loaded[0].word)
+    assertEquals("avance importante", loaded[0].spanishTranslation)
+
+    // Save second custom word
+    val record2 = com.example.data.local.CustomWordRecord(
+      rank = 2811,
+      word = "resilient",
+      partOfSpeech = "modificador (adjetivo)",
+      spanishTranslation = "resiliente",
+      microExample = "stay resilient now"
+    )
+    storage.saveCustomWord(record2)
+
+    val loaded2 = storage.loadCustomWords()
+    assertEquals(2, loaded2.size)
+    assertEquals(2810, loaded2[0].rank)
+    assertEquals(2811, loaded2[1].rank)
+  }
+
+  @Test
+  fun `verify repository addCustomWord assigns rank 2810 and integrates into wordDao and catalogs`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
+
+    // Simulate 2809 words already present
+    dao.insertWord(
+      com.example.data.local.entity.WordEntity(rank = 2809, word = "thirst", partOfSpeech = "sustantivo/verbo")
+    )
+
+    val customWord = repo.addCustomWord(
+      word = "feedback",
+      partOfSpeech = "sustantivo",
+      spanishTranslation = "retroalimentación",
+      microExample = "give good feedback"
+    )
+
+    assertEquals("Debe asignarse automáticamente el rank #2810", 2810, customWord.rank)
+    assertEquals("feedback", customWord.lemma)
+    assertEquals(PartOfSpeech.NOUN, customWord.partOfSpeech)
+    assertEquals("retroalimentación", customWord.displaySpanishTranslation)
+
+    val secondWord = repo.addCustomWord(
+      word = "iterate",
+      partOfSpeech = "verbo",
+      spanishTranslation = "iterar",
+      microExample = "iterate and learn"
+    )
+    assertEquals("Debe asignarse automáticamente el rank #2811", 2811, secondWord.rank)
+
+    db.close()
+  }
+
+  @Test
+  fun `verify add word fab button exists and opens add custom word dialog`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify FAB '+' exists
+    composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
+
+    // Click FAB to open creation dialog
+    composeTestRule.onNodeWithTag("fab_add_custom_word").performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify dialog and preview card exist
+    composeTestRule.onNodeWithTag("dialog_add_custom_word").assertExists()
+    composeTestRule.onNodeWithTag("preview_custom_word_card").assertExists()
+    composeTestRule.onNodeWithTag("input_new_word_lemma").assertExists()
+    composeTestRule.onNodeWithTag("btn_save_custom_word").assertExists()
+
+    // Close dialog
+    composeTestRule.onNodeWithTag("btn_close_add_word_x").performClick()
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("dialog_add_custom_word").assertDoesNotExist()
+  }
 }
 
 

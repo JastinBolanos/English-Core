@@ -51,6 +51,9 @@ interface WordDao {
   @Query("SELECT COUNT(*) FROM words")
   suspend fun getWordCount(): Int
 
+  @Query("SELECT MAX(rank) FROM words")
+  suspend fun getMaxRank(): Int?
+
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertWord(word: WordEntity): Long
 

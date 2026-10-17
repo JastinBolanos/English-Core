@@ -84,7 +84,7 @@ fun EnglishApp() {
     val db = com.example.data.local.AppDatabase.getDatabase(context.applicationContext)
     val dao = db.wordDao()
     val initializer = com.example.data.local.DatabaseInitializer(context.applicationContext, dao)
-    com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context.applicationContext)
   }
 
   val ttsManager = androidx.compose.runtime.remember(context) {

@@ -59,6 +59,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -175,6 +176,8 @@ fun VocabularyScreen(
   val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
   val spanishInputText by viewModel.spanishInputText.collectAsStateWithLifecycle()
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
+  val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
+  val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
 
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
@@ -192,7 +195,7 @@ fun VocabularyScreen(
     val targetRank = input.trim().toIntOrNull() ?: return
     if (words.isEmpty()) return
 
-    // Si había búsqueda de texto o filtro de categoría activo, limpiarlo para tener la lista de 2,809 palabras completa visible
+    // Si había búsqueda de texto o filtro de categoría activo, limpiarlo para tener la lista de palabras completa visible
     if (searchQuery.isNotEmpty()) {
       viewModel.updateSearchQuery("")
     }
@@ -216,10 +219,18 @@ fun VocabularyScreen(
       .fillMaxSize()
       .testTag("screen_vocabulario"),
     floatingActionButton = {
-      SpeedFloatingActionButton(
-        currentSpeed = currentSpeechSpeed,
-        onClick = { viewModel.onToggleSpeed() }
-      )
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        AddWordFloatingActionButton(
+          onClick = { viewModel.openAddWordDialog() }
+        )
+        SpeedFloatingActionButton(
+          currentSpeed = currentSpeechSpeed,
+          onClick = { viewModel.onToggleSpeed() }
+        )
+      }
     },
     topBar = {
       TopAppBar(
@@ -429,7 +440,7 @@ fun VocabularyScreen(
           },
           placeholder = {
             Text(
-              text = "# 1-2809",
+              text = "# 1-${words.maxOfOrNull { it.rank } ?: 2809}",
               style = MaterialTheme.typography.bodySmall,
               color = Color(0xFF64748B),
               fontSize = 11.sp
@@ -520,6 +531,21 @@ fun VocabularyScreen(
     TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
   }
 
+  if (showAddWordDialog) {
+    AddCustomWordDialog(
+      nextRank = nextRank,
+      onDismiss = { viewModel.closeAddWordDialog() },
+      onSaveWord = { word, category, spanish, example ->
+        viewModel.addNewCustomWord(word, category, spanish, example)
+        coroutineScope.launch {
+          val newIndex = words.size.coerceAtLeast(0)
+          listState.animateScrollToItem(newIndex)
+        }
+      },
+      onPreviewSpeak = { text -> viewModel.speakWord(text) }
+    )
+  }
+
   GeminiConsultationTray(
     isOpen = showGeminiDialog,
     onDismiss = { viewModel.closeGeminiDialog() },
@@ -533,6 +559,389 @@ fun VocabularyScreen(
     onApiKeyChanged = { viewModel.updateGeminiApiKey(it) },
     draftPhrase = draftWords.joinToString(" ") { it.lemma }
   )
+}
+
+/**
+ * Botón Flotante Inferior de Añadir Palabra Personalizada (+).
+ * Ubicado en la esquina baja justo al lado del reductor de velocidad.
+ * Estética HUD oscura (fondo #101923 con borde cian brillante y cruz '+').
+ */
+@Composable
+fun AddWordFloatingActionButton(
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("fab_add_custom_word"),
+    shape = RoundedCornerShape(20.dp),
+    color = Color(0xFF101923),
+    border = BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.85f)),
+    shadowElevation = 8.dp
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+      Icon(
+        imageVector = Icons.Default.Add,
+        contentDescription = "Añadir palabra personalizada",
+        tint = Color(0xFF38BDF8),
+        modifier = Modifier.size(20.dp)
+      )
+      Text(
+        text = "Nueva",
+        color = Color(0xFFE2E8F0),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.5.sp
+      )
+    }
+  }
+}
+
+/**
+ * Diálogo interactivo con caja tipo HUD para añadir una palabra personalizada.
+ * El rank siempre se asigna automáticamente (maxOf(2809, maxRank) + 1).
+ * Guarda en custom_words.json en el almacenamiento local del teléfono sin alterar
+ * el vocabulario nativo de 2,809 palabras.
+ */
+@Composable
+fun AddCustomWordDialog(
+  nextRank: Int,
+  onDismiss: () -> Unit,
+  onSaveWord: (word: String, category: String, spanish: String, example: String) -> Unit,
+  onPreviewSpeak: (String) -> Unit
+) {
+  var wordInput by rememberSaveable { mutableStateOf("") }
+  var spanishInput by rememberSaveable { mutableStateOf("") }
+  var exampleInput by rememberSaveable { mutableStateOf("") }
+  var selectedCategory by rememberSaveable { mutableStateOf("sustantivo") }
+
+  val previewPartOfSpeech = remember(selectedCategory) {
+    com.example.domain.util.WordGrammarCatalog.getPrimaryCategory(selectedCategory)
+  }
+  val syntaxColor = getWordSyntaxColor(previewPartOfSpeech)
+
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(usePlatformDefaultWidth = false)
+  ) {
+    Surface(
+      shape = RoundedCornerShape(20.dp),
+      color = Color(0xFF0F172A),
+      border = BorderStroke(1.2.dp, syntaxColor.copy(alpha = 0.7f)),
+      shadowElevation = 10.dp,
+      modifier = Modifier
+        .fillMaxWidth(0.94f)
+        .padding(vertical = 16.dp)
+        .testTag("dialog_add_custom_word")
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(20.dp)
+          .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+      ) {
+        // Cabecera del diálogo
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            Icon(
+              imageVector = Icons.Default.Add,
+              contentDescription = null,
+              tint = syntaxColor,
+              modifier = Modifier.size(24.dp)
+            )
+            Column {
+              Text(
+                text = "AÑADIR PALABRA (#$nextRank)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFFF8FAFC),
+                fontSize = 16.sp
+              )
+              Text(
+                text = "Se guardará en custom_words.json en tu dispositivo",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF94A3B8),
+                fontSize = 11.sp
+              )
+            }
+          }
+
+          IconButton(
+            onClick = onDismiss,
+            modifier = Modifier
+              .size(28.dp)
+              .testTag("btn_close_add_word_x")
+          ) {
+            Icon(
+              imageVector = Icons.Default.Close,
+              contentDescription = "Cerrar",
+              tint = Color(0xFF94A3B8),
+              modifier = Modifier.size(18.dp)
+            )
+          }
+        }
+
+        HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+
+        // 1. VISTA PREVIA DE LA CAJA HUD
+        Text(
+          text = "VISTA PREVIA DE TU TARJETA HUD:",
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Bold,
+          color = Color(0xFF94A3B8),
+          fontSize = 10.sp
+        )
+
+        Card(
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("preview_custom_word_card"),
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+          border = BorderStroke(1.dp, syntaxColor),
+          elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            // Badge de Rank automático
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFF0F172A),
+              border = BorderStroke(1.dp, Color(0xFF334155)),
+              modifier = Modifier.size(36.dp)
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Text(
+                  text = "#$nextRank",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF38BDF8)
+                )
+              }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Text(
+                  text = if (wordInput.isNotBlank()) wordInput.trim() else "(palabra vacía)",
+                  style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                  ),
+                  color = if (wordInput.isNotBlank()) syntaxColor else Color(0xFF64748B)
+                )
+                Text(
+                  text = "0",
+                  fontSize = 13.sp,
+                  fontWeight = FontWeight.Normal,
+                  color = Color(0xFF64748B)
+                )
+              }
+              Text(
+                text = selectedCategory,
+                style = MaterialTheme.typography.labelSmall,
+                color = syntaxColor.copy(alpha = 0.85f),
+                fontSize = 11.sp
+              )
+              if (spanishInput.isNotBlank()) {
+                Text(
+                  text = spanishInput.trim(),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = Color(0xFFCBD5E1),
+                  fontSize = 11.sp
+                )
+              }
+            }
+
+            // Pill de imán
+            MagnetIndicatorPill(nextCategories = previewPartOfSpeech.nextExpectedCategories)
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Icono de volumen preview
+            IconButton(
+              onClick = {
+                if (wordInput.isNotBlank()) {
+                  onPreviewSpeak(wordInput.trim())
+                }
+              },
+              modifier = Modifier.size(34.dp)
+            ) {
+              Icon(
+                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                contentDescription = "Escuchar pronunciación",
+                tint = if (wordInput.isNotBlank()) syntaxColor else Color(0xFF64748B),
+                modifier = Modifier.size(19.dp)
+              )
+            }
+          }
+        }
+
+        // 2. FORMULARIO DE ENTRADA
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text(
+            text = "Palabra en inglés:",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE2E8F0),
+            fontSize = 12.sp
+          )
+          OutlinedTextField(
+            value = wordInput,
+            onValueChange = { wordInput = it },
+            placeholder = { Text("Ej: breakthrough, resilient, feedback...", color = Color(0xFF64748B)) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("input_new_word_lemma")
+          )
+        }
+
+        // Selector de Categoría Sintáctica
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text(
+            text = "Categoría sintáctica (Color pasivo):",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE2E8F0),
+            fontSize = 12.sp
+          )
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+          ) {
+            val categories = listOf(
+              Triple("🟡 Conector", "conector (conjunción)", Color(0xFFFACC15)),
+              Triple("🟣 Sujeto", "pronombre", Color(0xFFA855F7)),
+              Triple("🔵 Verbo", "verbo", Color(0xFF3B82F6)),
+              Triple("🟢 Sustantivo", "sustantivo", Color(0xFF34D399)),
+              Triple("⚪ Modificador", "modificador (adjetivo)", Color(0xFFF8FAFC))
+            )
+            categories.forEach { (label, value, catColor) ->
+              val isSelected = selectedCategory == value
+              Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isSelected) catColor.copy(alpha = 0.35f) else catColor.copy(alpha = 0.10f),
+                border = BorderStroke(
+                  width = if (isSelected) 1.5.dp else 1.dp,
+                  color = if (isSelected) catColor else catColor.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier
+                  .clickable { selectedCategory = value }
+                  .testTag("chip_select_category_${label.filter { it.isLetter() }}")
+              ) {
+                Text(
+                  text = label,
+                  color = if (isSelected) Color.White else catColor,
+                  fontSize = 11.sp,
+                  fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                )
+              }
+            }
+          }
+        }
+
+        // Campo Traducción al español
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text(
+            text = "Traducción al español:",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE2E8F0),
+            fontSize = 12.sp
+          )
+          OutlinedTextField(
+            value = spanishInput,
+            onValueChange = { spanishInput = it },
+            placeholder = { Text("Ej: avance importante, innovación...", color = Color(0xFF64748B)) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("input_new_word_spanish")
+          )
+        }
+
+        // Campo Micro-ejemplo (opcional)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          Text(
+            text = "Micro-ejemplo en inglés (opcional):",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE2E8F0),
+            fontSize = 12.sp
+          )
+          OutlinedTextField(
+            value = exampleInput,
+            onValueChange = { exampleInput = it },
+            placeholder = { Text("Ej: a major breakthrough", color = Color(0xFF64748B)) },
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("input_new_word_example")
+          )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Botón Guardar
+        Button(
+          onClick = {
+            if (wordInput.isNotBlank()) {
+              onSaveWord(
+                wordInput.trim(),
+                selectedCategory,
+                spanishInput.trim(),
+                exampleInput.trim()
+              )
+            }
+          },
+          enabled = wordInput.isNotBlank(),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("btn_save_custom_word"),
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF38BDF8),
+            disabledContainerColor = Color(0xFF334155)
+          )
+        ) {
+          Text(
+            text = "GUARDAR PALABRA #$nextRank",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (wordInput.isNotBlank()) Color(0xFF0F172A) else Color(0xFF94A3B8)
+          )
+        }
+      }
+    }
+  }
 }
 
 /**

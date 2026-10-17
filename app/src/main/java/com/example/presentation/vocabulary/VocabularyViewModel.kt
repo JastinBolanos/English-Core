@@ -206,6 +206,39 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
+  // Estado para creación de palabras personalizadas (#2810+)
+  private val _showAddWordDialog = MutableStateFlow(false)
+  val showAddWordDialog: StateFlow<Boolean> = _showAddWordDialog.asStateFlow()
+
+  fun openAddWordDialog() {
+    _showAddWordDialog.value = true
+  }
+
+  fun closeAddWordDialog() {
+    _showAddWordDialog.value = false
+  }
+
+  fun addNewCustomWord(
+    word: String,
+    category: String,
+    spanishTranslation: String,
+    microExample: String
+  ) {
+    val clean = word.trim()
+    if (clean.isBlank()) return
+    viewModelScope.launch {
+      try {
+        repository.addCustomWord(
+          word = clean,
+          partOfSpeech = category,
+          spanishTranslation = spanishTranslation.trim(),
+          microExample = microExample.trim()
+        )
+        _showAddWordDialog.value = false
+      } catch (_: Exception) {}
+    }
+  }
+
   private val _isLoading = MutableStateFlow(false)
   val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 

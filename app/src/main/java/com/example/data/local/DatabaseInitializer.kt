@@ -36,14 +36,49 @@ class DatabaseInitializer @Inject constructor(
                         (sampleWord2809 != null && sampleWord2809.partOfSpeech != "sustantivo/verbo")
       if (needsReload) {
         loadWordsFromCsv(preserveUseCounts = true)
+      } else {
+        syncCustomWords()
       }
       return@withContext
     }
     loadWordsFromCsv(preserveUseCounts = count > 0)
+    syncCustomWords()
   }
 
   suspend fun forceReload() = withContext(Dispatchers.IO) {
     loadWordsFromCsv(preserveUseCounts = true)
+    syncCustomWords()
+  }
+
+  suspend fun syncCustomWords() {
+    try {
+      val customStorage = CustomWordsStorage(context)
+      val customWords = customStorage.loadCustomWords()
+      for (cw in customWords) {
+        val clean = cw.word.lowercase(Locale.ROOT).trim()
+        com.example.domain.util.WordGrammarCatalog.injectGrammarTypes(mapOf(clean to cw.partOfSpeech))
+        if (cw.spanishTranslation.isNotBlank()) {
+          WordDictionary.injectTranslations(mapOf(clean to cw.spanishTranslation))
+        }
+        if (cw.microExample.isNotBlank()) {
+          WordDictionary.injectExamples(mapOf(clean to cw.microExample))
+        }
+        val existing = wordDao.getWordByLemma(clean)
+        if (existing == null) {
+          wordDao.insertWord(
+            WordEntity(
+              rank = cw.rank,
+              word = cw.word,
+              partOfSpeech = cw.partOfSpeech,
+              interval = 0,
+              easeFactor = 2.5f,
+              nextReviewDate = 0L,
+              useCount = cw.useCount
+            )
+          )
+        }
+      }
+    } catch (_: Exception) {}
   }
 
   private suspend fun loadWordsFromCsv(preserveUseCounts: Boolean) {
@@ -111,6 +146,7 @@ class DatabaseInitializer @Inject constructor(
       if (entities.isNotEmpty()) {
         wordDao.clearAll()
         wordDao.insertAll(entities)
+        syncCustomWords()
       }
     } catch (e: Exception) {
       e.printStackTrace()

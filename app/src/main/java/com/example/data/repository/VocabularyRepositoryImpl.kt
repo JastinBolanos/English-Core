@@ -17,8 +17,13 @@ import javax.inject.Singleton
 @Singleton
 class VocabularyRepositoryImpl @Inject constructor(
   private val wordDao: WordDao,
-  private val databaseInitializer: DatabaseInitializer
+  private val databaseInitializer: DatabaseInitializer,
+  private val context: android.content.Context? = null
 ) : VocabularyRepository {
+
+  private val customWordsStorage by lazy {
+    context?.let { com.example.data.local.CustomWordsStorage(it) }
+  }
 
   /**
    * Obtiene todas las palabras respetando el Orden de Combate (rank ASC).
@@ -47,6 +52,53 @@ class VocabularyRepositoryImpl @Inject constructor(
     } else if (word.isNotBlank()) {
       wordDao.incrementUseCountByWord(word.trim())
     }
+  }
+
+  override suspend fun addCustomWord(
+    word: String,
+    partOfSpeech: String,
+    spanishTranslation: String,
+    microExample: String
+  ): Word {
+    val cleanLemma = word.trim()
+    val cleanLemmaLower = cleanLemma.lowercase(java.util.Locale.ROOT)
+    val currentMaxRank = wordDao.getMaxRank() ?: 2809
+    val nextRank = maxOf(2809, currentMaxRank) + 1
+
+    val customRecord = com.example.data.local.CustomWordRecord(
+      rank = nextRank,
+      word = cleanLemma,
+      partOfSpeech = partOfSpeech,
+      spanishTranslation = spanishTranslation.trim(),
+      microExample = microExample.trim(),
+      useCount = 0
+    )
+
+    // 1. Guardar en el almacenamiento JSON local del teléfono
+    customWordsStorage?.saveCustomWord(customRecord)
+
+    // 2. Inyectar en catálogos en memoria
+    WordGrammarCatalog.injectGrammarTypes(mapOf(cleanLemmaLower to partOfSpeech))
+    if (spanishTranslation.isNotBlank()) {
+      WordDictionary.injectTranslations(mapOf(cleanLemmaLower to spanishTranslation.trim()))
+    }
+    if (microExample.isNotBlank()) {
+      WordDictionary.injectExamples(mapOf(cleanLemmaLower to microExample.trim()))
+    }
+
+    // 3. Insertar en Room Database
+    val entity = WordEntity(
+      rank = nextRank,
+      word = cleanLemma,
+      partOfSpeech = partOfSpeech,
+      interval = 0,
+      easeFactor = 2.5f,
+      nextReviewDate = 0L,
+      useCount = 0
+    )
+    val id = wordDao.insertWord(entity)
+
+    return entity.copy(id = id).toDomain()
   }
 
   private fun WordEntity.toDomain(): Word {

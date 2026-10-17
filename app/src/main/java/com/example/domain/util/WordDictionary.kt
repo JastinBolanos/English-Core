@@ -24,7 +24,7 @@ object WordDictionary {
    * Carga las traducciones al español de las 2809 palabras desde ngsl_translations.json
    */
   fun loadTranslationsFromContext(context: Context) {
-    if (loadedTranslations.isNotEmpty()) return
+    if (loadedTranslations.size >= 2809) return
     try {
       val inputStream = context.resources.openRawResource(R.raw.ngsl_translations)
       val reader = BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))
@@ -425,11 +425,19 @@ object WordDictionary {
     return clean
   }
 
+  private val customExamples = ConcurrentHashMap<String, String>()
+
+  fun injectExamples(map: Map<String, String>) {
+    customExamples.putAll(map)
+  }
+
   /**
    * Genera o retorna un micro-ejemplo de MÁXIMO 3 o 4 palabras estrictamente.
    */
   fun getMicroExample(lemma: String, partOfSpeech: PartOfSpeech): String {
     val clean = lemma.lowercase(Locale.ROOT).trim()
+    val custom = customExamples[clean]
+    if (!custom.isNullOrBlank()) return custom
     val match = curatedExamples[clean]
     if (match != null) return match
 
