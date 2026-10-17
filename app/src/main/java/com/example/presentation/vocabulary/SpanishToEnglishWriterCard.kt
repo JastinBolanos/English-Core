@@ -414,41 +414,65 @@ fun SpanishToEnglishWriterCard(
               ) {
                 words.forEach { rawWord ->
                   val cleanWord = rawWord.filter { it.isLetterOrDigit() || it == '\'' }
-                  val isSelected = selectedWord?.equals(cleanWord, ignoreCase = true) == true
+                  if (cleanWord.isNotBlank()) {
+                    val isSelected = selectedWord?.equals(cleanWord, ignoreCase = true) == true
 
-                  Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF0369A1).copy(alpha = 0.5f) else Color(0xFF1E293B),
-                    border = BorderStroke(
-                      width = 1.dp,
-                      color = if (isSelected) Color(0xFF38BDF8) else Color(0xFF38BDF8).copy(alpha = 0.45f)
-                    ),
-                    modifier = Modifier
-                      .clickable {
-                        if (cleanWord.isNotBlank()) {
+                    Surface(
+                      shape = RoundedCornerShape(8.dp),
+                      color = if (isSelected) Color(0xFF0369A1).copy(alpha = 0.5f) else Color(0xFF1E293B),
+                      border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isSelected) Color(0xFF38BDF8) else Color(0xFF38BDF8).copy(alpha = 0.45f)
+                      ),
+                      modifier = Modifier
+                        .clickable {
                           selectedWord = cleanWord
                           onWordClick(cleanWord)
                         }
-                      }
-                      .testTag("translated_word_$cleanWord")
-                  ) {
-                    Text(
-                      text = rawWord,
-                      style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 15.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
-                      ),
-                      color = if (isSelected) Color(0xFF38BDF8) else Color(0xFFF1F5F9),
-                      modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-                    )
+                        .testTag("translated_word_$cleanWord")
+                    ) {
+                      Text(
+                        text = cleanWord,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                          fontSize = 15.sp,
+                          fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                        ),
+                        color = if (isSelected) Color(0xFF38BDF8) else Color(0xFFF1F5F9),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                      )
+                    }
                   }
                 }
+              }
+
+              // Texto crudo no cliclable tal como se ve realmente con su puntuación, comas o símbolos
+              Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF0F172A),
+                border = BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.7f)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(top = 2.dp)
+              ) {
+                Text(
+                  text = englishText,
+                  style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Normal
+                  ),
+                  color = Color(0xFFCBD5E1),
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+                    .testTag("raw_english_translation_text")
+                )
               }
 
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = 1.dp)
               ) {
                 Icon(
                   imageVector = Icons.Default.Search,
