@@ -3,4 +3,7 @@
     <string name="btn_vocabulario">Vocabulario</string>
     <string name="btn_alarmas">Alarmas</string>
     <string name="back">Volver</string>
+    <string name="close_player">Cerrar reproductor</string>
+    <string name="video_lessons">Lecciones en Video</string>
+
 </resources>

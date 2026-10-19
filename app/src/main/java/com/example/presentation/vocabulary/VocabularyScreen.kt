@@ -74,6 +74,8 @@ import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayCircle
+import com.example.presentation.youtube.LiveYouTubeSearchTray
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
@@ -192,6 +194,14 @@ fun VocabularyScreen(
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
   var explainedFilter by rememberSaveable { mutableStateOf<SyntaxFilter?>(null) }
+  var currentVideoId by rememberSaveable { mutableStateOf<String?>("84kLpP7j9iQ") }
+  var isVideoPlayerVisible by rememberSaveable { mutableStateOf(false) }
+
+  fun onVideoSelected(videoId: String) {
+    currentVideoId = videoId
+    isVideoPlayerVisible = true
+  }
+
   val listState = rememberLazyListState()
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
@@ -346,6 +356,7 @@ fun VocabularyScreen(
         .fillMaxSize()
         .padding(innerPadding)
     ) {
+
       // 1. EL GUIADOR SUPERIOR (La Brújula de Orden y Color - Interactivo con selección y botón X)
       SyntaxCompassHeader(
         selectedFilter = selectedSyntaxFilter,
@@ -394,6 +405,19 @@ fun VocabularyScreen(
           coroutineScope.launch {
             listState.scrollToItem(0)
           }
+        }
+      )
+
+      // 4. BUSCADOR EN VIVO DE YOUTUBE CON RESULTADOS Y MINIATURAS
+      // Solo el buscador visible; al escribir aparecen los resultados con su miniatura y al presionar se reproduce en el espacio compacto
+      LiveYouTubeSearchTray(
+        currentVideoId = currentVideoId,
+        isPlaying = isVideoPlayerVisible,
+        onSelectVideo = { videoId ->
+          onVideoSelected(videoId)
+        },
+        onClosePlayer = {
+          isVideoPlayerVisible = false
         }
       )
 
