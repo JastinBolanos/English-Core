@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,8 +24,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
@@ -92,161 +96,118 @@ fun SpanishToEnglishWriterCard(
   val isTranslating = translationState is TranslationState.Translating || translationState is TranslationState.DownloadingModel
   val hasContent = spanishText.isNotBlank() || englishText.isNotBlank()
 
-  Surface(
+  Column(
     modifier = modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 4.dp)
+      .padding(horizontal = 16.dp, vertical = 2.dp)
       .testTag("spanish_english_writer_card"),
-    shape = RoundedCornerShape(14.dp),
-    color = Color(0xFF1E293B),
-    border = BorderStroke(
-      width = 1.dp,
-      color = if (hasContent) Color(0xFF38BDF8).copy(alpha = 0.8f) else Color(0xFF334155)
-    ),
-    shadowElevation = 3.dp
+    verticalArrangement = Arrangement.spacedBy(6.dp)
   ) {
-    Column(
+    // 1. Una sola caja limpia con el símbolo de traductor a su costado - Ultra-delgada (la mitad del alto: 30dp)
+    BasicTextField(
+      value = spanishText,
+      onValueChange = onSpanishTextChanged,
+      singleLine = true,
+      textStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = Color(0xFFF8FAFC),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium
+      ),
+      cursorBrush = SolidColor(Color(0xFF38BDF8)),
+      keyboardOptions = KeyboardOptions(
+        imeAction = ImeAction.Done
+      ),
+      keyboardActions = KeyboardActions(
+        onDone = {
+          focusManager.clearFocus()
+          onTranslateNow()
+        }
+      ),
       modifier = Modifier
         .fillMaxWidth()
-        .padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-      // Cabecera del Escritor Traductor
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-      ) {
+        .testTag("input_spanish_text"),
+      decorationBox = { innerTextField ->
         Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(30.dp)
+            .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
+            .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp),
+          verticalAlignment = Alignment.CenterVertically
         ) {
           Icon(
             imageVector = Icons.Default.Translate,
-            contentDescription = null,
+            contentDescription = "Traductor",
             tint = Color(0xFF38BDF8),
             modifier = Modifier.size(16.dp)
           )
-          Text(
-            text = "TRADUCTOR: ESPAÑOL ➔ INGLÉS",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = Color(0xFF38BDF8),
-            fontSize = 11.sp
-          )
-          Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = Color(0xFF0F172A),
-            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f))
+          Spacer(modifier = Modifier.width(8.dp))
+          Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
           ) {
-            Text(
-              text = "ES ➔ EN",
-              style = MaterialTheme.typography.labelSmall,
-              color = Color(0xFF34D399),
-              fontWeight = FontWeight.Bold,
-              modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-              fontSize = 9.sp
-            )
-          }
-        }
-
-        if (spanishText.isNotEmpty() || englishText.isNotEmpty()) {
-          Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = Color(0xFF0F172A),
-            border = BorderStroke(1.dp, Color(0xFF475569)),
-            modifier = Modifier
-              .clickable {
-                selectedWord = null
-                onClear()
-              }
-              .testTag("btn_clear_spanish_writer")
-          ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Limpiar escritor",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(13.dp)
-              )
+            if (spanishText.isEmpty()) {
               Text(
-                text = "Limpiar",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8),
-                fontSize = 10.sp
+                text = "Escribe una palabra o frase en español...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
               )
             }
+            innerTextField()
           }
-        }
-      }
-
-      // 1. Escritor en Español (Input)
-      OutlinedTextField(
-        value = spanishText,
-        onValueChange = onSpanishTextChanged,
-        placeholder = {
-          Text(
-            text = "Escribe una palabra o frase en español...",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF64748B),
-            fontSize = 13.sp
-          )
-        },
-        trailingIcon = {
           if (isTranslating) {
             CircularProgressIndicator(
-              modifier = Modifier.size(18.dp),
+              modifier = Modifier.size(14.dp),
               strokeWidth = 2.dp,
               color = Color(0xFF38BDF8)
             )
           } else if (spanishText.isNotBlank()) {
-            IconButton(
-              onClick = {
-                focusManager.clearFocus()
-                onTranslateNow()
-              },
-              modifier = Modifier.testTag("btn_trigger_translation")
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              modifier = Modifier.padding(start = 4.dp)
             ) {
-              Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = "Traducir al inglés",
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(18.dp)
-              )
+              IconButton(
+                onClick = {
+                  selectedWord = null
+                  onClear()
+                },
+                modifier = Modifier
+                  .size(22.dp)
+                  .testTag("btn_clear_spanish_writer")
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Close,
+                  contentDescription = "Limpiar escritor",
+                  tint = Color(0xFF94A3B8),
+                  modifier = Modifier.size(14.dp)
+                )
+              }
+              IconButton(
+                onClick = {
+                  focusManager.clearFocus()
+                  onTranslateNow()
+                },
+                modifier = Modifier
+                  .size(22.dp)
+                  .testTag("btn_trigger_translation")
+              ) {
+                Icon(
+                  imageVector = Icons.Default.AutoAwesome,
+                  contentDescription = "Traducir al inglés",
+                  tint = Color(0xFF38BDF8),
+                  modifier = Modifier.size(14.dp)
+                )
+              }
             }
           }
-        },
-        keyboardOptions = KeyboardOptions(
-          imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(
-          onDone = {
-            focusManager.clearFocus()
-            onTranslateNow()
-          }
-        ),
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedContainerColor = Color(0xFF0F172A),
-          unfocusedContainerColor = Color(0xFF0F172A),
-          focusedBorderColor = Color(0xFF38BDF8),
-          unfocusedBorderColor = Color(0xFF334155),
-          focusedTextColor = Color(0xFFF8FAFC),
-          unfocusedTextColor = Color(0xFFF8FAFC),
-          cursorColor = Color(0xFF38BDF8)
-        ),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Medium
-        ),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("input_spanish_text")
-      )
+        }
+      }
+    )
 
       // 2. Despliegue de la versión en inglés justo más abajo en este escritor
       AnimatedVisibility(
@@ -510,5 +471,4 @@ fun SpanishToEnglishWriterCard(
         }
       }
     }
-  }
 }
