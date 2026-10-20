@@ -91,14 +91,14 @@ fun LiveYouTubeSearchTray(
     var isPlayerExpanded by rememberSaveable { mutableStateOf(true) }
     var loadProgress by remember { mutableFloatStateOf(0f) }
     var isLoadingPage by remember { mutableStateOf(false) }
-    var activeUrl by rememberSaveable { mutableStateOf("https://m.youtube.com") }
+    var activeUrl by rememberSaveable { mutableStateOf(DEFAULT_CONVERSATION_SEARCH_URL) }
 
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
 
     fun executeSearch(term: String) {
         val trimmed = term.trim()
         val targetUrl = when {
-            trimmed.isEmpty() -> "https://m.youtube.com"
+            trimmed.isEmpty() -> DEFAULT_CONVERSATION_SEARCH_URL
             trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
             trimmed.matches(Regex("^[a-zA-Z0-9_-]{11}$")) -> "https://m.youtube.com/watch?v=$trimmed"
             else -> {

@@ -86,7 +86,16 @@ enum class SearchCategory(val title: String) {
     SPEED_REFLEX("⚡ Velocidad y Reflejo")
 }
 
+/**
+ * Búsqueda directa por defecto para evitar distracciones en el feed de inicio de YouTube.
+ * Lleva directamente a una selección de conversación en inglés simple y cotidiana.
+ */
+const val DEFAULT_CONVERSATION_SEARCH_QUERY = "simple everyday english conversation"
+val DEFAULT_CONVERSATION_SEARCH_URL: String = "https://m.youtube.com/results?search_query=" +
+    URLEncoder.encode(DEFAULT_CONVERSATION_SEARCH_QUERY, StandardCharsets.UTF_8.toString())
+
 val ALL_SHORTCUTS = listOf(
+    YouTubeSearchShortcut("💬 Conversación Simple", DEFAULT_CONVERSATION_SEARCH_QUERY),
     YouTubeSearchShortcut("🎬 Habla Pegada", "american english connected speech practice"),
     YouTubeSearchShortcut("🍿 Escenas con Subs", "learn english with movie scenes english subtitles"),
     YouTubeSearchShortcut("🗣️ Reducciones Rápidas", "fast english reductions gonna wanna gotta"),
@@ -157,7 +166,7 @@ fun FloatingYouTubeTray(
     var canGoForward by remember { mutableStateOf(false) }
 
     var selectedCategory by remember { mutableStateOf(SearchCategory.ALL) }
-    var activeQuery by remember { mutableStateOf<String?>(null) }
+    var activeQuery by remember { mutableStateOf<String?>(DEFAULT_CONVERSATION_SEARCH_QUERY) }
 
     val configuration = LocalConfiguration.current
     val totalTrayHeight = (configuration.screenHeightDp * 0.80f).dp
@@ -238,15 +247,34 @@ fun FloatingYouTubeTray(
                 ): Boolean {
                     val url = request?.url?.toString() ?: return false
                     if (url.startsWith("intent:") || url.startsWith("vnd.youtube:")) {
-                        val fallback = "https://m.youtube.com"
-                        view?.loadUrl(fallback)
+                        view?.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
+                        return true
+                    }
+                    // Protección anti-distracción: evitar recaer en el feed de inicio algorítmico de YouTube
+                    val normalized = url.trimEnd('/')
+                    if (normalized == "https://m.youtube.com" || normalized == "https://www.youtube.com" ||
+                        normalized == "https://m.youtube.com/#" || normalized == "https://www.youtube.com/#") {
+                        view?.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
                         return true
                     }
                     return false
                 }
             }
 
-            loadUrl("https://m.youtube.com")
+            // Búsqueda directa inicial en inglés sin pasar por la pantalla de inicio distractora
+            loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
+        }
+    }
+
+    // Al abrir la bandeja, verificar que no esté en una pantalla vacía o de inicio genérico
+    androidx.compose.runtime.LaunchedEffect(isOpen) {
+        if (isOpen) {
+            val currentUrl = persistentWebView.url?.trimEnd('/')
+            if (currentUrl.isNullOrBlank() || currentUrl == "about:blank" ||
+                currentUrl == "https://m.youtube.com" || currentUrl == "https://www.youtube.com") {
+                activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
+                persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
+            }
         }
     }
 
@@ -336,20 +364,21 @@ fun FloatingYouTubeTray(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Ícono de YouTube: círculo rojo con play blanco
+                        // Ícono de YouTube: círculo rojo con play blanco -> lleva directo a búsqueda de conversación
                         Surface(
                             shape = CircleShape,
                             color = Color(0xFFFF0000),
                             modifier = Modifier
                                 .size(26.dp)
                                 .clickable {
-                                    persistentWebView.loadUrl("https://m.youtube.com")
+                                    activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
+                                    persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
                                 }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "YouTube Inicio",
+                                    contentDescription = "Buscar Conversación en Inglés",
                                     tint = Color.White,
                                     modifier = Modifier.size(17.dp)
                                 )
@@ -392,16 +421,17 @@ fun FloatingYouTubeTray(
                             )
                         }
 
-                        // Botón Inicio
+                        // Botón Inicio -> Recarga búsqueda directa de conversación simple
                         IconButton(
                             onClick = {
-                                persistentWebView.loadUrl("https://m.youtube.com")
+                                activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
+                                persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Home,
-                                contentDescription = "Inicio",
+                                contentDescription = "Conversación Simple",
                                 tint = Color(0xFF94A3B8),
                                 modifier = Modifier.size(17.dp)
                             )
@@ -417,6 +447,36 @@ fun FloatingYouTubeTray(
                                 contentDescription = "Recargar",
                                 tint = Color(0xFF94A3B8),
                                 modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+
+                    // Badge central de búsqueda directa anti-distracción
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF1E293B).copy(alpha = 0.9f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+                        modifier = Modifier.clickable {
+                            activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
+                            persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
+                        }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = Color(0xFF38BDF8),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = "Conversación",
+                                color = Color(0xFFE2E8F0),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
