@@ -67,9 +67,7 @@ class VocabularyViewModel @Inject constructor(
   private val _isGeminiLoading = MutableStateFlow(false)
   val isGeminiLoading: StateFlow<Boolean> = _isGeminiLoading.asStateFlow()
 
-  private val _geminiApiKey = MutableStateFlow(
-    if (com.example.BuildConfig.GEMINI_API_KEY == "your_gemini_api_key_here") "" else com.example.BuildConfig.GEMINI_API_KEY
-  )
+  private val _geminiApiKey = MutableStateFlow("")
   val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
   private val _geminiInputText = MutableStateFlow("")
@@ -97,10 +95,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob = viewModelScope.launch {
       kotlinx.coroutines.delay(350)
       if (_spanishInputText.value.trim() != clean) return@launch
-      val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-        ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-        ?: ""
-      spanishToEnglishTranslator.translate(clean, key, viewModelScope)
+      spanishToEnglishTranslator.translate(clean, "", viewModelScope)
     }
   }
 
@@ -108,10 +103,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob?.cancel()
     val clean = _spanishInputText.value.trim()
     if (clean.isBlank()) return
-    val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-      ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-      ?: ""
-    spanishToEnglishTranslator.translate(clean, key, viewModelScope)
+    spanishToEnglishTranslator.translate(clean, "", viewModelScope)
   }
 
   fun clearSpanishTranslator() {
@@ -174,9 +166,7 @@ class VocabularyViewModel @Inject constructor(
     _isGeminiLoading.value = true
 
     viewModelScope.launch {
-      val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-        ?: com.example.BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" }
-        ?: ""
+      val key = _geminiApiKey.value.takeIf { it.isNotBlank() && it != "your_gemini_api_key_here" } ?: ""
       val result = geminiChatService.askGemini(currentHistory, prompt, key)
       _isGeminiLoading.value = false
       result.onSuccess { responseText ->

@@ -103,14 +103,14 @@ fun SpanishToEnglishWriterCard(
       .testTag("spanish_english_writer_card"),
     verticalArrangement = Arrangement.spacedBy(6.dp)
   ) {
-    // 1. Una sola caja limpia con el símbolo de traductor a su costado - Ultra-delgada (la mitad del alto: 30dp)
+    // 1. Una sola caja limpia con el símbolo de traductor a su costado - Altura cómoda para escritura (42dp)
     BasicTextField(
       value = spanishText,
       onValueChange = onSpanishTextChanged,
       singleLine = true,
       textStyle = MaterialTheme.typography.bodyMedium.copy(
         color = Color(0xFFF8FAFC),
-        fontSize = 13.sp,
+        fontSize = 13.5.sp,
         fontWeight = FontWeight.Medium
       ),
       cursorBrush = SolidColor(Color(0xFF38BDF8)),
@@ -130,29 +130,29 @@ fun SpanishToEnglishWriterCard(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .height(30.dp)
-            .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-            .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
-            .padding(horizontal = 10.dp),
+            .height(42.dp)
+            .background(Color(0xFF0F172A), shape = RoundedCornerShape(12.dp))
+            .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
           Icon(
             imageVector = Icons.Default.Translate,
             contentDescription = "Traductor",
             tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(18.dp)
           )
-          Spacer(modifier = Modifier.width(8.dp))
+          Spacer(modifier = Modifier.width(10.dp))
           Box(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.CenterStart
           ) {
             if (spanishText.isEmpty()) {
               Text(
-                text = "Escribe una palabra o frase en español...",
+                text = "Escribe una palabra o frase",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF64748B),
-                fontSize = 12.sp,
+                fontSize = 12.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
               )
@@ -161,14 +161,14 @@ fun SpanishToEnglishWriterCard(
           }
           if (isTranslating) {
             CircularProgressIndicator(
-              modifier = Modifier.size(14.dp),
+              modifier = Modifier.size(16.dp),
               strokeWidth = 2.dp,
               color = Color(0xFF38BDF8)
             )
           } else if (spanishText.isNotBlank()) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
               modifier = Modifier.padding(start = 4.dp)
             ) {
               IconButton(
@@ -177,14 +177,14 @@ fun SpanishToEnglishWriterCard(
                   onClear()
                 },
                 modifier = Modifier
-                  .size(22.dp)
+                  .size(26.dp)
                   .testTag("btn_clear_spanish_writer")
               ) {
                 Icon(
                   imageVector = Icons.Default.Close,
                   contentDescription = "Limpiar escritor",
                   tint = Color(0xFF94A3B8),
-                  modifier = Modifier.size(14.dp)
+                  modifier = Modifier.size(16.dp)
                 )
               }
               IconButton(
@@ -193,14 +193,14 @@ fun SpanishToEnglishWriterCard(
                   onTranslateNow()
                 },
                 modifier = Modifier
-                  .size(22.dp)
+                  .size(26.dp)
                   .testTag("btn_trigger_translation")
               ) {
                 Icon(
                   imageVector = Icons.Default.AutoAwesome,
                   contentDescription = "Traducir al inglés",
                   tint = Color(0xFF38BDF8),
-                  modifier = Modifier.size(14.dp)
+                  modifier = Modifier.size(16.dp)
                 )
               }
             }

@@ -114,6 +114,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -318,7 +319,7 @@ fun VocabularyScreen(
           modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(bottom = 2.dp),
+            .padding(top = 10.dp, bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
@@ -797,6 +798,48 @@ fun AddWordFloatingActionButton(
   }
 }
 
+@Composable
+private fun CompactWordInputField(
+  value: String,
+  onValueChange: (String) -> Unit,
+  placeholder: String,
+  testTag: String,
+  modifier: Modifier = Modifier
+) {
+  BasicTextField(
+    value = value,
+    onValueChange = onValueChange,
+    singleLine = true,
+    textStyle = MaterialTheme.typography.bodyMedium.copy(
+      color = Color(0xFFF8FAFC),
+      fontSize = 13.sp
+    ),
+    cursorBrush = SolidColor(Color(0xFF38BDF8)),
+    modifier = modifier
+      .fillMaxWidth()
+      .testTag(testTag),
+    decorationBox = { innerTextField ->
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(38.dp)
+          .background(Color(0xFF1E293B), shape = RoundedCornerShape(10.dp))
+          .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.CenterStart
+      ) {
+        if (value.isEmpty()) {
+          Text(
+            text = placeholder,
+            color = Color(0xFF64748B),
+            fontSize = 13.sp
+          )
+        }
+        innerTextField()
+      }
+    }
+  )
+}
+
 /**
  * Diálogo interactivo con caja tipo HUD para añadir una palabra personalizada.
  * El rank siempre se asigna automáticamente (maxOf(2809, maxRank) + 1).
@@ -827,7 +870,7 @@ fun AddCustomWordDialog(
     Surface(
       shape = RoundedCornerShape(20.dp),
       color = Color(0xFF0F172A),
-      border = BorderStroke(1.2.dp, syntaxColor.copy(alpha = 0.7f)),
+      border = null,
       shadowElevation = 10.dp,
       modifier = Modifier
         .fillMaxWidth(0.94f)
@@ -919,7 +962,7 @@ fun AddCustomWordDialog(
             Surface(
               shape = RoundedCornerShape(8.dp),
               color = Color(0xFF0F172A),
-              border = BorderStroke(1.dp, Color(0xFF334155)),
+              border = null,
               modifier = Modifier.size(36.dp)
             ) {
               Box(contentAlignment = Alignment.Center) {
@@ -998,15 +1041,11 @@ fun AddCustomWordDialog(
             color = Color(0xFFE2E8F0),
             fontSize = 12.sp
           )
-          OutlinedTextField(
+          CompactWordInputField(
             value = wordInput,
             onValueChange = { wordInput = it },
-            placeholder = { Text("Ej: breakthrough, resilient, feedback...", color = Color(0xFF64748B)) },
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("input_new_word_lemma")
+            placeholder = "Ej: breakthrough, resilient, feedback...",
+            testTag = "input_new_word_lemma"
           )
         }
 
@@ -1036,11 +1075,8 @@ fun AddCustomWordDialog(
               val isSelected = selectedCategory == value
               Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = if (isSelected) catColor.copy(alpha = 0.35f) else catColor.copy(alpha = 0.10f),
-                border = BorderStroke(
-                  width = if (isSelected) 1.5.dp else 1.dp,
-                  color = if (isSelected) catColor else catColor.copy(alpha = 0.4f)
-                ),
+                color = if (isSelected) catColor.copy(alpha = 0.35f) else catColor.copy(alpha = 0.12f),
+                border = null,
                 modifier = Modifier
                   .clickable { selectedCategory = value }
                   .testTag("chip_select_category_${label.filter { it.isLetter() }}")
@@ -1066,15 +1102,11 @@ fun AddCustomWordDialog(
             color = Color(0xFFE2E8F0),
             fontSize = 12.sp
           )
-          OutlinedTextField(
+          CompactWordInputField(
             value = spanishInput,
             onValueChange = { spanishInput = it },
-            placeholder = { Text("Ej: avance importante, innovación...", color = Color(0xFF64748B)) },
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("input_new_word_spanish")
+            placeholder = "Ej: avance importante, innovación...",
+            testTag = "input_new_word_spanish"
           )
         }
 
@@ -1087,15 +1119,11 @@ fun AddCustomWordDialog(
             color = Color(0xFFE2E8F0),
             fontSize = 12.sp
           )
-          OutlinedTextField(
+          CompactWordInputField(
             value = exampleInput,
             onValueChange = { exampleInput = it },
-            placeholder = { Text("Ej: a major breakthrough", color = Color(0xFF64748B)) },
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            modifier = Modifier
-              .fillMaxWidth()
-              .testTag("input_new_word_example")
+            placeholder = "Ej: a major breakthrough",
+            testTag = "input_new_word_example"
           )
         }
 
@@ -1615,58 +1643,64 @@ private fun SyntaxCompassHeader(
   val isNounSelected = selectedFilter == SyntaxFilter.NOUN
   val isModifierSelected = selectedFilter == SyntaxFilter.MODIFIER
 
-  Row(
+  Box(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 12.dp, vertical = 2.dp)
-      .horizontalScroll(rememberScrollState()),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(6.dp)
+      .padding(vertical = 2.dp),
+    contentAlignment = Alignment.Center
   ) {
-    CompassStepChip(
-      color = Color(0xFFFACC15),
-      label = "Conector",
-      isSelected = isConnectorSelected,
-      onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
-      onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
-      testTag = "compass_chip_Conector"
-    )
-    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-    CompassStepChip(
-      color = Color(0xFFA855F7),
-      label = "Sujeto",
-      isSelected = isPronounSelected,
-      onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
-      onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
-      testTag = "compass_chip_Sujeto"
-    )
-    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-    CompassStepChip(
-      color = Color(0xFF38BDF8),
-      label = "Verbo",
-      isSelected = isVerbSelected,
-      onClick = { onSelectFilter(SyntaxFilter.VERB) },
-      onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
-      testTag = "compass_chip_Verbo"
-    )
-    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-    CompassStepChip(
-      color = Color(0xFF34D399),
-      label = "Sustantivo",
-      isSelected = isNounSelected,
-      onClick = { onSelectFilter(SyntaxFilter.NOUN) },
-      onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
-      testTag = "compass_chip_Sustantivo"
-    )
-    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-    CompassStepChip(
-      color = Color(0xFFE2E8F0),
-      label = "Modificador",
-      isSelected = isModifierSelected,
-      onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
-      onLongClick = { onExplainFilter(SyntaxFilter.MODIFIER) },
-      testTag = "compass_chip_Modificador"
-    )
+    Row(
+      modifier = Modifier
+        .horizontalScroll(rememberScrollState())
+        .padding(horizontal = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+    ) {
+      CompassStepChip(
+        color = Color(0xFFFACC15),
+        label = "Conector",
+        isSelected = isConnectorSelected,
+        onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
+        onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
+        testTag = "compass_chip_Conector"
+      )
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      CompassStepChip(
+        color = Color(0xFFA855F7),
+        label = "Sujeto",
+        isSelected = isPronounSelected,
+        onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
+        onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
+        testTag = "compass_chip_Sujeto"
+      )
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      CompassStepChip(
+        color = Color(0xFF38BDF8),
+        label = "Verbo",
+        isSelected = isVerbSelected,
+        onClick = { onSelectFilter(SyntaxFilter.VERB) },
+        onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
+        testTag = "compass_chip_Verbo"
+      )
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      CompassStepChip(
+        color = Color(0xFF34D399),
+        label = "Sustantivo",
+        isSelected = isNounSelected,
+        onClick = { onSelectFilter(SyntaxFilter.NOUN) },
+        onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
+        testTag = "compass_chip_Sustantivo"
+      )
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      CompassStepChip(
+        color = Color(0xFFE2E8F0),
+        label = "Modificador",
+        isSelected = isModifierSelected,
+        onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
+        onLongClick = { onExplainFilter(SyntaxFilter.MODIFIER) },
+        testTag = "compass_chip_Modificador"
+      )
+    }
   }
 }
 

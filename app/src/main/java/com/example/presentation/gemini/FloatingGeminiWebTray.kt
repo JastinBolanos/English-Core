@@ -99,20 +99,18 @@ fun FloatingGeminiWebTray(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            isNestedScrollingEnabled = true
+            isFocusable = true
+            isFocusableInTouchMode = true
+            isNestedScrollingEnabled = false
             isVerticalScrollBarEnabled = true
             isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            overScrollMode = View.OVER_SCROLL_ALWAYS
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
             setOnTouchListener { view, event ->
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                        view.parent?.requestDisallowInterceptTouchEvent(true)
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        view.parent?.requestDisallowInterceptTouchEvent(false)
-                    }
+                view.parent?.requestDisallowInterceptTouchEvent(true)
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    view.requestFocus()
                 }
                 false
             }
@@ -122,14 +120,14 @@ fun FloatingGeminiWebTray(
                 domStorageEnabled = true
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-                useWideViewPort = true
-                loadWithOverviewMode = true
+                useWideViewPort = false
+                loadWithOverviewMode = false
                 allowFileAccess = false
                 allowContentAccess = false
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 userAgentString =
-                    "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro Build/UD1A.230803.041; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.82 Mobile Safari/537.36"
+                    "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36"
             }
 
             try {
@@ -215,9 +213,18 @@ fun FloatingGeminiWebTray(
         label = "gemini_tray_scale"
     )
 
+    val isFullyClosed = !isOpen && animAlpha <= 0.01f
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .then(
+                if (isFullyClosed) {
+                    Modifier.offset(x = 10000.dp)
+                } else {
+                    Modifier
+                }
+            )
             .graphicsLayer {
                 alpha = animAlpha
             }
@@ -246,6 +253,7 @@ fun FloatingGeminiWebTray(
                 .height(totalTrayHeight)
                 .padding(horizontal = 8.dp)
                 .align(Alignment.Center)
+                .offset(y = (-36).dp)
                 .graphicsLayer {
                     alpha = animAlpha
                     scaleX = animScale
@@ -404,7 +412,13 @@ fun FloatingGeminiWebTray(
                         .background(Color.White)
                 ) {
                     AndroidView(
-                        factory = { persistentWebView },
+                        factory = {
+                            (persistentWebView.parent as? ViewGroup)?.removeView(persistentWebView)
+                            persistentWebView
+                        },
+                        update = { webView ->
+                            webView.visibility = if (isFullyClosed) View.INVISIBLE else View.VISIBLE
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .testTag("webview_floating_gemini_web")

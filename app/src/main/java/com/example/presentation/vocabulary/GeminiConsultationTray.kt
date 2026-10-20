@@ -73,15 +73,14 @@ fun GeminiConsultationTray(
   onInputTextChanged: (String) -> Unit,
   onSendMessage: (String) -> Unit,
   onClearChat: () -> Unit,
-  apiKey: String,
-  onApiKeyChanged: (String) -> Unit,
+  apiKey: String = "",
+  onApiKeyChanged: (String) -> Unit = {},
   draftPhrase: String = "",
   modifier: Modifier = Modifier
 ) {
   if (!isOpen) return
 
   val listState = rememberLazyListState()
-  var showApiKeyField by remember { mutableStateOf(false) }
 
   // Auto-scroll al recibir o enviar un mensaje nuevo
   LaunchedEffect(messages.size, isLoading) {
@@ -188,20 +187,6 @@ fun GeminiConsultationTray(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp)
           ) {
-            if (apiKey.isBlank()) {
-              IconButton(
-                onClick = { showApiKeyField = !showApiKeyField },
-                modifier = Modifier.size(32.dp)
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Key,
-                  contentDescription = "Configurar API Key",
-                  tint = Color(0xFFFACC15),
-                  modifier = Modifier.size(18.dp)
-                )
-              }
-            }
-
             if (messages.isNotEmpty()) {
               IconButton(
                 onClick = onClearChat,
@@ -237,50 +222,6 @@ fun GeminiConsultationTray(
         Spacer(modifier = Modifier.height(10.dp))
         HorizontalDivider(color = Color(0x26475569))
         Spacer(modifier = Modifier.height(6.dp))
-
-        // Campo opcional para ingresar clave si se necesita
-        AnimatedVisibility(visible = showApiKeyField || apiKey.isBlank()) {
-          Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0x661E293B),
-            border = null,
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(bottom = 8.dp)
-          ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-              Text(
-                text = "🔑 Clave de API de Gemini (Opcional):",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFFDE68A),
-                fontWeight = FontWeight.Bold
-              )
-              Text(
-                text = "Puedes pegarla aquí para consultar directamente a Gemini:",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF94A3B8),
-                fontSize = 11.sp
-              )
-              Spacer(modifier = Modifier.height(6.dp))
-              OutlinedTextField(
-                value = apiKey,
-                onValueChange = onApiKeyChanged,
-                placeholder = { Text("AIzaSy...", fontSize = 12.sp, color = Color(0xFF64748B)) },
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .testTag("input_gemini_api_key"),
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
-                colors = OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = Color(0x8038BDF8),
-                  unfocusedBorderColor = Color(0x33475569),
-                  focusedContainerColor = Color(0x331E293B),
-                  unfocusedContainerColor = Color(0x221E293B)
-                )
-              )
-            }
-          }
-        }
 
         // 2. Área de Conversación limpia sin sugerencias
         Box(
