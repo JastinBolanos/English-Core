@@ -94,6 +94,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -109,6 +110,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -126,6 +128,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -168,7 +177,7 @@ fun getWordSyntaxColor(word: Word): Color {
   return getWordSyntaxColor(word.getPrimaryCategory())
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun VocabularyScreen(
   viewModel: VocabularyViewModel,
@@ -212,6 +221,41 @@ fun VocabularyScreen(
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
 
+  var youtubeHeightPx by remember { mutableFloatStateOf(0f) }
+  var scrollOffsetY by remember { mutableFloatStateOf(0f) }
+
+  val nestedScrollConnection = remember(youtubeHeightPx) {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        val delta = available.y
+        // Al deslizar hacia abajo (delta < 0), colapsamos YouTube primero
+        if (delta < 0 && scrollOffsetY > -youtubeHeightPx && youtubeHeightPx > 0f) {
+          val newOffset = (scrollOffsetY + delta).coerceIn(-youtubeHeightPx, 0f)
+          val consumed = newOffset - scrollOffsetY
+          scrollOffsetY = newOffset
+          return Offset(0f, consumed)
+        }
+        return Offset.Zero
+      }
+
+      override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource
+      ): Offset {
+        val delta = available.y
+        // Al deslizar hacia arriba (delta > 0) y llegar al tope de la lista de palabras, expandimos YouTube
+        if (delta > 0 && scrollOffsetY < 0f && youtubeHeightPx > 0f) {
+          val newOffset = (scrollOffsetY + delta).coerceIn(-youtubeHeightPx, 0f)
+          val consumedAmount = newOffset - scrollOffsetY
+          scrollOffsetY = newOffset
+          return Offset(0f, consumedAmount)
+        }
+        return Offset.Zero
+      }
+    }
+  }
+
   androidx.compose.runtime.LaunchedEffect(searchQuery) {
     if (searchQuery.isNotBlank()) {
       listState.scrollToItem(0)
@@ -237,7 +281,7 @@ fun VocabularyScreen(
       ?: (words.size - 1)
 
     coroutineScope.launch {
-      val scrollItem = (targetIndex + 5).coerceIn(0, maxOf(0, words.size + 4))
+      val scrollItem = targetIndex.coerceIn(0, maxOf(0, words.size - 1))
       listState.scrollToItem(scrollItem)
     }
   }
@@ -247,10 +291,27 @@ fun VocabularyScreen(
       .fillMaxSize()
       .testTag("screen_vocabulario"),
     floatingActionButton = {
+      val isAtTop by remember {
+        derivedStateOf { scrollOffsetY > -youtubeHeightPx * 0.5f }
+      }
       Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
+        ScrollArrowFloatingActionButton(
+          isAtTop = isAtTop,
+          onClick = {
+            coroutineScope.launch {
+              val target = if (isAtTop) -youtubeHeightPx else 0f
+              androidx.compose.animation.core.Animatable(scrollOffsetY).animateTo(
+                targetValue = target,
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+              ) {
+                scrollOffsetY = value
+              }
+            }
+          }
+        )
         AddWordFloatingActionButton(
           onClick = { viewModel.openAddWordDialog() }
         )
@@ -357,252 +418,282 @@ fun VocabularyScreen(
       )
     }
   ) { innerPadding ->
-    LazyColumn(
-      state = listState,
+    Column(
       modifier = Modifier
         .fillMaxSize()
         .padding(innerPadding)
-        .testTag("vocabulary_list"),
-      contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 80.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp)
+        .nestedScroll(nestedScrollConnection)
     ) {
-      // 1. REPRODUCTOR Y BUSCADOR CRUDO DE YOUTUBE DIRECTO DE INTERNET (Subido arriba de todo)
-      item(key = "raw_youtube") {
-        RawYouTubeTray()
-      }
-
-      // 2. BRÚJULA SINTÁCTICA ULTRA-FINA Y SIEMPRE VISIBLE (Conector > Sujeto > Verbo > Sustantivo > Modificador)
-      item(key = "syntax_compass_tray") {
-        SyntaxCompassHeader(
-          selectedFilter = selectedSyntaxFilter,
-          onSelectFilter = { filter -> viewModel.selectSyntaxFilter(filter) },
-          onExplainFilter = { filter -> explainedFilter = filter },
-          onClearFilter = { viewModel.clearSyntaxFilter() }
-        )
-      }
-
-      // 3. BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
-      item(key = "spanish_translator") {
-        SpanishToEnglishWriterCard(
-          spanishText = spanishInputText,
-          onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
-          onTranslateNow = { viewModel.translateSpanishNow() },
-          onClear = { viewModel.clearSpanishTranslator() },
-          translationState = spanishTranslationState,
-          onSpeakEnglish = { viewModel.speakWord(it) },
-          onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
-          onWordClick = { word ->
-            if (jumpRankInput.isNotEmpty()) {
-              jumpRankInput = ""
+      // Cabecera superior: YouTube (persistente, sin recargar) + Brújula Sintáctica + Traductor + Lienzo + Buscadores
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            val currentOffset = if (youtubeHeightPx > 0f) {
+              scrollOffsetY.coerceIn(-youtubeHeightPx, 0f).roundToInt()
+            } else {
+              0
             }
-            viewModel.clearSyntaxFilter()
-            viewModel.updateSearchQuery(word)
-            coroutineScope.launch {
-              listState.scrollToItem(4)
+            val reportedHeight = (placeable.height + currentOffset).coerceAtLeast(0)
+            layout(placeable.width, reportedHeight) {
+              placeable.placeRelative(0, currentOffset)
+            }
+          }
+      ) {
+        // 1. REPRODUCTOR Y BUSCADOR CRUDO DE YOUTUBE DIRECTO DE INTERNET
+        // Fuera de LazyColumn para que NUNCA se desmonte ni se recargue, y el audio siga sonando sin cortes.
+        RawYouTubeTray(
+          modifier = Modifier.onSizeChanged { size ->
+            if (size.height > 0) {
+              youtubeHeightPx = size.height.toFloat()
             }
           }
         )
-      }
 
-      // 4. LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-      // Ubicado debajo del traductor español y antes del buscador de vocabulario
-      item(key = "draft_scratchpad") {
-        DraftScratchpadHeader(
-          draftWords = draftWords,
-          isPhraseUpdated = isPhraseUpdated,
-          isTranslationTrayExpanded = isTranslationTrayExpanded,
-          translationState = translationState,
-          onToggleTranslationTray = { viewModel.toggleTranslationTray() },
-          onTranslate = {
-            if (!isTranslationTrayExpanded) {
-              viewModel.toggleTranslationTray()
-            } else {
-              viewModel.translateCurrentDraft()
-            }
-          },
-          onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
-          onMoveLeft = { index -> viewModel.moveWordLeft(index) },
-          onMoveRight = { index -> viewModel.moveWordRight(index) },
-          onPlayPhrase = { viewModel.playFullDraftPhrase() },
-          onClearDraft = { viewModel.clearDraft() }
-        )
-      }
-
-
-      // 5. FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - ULTRA-FINAS (LA MITAD DEL ALTO)
-      item(key = "search_filter_row") {
-        Row(
+        // 2. BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores
+        Column(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 2.dp),
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalAlignment = Alignment.CenterVertically
+            .background(MaterialTheme.colorScheme.background)
+            .padding(bottom = 2.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          // Buscador de texto tradicional (Filtro) - Delgada (30dp de alto, mitad del tamaño)
-          BasicTextField(
-            value = searchQuery,
-            onValueChange = {
-              if (it.isNotEmpty() && jumpRankInput.isNotEmpty()) {
+          // BRÚJULA SINTÁCTICA ULTRA-FINA Y SIEMPRE VISIBLE (Conector > Sujeto > Verbo > Sustantivo > Modificador)
+          SyntaxCompassHeader(
+            selectedFilter = selectedSyntaxFilter,
+            onSelectFilter = { filter -> viewModel.selectSyntaxFilter(filter) },
+            onExplainFilter = { filter -> explainedFilter = filter },
+            onClearFilter = { viewModel.clearSyntaxFilter() }
+          )
+
+          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
+          SpanishToEnglishWriterCard(
+            spanishText = spanishInputText,
+            onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
+            onTranslateNow = { viewModel.translateSpanishNow() },
+            onClear = { viewModel.clearSpanishTranslator() },
+            translationState = spanishTranslationState,
+            onSpeakEnglish = { viewModel.speakWord(it) },
+            onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+            onWordClick = { word ->
+              if (jumpRankInput.isNotEmpty()) {
                 jumpRankInput = ""
               }
-              viewModel.updateSearchQuery(it)
+              viewModel.clearSyntaxFilter()
+              viewModel.updateSearchQuery(word)
+              coroutineScope.launch {
+                listState.scrollToItem(0)
+              }
+            }
+          )
+
+          // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
+          // Ubicado debajo del traductor español y antes del buscador de vocabulario
+          DraftScratchpadHeader(
+            draftWords = draftWords,
+            isPhraseUpdated = isPhraseUpdated,
+            isTranslationTrayExpanded = isTranslationTrayExpanded,
+            translationState = translationState,
+            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
+            onTranslate = {
+              if (!isTranslationTrayExpanded) {
+                viewModel.toggleTranslationTray()
+              } else {
+                viewModel.translateCurrentDraft()
+              }
             },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-              color = Color.White,
-              fontSize = 13.sp
-            ),
-            cursorBrush = SolidColor(Color.White),
+            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+            onMoveRight = { index -> viewModel.moveWordRight(index) },
+            onPlayPhrase = { viewModel.playFullDraftPhrase() },
+            onClearDraft = { viewModel.clearDraft() }
+          )
+
+          // FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - ULTRA-FINAS (LA MITAD DEL ALTO)
+          Row(
             modifier = Modifier
-              .weight(1f)
-              .testTag("search_word_input"),
-            decorationBox = { innerTextField ->
-              Row(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .height(30.dp)
-                  .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-                  .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
-                  .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Search,
-                  contentDescription = null,
-                  tint = Color(0xFF94A3B8),
-                  modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                  modifier = Modifier.weight(1f),
-                  contentAlignment = Alignment.CenterStart
-                ) {
-                  innerTextField()
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            // Buscador de texto tradicional (Filtro) - Delgada (30dp de alto, mitad del tamaño)
+            BasicTextField(
+              value = searchQuery,
+              onValueChange = {
+                if (it.isNotEmpty() && jumpRankInput.isNotEmpty()) {
+                  jumpRankInput = ""
                 }
-                if (searchQuery.isNotEmpty()) {
-                  IconButton(
-                    onClick = { viewModel.updateSearchQuery("") },
-                    modifier = Modifier.size(22.dp)
+                viewModel.updateSearchQuery(it)
+              },
+              singleLine = true,
+              textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = Color.White,
+                fontSize = 13.sp
+              ),
+              cursorBrush = SolidColor(Color.White),
+              modifier = Modifier
+                .weight(1f)
+                .testTag("search_word_input"),
+              decorationBox = { innerTextField ->
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .height(30.dp)
+                    .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
+                    .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.size(16.dp)
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
                   ) {
-                    Icon(
-                      imageVector = Icons.Default.Close,
-                      contentDescription = "Limpiar búsqueda",
-                      tint = Color(0xFF94A3B8),
-                      modifier = Modifier.size(14.dp)
-                    )
+                    innerTextField()
+                  }
+                  if (searchQuery.isNotEmpty()) {
+                    IconButton(
+                      onClick = { viewModel.updateSearchQuery("") },
+                      modifier = Modifier.size(22.dp)
+                    ) {
+                      Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Limpiar búsqueda",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(14.dp)
+                      )
+                    }
                   }
                 }
               }
-            }
-          )
+            )
 
-          // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Delgada (30dp de alto, mitad del tamaño)
-          BasicTextField(
-            value = jumpRankInput,
-            onValueChange = { raw ->
-              val digits = raw.filter { it.isDigit() }.take(4)
-              jumpRankInput = digits
-              if (digits.isNotEmpty()) {
-                performJumpToRank(digits)
-              }
-            },
-            keyboardOptions = KeyboardOptions(
-              keyboardType = KeyboardType.Number,
-              imeAction = ImeAction.Go
-            ),
-            keyboardActions = KeyboardActions(
-              onGo = { performJumpToRank(jumpRankInput) }
-            ),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(
-              color = Color(0xFF38BDF8),
-              fontWeight = FontWeight.Bold,
-              fontSize = 12.sp,
-              textAlign = TextAlign.Center
-            ),
-            cursorBrush = SolidColor(Color(0xFF38BDF8)),
-            modifier = Modifier
-              .width(98.dp)
-              .testTag("jump_rank_input"),
-            decorationBox = { innerTextField ->
-              Box(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .height(30.dp)
-                  .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-                  .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
-                  .padding(horizontal = 6.dp),
-                contentAlignment = Alignment.Center
-              ) {
-                if (jumpRankInput.isEmpty()) {
-                  Text(
-                    text = "# 1-${words.maxOfOrNull { it.rank } ?: 2809}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B),
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center
-                  )
+            // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Delgada (30dp de alto, mitad del tamaño)
+            BasicTextField(
+              value = jumpRankInput,
+              onValueChange = { raw ->
+                val digits = raw.filter { it.isDigit() }.take(4)
+                jumpRankInput = digits
+                if (digits.isNotEmpty()) {
+                  performJumpToRank(digits)
                 }
-                innerTextField()
+              },
+              keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Go
+              ),
+              keyboardActions = KeyboardActions(
+                onGo = { performJumpToRank(jumpRankInput) }
+              ),
+              singleLine = true,
+              textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = Color(0xFF38BDF8),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center
+              ),
+              cursorBrush = SolidColor(Color(0xFF38BDF8)),
+              modifier = Modifier
+                .width(98.dp)
+                .testTag("jump_rank_input"),
+              decorationBox = { innerTextField ->
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .height(30.dp)
+                    .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
+                    .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                    .padding(horizontal = 6.dp),
+                  contentAlignment = Alignment.Center
+                ) {
+                  if (jumpRankInput.isEmpty()) {
+                    Text(
+                      text = "# 1-${words.maxOfOrNull { it.rank } ?: 2809}",
+                      style = MaterialTheme.typography.bodySmall,
+                      color = Color(0xFF64748B),
+                      fontSize = 11.sp,
+                      textAlign = TextAlign.Center
+                    )
+                  }
+                  innerTextField()
+                }
               }
-            }
-          )
+            )
+          }
         }
       }
 
-      // 6. LISTA DE LAS 2,809 PALABRAS
-      when {
-        isLoading -> {
-          item(key = "loading_state") {
-            Box(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-              contentAlignment = Alignment.Center
-            ) {
-              Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+      // 3. LISTA DE LAS 2,809 PALABRAS
+      LazyColumn(
+        state = listState,
+        modifier = Modifier
+          .fillMaxWidth()
+          .weight(1f)
+          .testTag("vocabulary_list"),
+        contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        when {
+          isLoading -> {
+            item(key = "loading_state") {
+              Box(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(32.dp),
+                contentAlignment = Alignment.Center
               ) {
-                CircularProgressIndicator()
+                Column(
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                  CircularProgressIndicator()
+                  Text(
+                    text = "Cargando palabras en orden de frecuencia...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                }
+              }
+            }
+          }
+          filteredWords.isEmpty() -> {
+            item(key = "empty_state") {
+              Box(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(32.dp),
+                contentAlignment = Alignment.Center
+              ) {
                 Text(
-                  text = "Cargando palabras en orden de frecuencia...",
+                  text = if (searchQuery.isNotEmpty()) "No se encontraron coincidencias para \"$searchQuery\"" else "Cargando base de datos...",
                   style = MaterialTheme.typography.bodyMedium,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
               }
             }
           }
-        }
-        filteredWords.isEmpty() -> {
-          item(key = "empty_state") {
-            Box(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-              contentAlignment = Alignment.Center
-            ) {
-              Text(
-                text = if (searchQuery.isNotEmpty()) "No se encontraron coincidencias para \"$searchQuery\"" else "Cargando base de datos...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-              )
-            }
-          }
-        }
-        else -> {
-          itemsIndexed(
-            items = filteredWords,
-            key = { _, item -> item.id }
-          ) { _, word ->
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-              WordHudCard(
-                word = word,
-                onTap = { viewModel.addWordToDraft(word) },
-                onSpeak = { viewModel.speakWord(word.lemma) },
-                onSpeakExample = { example -> viewModel.speakWord(example) }
-              )
+          else -> {
+            itemsIndexed(
+              items = filteredWords,
+              key = { _, item -> item.id }
+            ) { _, word ->
+              Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                WordHudCard(
+                  word = word,
+                  onTap = { viewModel.addWordToDraft(word) },
+                  onSpeak = { viewModel.speakWord(word.lemma) },
+                  onSpeakExample = { example -> viewModel.speakWord(example) }
+                )
+              }
             }
           }
         }
@@ -652,9 +743,44 @@ fun VocabularyScreen(
 }
 
 /**
+ * Botón Flotante Inferior de Flecha de Navegación Rápida.
+ * Ubicado al lado del botón '+'.
+ * Cuando YouTube está en pantalla, muestra una flecha mirando hacia abajo (Icons.Default.KeyboardArrowDown)
+ * que al tocarla baja y coloca de inmediato la vista del vocabulario y sus funciones (como en la imagen 2).
+ * Cuando se está en la vista del vocabulario, la flecha mira hacia arriba para volver a mostrar YouTube.
+ */
+@Composable
+fun ScrollArrowFloatingActionButton(
+  isAtTop: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("fab_scroll_navigation"),
+    shape = CircleShape,
+    color = Color(0xFF101923),
+    border = null,
+    shadowElevation = 8.dp
+  ) {
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Icon(
+        imageVector = if (isAtTop) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+        contentDescription = if (isAtTop) "Bajar al vocabulario" else "Subir a YouTube",
+        tint = Color(0xFF38BDF8),
+        modifier = Modifier.size(24.dp)
+      )
+    }
+  }
+}
+
+/**
  * Botón Flotante Inferior de Añadir Palabra Personalizada (+).
  * Ubicado en la esquina baja justo al lado del reductor de velocidad.
- * Estética HUD oscura (fondo #101923 con borde cian brillante y cruz '+').
+ * Estética HUD oscura (fondo #101923 sin cinta y cruz '+').
  */
 @Composable
 fun AddWordFloatingActionButton(
@@ -666,7 +792,7 @@ fun AddWordFloatingActionButton(
     modifier = modifier.testTag("fab_add_custom_word"),
     shape = CircleShape,
     color = Color(0xFF101923),
-    border = BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.85f)),
+    border = null,
     shadowElevation = 8.dp
   ) {
     Box(
@@ -1045,7 +1171,7 @@ fun SpeedFloatingActionButton(
       .testTag("fab_speed_control"),
     shape = RoundedCornerShape(20.dp),
     color = Color(0xFF101923),
-    border = BorderStroke(1.5.dp, Color(0xFF00E5FF).copy(alpha = 0.8f)),
+    border = null,
     shadowElevation = 8.dp
   ) {
     Row(

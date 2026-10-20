@@ -41,6 +41,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,12 +72,88 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun RawYouTubeTray(
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
+    var isExpanded by rememberSaveable { mutableStateOf(true) }
     var loadProgress by remember { mutableFloatStateOf(0f) }
     var isLoadingPage by remember { mutableStateOf(false) }
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     val configuration = LocalConfiguration.current
     val expandedHeight = (configuration.screenHeightDp * 0.80f).dp
+
+    val context = LocalContext.current
+    val persistentWebView = remember(context) {
+        WebView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            isNestedScrollingEnabled = true
+            isVerticalScrollBarEnabled = true
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+
+            // Permitir scroll libre dentro del WebView al interactuar con YouTube
+            setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
+                }
+                false
+            }
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                allowFileAccess = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+            }
+
+            webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                    loadProgress = newProgress / 100f
+                    isLoadingPage = newProgress < 100
+                }
+            }
+
+            webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                    isLoadingPage = true
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    isLoadingPage = false
+                }
+
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val url = request?.url?.toString().orEmpty()
+                    if (url.startsWith("intent://") || url.startsWith("vnd.youtube:")) {
+                        val vid = when {
+                            url.contains("videoId=") -> url.substringAfter("videoId=").substringBefore("&")
+                            url.contains("watch?v=") -> url.substringAfter("watch?v=").substringBefore("&")
+                            else -> ""
+                        }
+                        if (vid.isNotBlank()) {
+                            view?.loadUrl("https://m.youtube.com/watch?v=$vid")
+                            return true
+                        }
+                        return true
+                    }
+                    return false
+                }
+            }
+
+            loadUrl("https://m.youtube.com")
+            webViewInstance = this
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -115,8 +193,8 @@ fun RawYouTubeTray(
                     if (isExpanded) {
                         IconButton(
                             onClick = {
-                                if (webViewInstance?.canGoBack() == true) {
-                                    webViewInstance?.goBack()
+                                if (persistentWebView.canGoBack()) {
+                                    persistentWebView.goBack()
                                 }
                             },
                             modifier = Modifier.size(28.dp)
@@ -130,7 +208,7 @@ fun RawYouTubeTray(
                         }
                         IconButton(
                             onClick = {
-                                webViewInstance?.loadUrl("https://m.youtube.com")
+                                persistentWebView.loadUrl("https://m.youtube.com")
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
@@ -142,7 +220,7 @@ fun RawYouTubeTray(
                             )
                         }
                         IconButton(
-                            onClick = { webViewInstance?.reload() },
+                            onClick = { persistentWebView.reload() },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
@@ -190,109 +268,29 @@ fun RawYouTubeTray(
                 )
             }
 
-            // Navegador crudo con aceleración de video y audio oficial
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+            // Contenedor persistente con altura animada: NUNCA se destruye para que el video y audio sigan sonando
+            val webViewAnimatedHeight by animateDpAsState(
+                targetValue = if (isExpanded) expandedHeight else 0.dp,
+                label = "youtube_anim_height"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(webViewAnimatedHeight)
+                    .padding(top = if (isExpanded) 4.dp else 0.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black)
             ) {
-                Box(
+                AndroidView(
+                    factory = { persistentWebView },
+                    update = { _ -> },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(expandedHeight)
-                        .padding(top = 4.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black)
-                ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                isNestedScrollingEnabled = true
-                                isVerticalScrollBarEnabled = true
-                                isHorizontalScrollBarEnabled = false
-                                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-
-                                // Desactivar la intercepción de scroll del contenedor padre (LazyColumn) para permitir scroll libre dentro de YouTube
-                                setOnTouchListener { v, event ->
-                                    when (event.action) {
-                                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                                        }
-                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                                        }
-                                    }
-                                    false
-                                }
-
-                                settings.apply {
-                                    javaScriptEnabled = true
-                                    domStorageEnabled = true
-                                    mediaPlaybackRequiresUserGesture = false
-                                    loadWithOverviewMode = true
-                                    useWideViewPort = true
-                                    allowFileAccess = true
-                                    cacheMode = WebSettings.LOAD_DEFAULT
-                                    userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
-                                }
-
-                                webChromeClient = object : WebChromeClient() {
-                                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                        loadProgress = newProgress / 100f
-                                        isLoadingPage = newProgress < 100
-                                    }
-                                }
-
-                                webViewClient = object : WebViewClient() {
-                                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                        isLoadingPage = true
-                                    }
-
-                                    override fun onPageFinished(view: WebView?, url: String?) {
-                                        isLoadingPage = false
-                                    }
-
-                                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                        val url = request?.url?.toString().orEmpty()
-                                        if (url.startsWith("intent://") || url.startsWith("vnd.youtube:")) {
-                                            val vid = when {
-                                                url.contains("videoId=") -> url.substringAfter("videoId=").substringBefore("&")
-                                                url.contains("watch?v=") -> url.substringAfter("watch?v=").substringBefore("&")
-                                                else -> ""
-                                            }
-                                            if (vid.isNotBlank()) {
-                                                view?.loadUrl("https://m.youtube.com/watch?v=$vid")
-                                                return true
-                                            }
-                                            return true
-                                        }
-                                        return false
-                                    }
-                                }
-
-                                loadUrl("https://m.youtube.com")
-                                webViewInstance = this
-                            }
-                        },
-                        update = { _ -> },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(expandedHeight)
-                            .testTag("raw_youtube_webview")
-                    )
-                }
-                }
-            }
-        }
-
-        DisposableEffect(Unit) {
-            onDispose {
-                webViewInstance?.destroy()
-                webViewInstance = null
+                        .testTag("raw_youtube_webview")
+                )
             }
         }
     }
+}
