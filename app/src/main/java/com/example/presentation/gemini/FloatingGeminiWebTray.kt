@@ -90,7 +90,7 @@ fun FloatingGeminiWebTray(
     var canGoForward by remember { mutableStateOf(false) }
 
     val configuration = LocalConfiguration.current
-    val totalTrayHeight = (configuration.screenHeightDp * 0.75f).dp
+    val totalTrayHeight = (configuration.screenHeightDp * 0.60f).dp
 
     val context = LocalContext.current
     val persistentWebView = remember(context) {
@@ -209,10 +209,10 @@ fun FloatingGeminiWebTray(
         label = "gemini_tray_alpha"
     )
 
-    val animOffsetY by animateDpAsState(
-        targetValue = if (isOpen) 0.dp else (-totalTrayHeight - 40.dp),
-        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
-        label = "gemini_tray_offset"
+    val animScale by animateFloatAsState(
+        targetValue = if (isOpen) 1f else 0.93f,
+        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+        label = "gemini_tray_scale"
     )
 
     Box(
@@ -239,14 +239,18 @@ fun FloatingGeminiWebTray(
             )
         }
 
-        // Tarjeta flotante con altura de exactamente el 75% de la pantalla
+        // Tarjeta flotante con altura de exactamente el 60% de la pantalla centrada en el medio
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(totalTrayHeight)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .offset(y = animOffsetY)
-                .graphicsLayer { alpha = animAlpha }
+                .padding(horizontal = 8.dp)
+                .align(Alignment.Center)
+                .graphicsLayer {
+                    alpha = animAlpha
+                    scaleX = animScale
+                    scaleY = animScale
+                }
                 .testTag("floating_gemini_web_tray"),
             shape = RoundedCornerShape(16.dp),
             color = Color(0xFF0D1524),

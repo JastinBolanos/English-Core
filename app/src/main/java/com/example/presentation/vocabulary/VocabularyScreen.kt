@@ -701,13 +701,12 @@ fun GeminiWebFloatingActionButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val borderColor = if (isOpen) Color(0xFF60A5FA) else Color(0xFF1E293B)
   Surface(
     onClick = onClick,
     modifier = modifier.testTag("fab_gemini_web"),
     shape = CircleShape,
     color = Color(0xFF101923),
-    border = BorderStroke(1.5.dp, borderColor),
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF60A5FA)) else null,
     shadowElevation = 8.dp
   ) {
     Box(
@@ -1369,7 +1368,7 @@ fun TacticalRoadmapDialog(
         ) {
           Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
           ) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
@@ -1390,7 +1389,7 @@ fun TacticalRoadmapDialog(
                 )
               }
               Text(
-                text = "LO QUE CUBRE ESTE LABORATORIO (FUERZA INTERNA)",
+                text = "LABORATORIO (FUERZA INTERNA)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF34D399),
@@ -1401,37 +1400,37 @@ fun TacticalRoadmapDialog(
             RoadmapLabPillarItem(
               emoji = "🟢",
               title = "Vocabulario Nuclear (92% cobertura)",
-              description = "Las 2,807 palabras más usadas del inglés (NGSL) ordenadas estrictamente por frecuencia e impacto real."
+              description = "2,807 palabras clave (NGSL) ordenadas por frecuencia e impacto real."
             )
             RoadmapLabPillarItem(
               emoji = "🟡",
               title = "Sintaxis Posicional y Conectores",
-              description = "Pensar en bloques directos (Conector ➔ Sujeto ➔ Verbo ➔ Sustantivo ➔ Modificador) sin traducir mentalmente palabra por palabra."
+              description = "Estructuras directas sin traducir mentalmente palabra por palabra."
             )
             RoadmapLabPillarItem(
               emoji = "🔵",
               title = "Fonética Limpia (TTS)",
-              description = "Memoria auditiva de alta fidelidad: pronunciación nativa palabra por palabra y lectura corrida de frases armadas."
+              description = "Pronunciación nativa de cada palabra y frases armadas."
             )
             RoadmapLabPillarItem(
               emoji = "🎬",
               title = "Habla Pegada (Connected Speech)",
-              description = "Bandeja integrada de YouTube y atajos directos para entrenar enlaces y reducciones de los nativos (gonna, wanna, gotta, didja, whaddaya) con subtítulos en inglés."
+              description = "Atajos de YouTube para entrenar reducciones y enlaces nativos reales."
             )
             RoadmapLabPillarItem(
               emoji = "🔥",
               title = "Jerga Callejera (Slang & Phrasal Verbs)",
-              description = "Atajos de búsqueda instantánea a podcasts conversacionales y streams reales para absorber expresiones cotidianas (figure out, hang out, screw up, my bad)."
+              description = "Búsqueda directa de expresiones cotidianas y phrasal verbs en contexto."
             )
             RoadmapLabPillarItem(
               emoji = "🌐",
               title = "Práctica Externa (Google Translate)",
-              description = "Envío instantáneo de frases armadas a Google Translate con voz nativa, traducción y práctica avanzada."
+              description = "Práctica y contraste instantáneo de tus frases armadas."
             )
           }
         }
 
-        // SECCIÓN B: LO QUE DEBES CAZAR AFUERA (SOLO VELOCIDAD SIN BORRADOR)
+        // SECCIÓN B: LO QUE DEBES CAZAR AFUERA (REFLEJO EN VIVO)
         Surface(
           shape = RoundedCornerShape(14.dp),
           color = Color(0xFF1E293B).copy(alpha = 0.75f),
@@ -1440,7 +1439,7 @@ fun TacticalRoadmapDialog(
         ) {
           Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
           ) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
@@ -1461,7 +1460,7 @@ fun TacticalRoadmapDialog(
                 )
               }
               Text(
-                text = "LO QUE DEBES CAZAR AFUERA (REFLEJO EN VIVO)",
+                text = "REFLEJO EN VIVO (MUNDO REAL)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFFFBBF24),
@@ -1470,7 +1469,7 @@ fun TacticalRoadmapDialog(
             }
 
             Text(
-              text = "Lo único que ninguna app puede sustituir y que debes entrenar en el mundo real:",
+              text = "Lo que entrenas en la vida real:",
               style = MaterialTheme.typography.bodySmall,
               color = Color(0xFF94A3B8),
               fontSize = 11.sp
@@ -1479,9 +1478,9 @@ fun TacticalRoadmapDialog(
             // Misión Externa Única
             RoadmapExternalMissionCard(
               icon = "⚡",
-              title = "Velocidad sin Borrador (Reflejo en Vivo)",
-              whatIs = "Responder en menos de 2 segundos sin botón de borrador cuando alguien te cambia de tema en una llamada o charla.",
-              action = "Narrar lo que haces en tu día en voz alta y a solas, uniendo ideas con tus conectores del laboratorio."
+              title = "Velocidad sin Borrador",
+              whatIs = "Responder en menos de 2 segundos sin preparar borradores.",
+              action = "Narra tu día en voz alta usando los conectores del laboratorio."
             )
           }
         }
@@ -1578,7 +1577,7 @@ private fun RoadmapExternalMissionCard(
         )
       }
       Text(
-        text = "• Qué es: $whatIs",
+        text = "• Clave: $whatIs",
         style = MaterialTheme.typography.bodySmall,
         color = Color(0xFF94A3B8),
         fontSize = 11.sp,
