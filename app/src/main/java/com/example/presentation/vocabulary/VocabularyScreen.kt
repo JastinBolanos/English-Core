@@ -82,6 +82,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import com.example.presentation.youtube.RawYouTubeTray
+import com.example.presentation.youtube.FloatingYouTubeTray
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
@@ -221,40 +222,8 @@ fun VocabularyScreen(
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
 
-  var youtubeHeightPx by remember { mutableFloatStateOf(0f) }
-  var scrollOffsetY by remember { mutableFloatStateOf(0f) }
+  var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
 
-  val nestedScrollConnection = remember(youtubeHeightPx) {
-    object : NestedScrollConnection {
-      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        val delta = available.y
-        // Al deslizar hacia abajo (delta < 0), colapsamos YouTube primero
-        if (delta < 0 && scrollOffsetY > -youtubeHeightPx && youtubeHeightPx > 0f) {
-          val newOffset = (scrollOffsetY + delta).coerceIn(-youtubeHeightPx, 0f)
-          val consumed = newOffset - scrollOffsetY
-          scrollOffsetY = newOffset
-          return Offset(0f, consumed)
-        }
-        return Offset.Zero
-      }
-
-      override fun onPostScroll(
-        consumed: Offset,
-        available: Offset,
-        source: NestedScrollSource
-      ): Offset {
-        val delta = available.y
-        // Al deslizar hacia arriba (delta > 0) y llegar al tope de la lista de palabras, expandimos YouTube
-        if (delta > 0 && scrollOffsetY < 0f && youtubeHeightPx > 0f) {
-          val newOffset = (scrollOffsetY + delta).coerceIn(-youtubeHeightPx, 0f)
-          val consumedAmount = newOffset - scrollOffsetY
-          scrollOffsetY = newOffset
-          return Offset(0f, consumedAmount)
-        }
-        return Offset.Zero
-      }
-    }
-  }
 
   androidx.compose.runtime.LaunchedEffect(searchQuery) {
     if (searchQuery.isNotBlank()) {
@@ -291,26 +260,13 @@ fun VocabularyScreen(
       .fillMaxSize()
       .testTag("screen_vocabulario"),
     floatingActionButton = {
-      val isAtTop by remember {
-        derivedStateOf { scrollOffsetY > -youtubeHeightPx * 0.5f }
-      }
       Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
-        ScrollArrowFloatingActionButton(
-          isAtTop = isAtTop,
-          onClick = {
-            coroutineScope.launch {
-              val target = if (isAtTop) -youtubeHeightPx else 0f
-              androidx.compose.animation.core.Animatable(scrollOffsetY).animateTo(
-                targetValue = target,
-                animationSpec = tween(350, easing = FastOutSlowInEasing)
-              ) {
-                scrollOffsetY = value
-              }
-            }
-          }
+        YouTubeFloatingActionButton(
+          isOpen = isYouTubeTrayOpen,
+          onClick = { isYouTubeTrayOpen = !isYouTubeTrayOpen }
         )
         AddWordFloatingActionButton(
           onClick = { viewModel.openAddWordDialog() }
@@ -418,40 +374,15 @@ fun VocabularyScreen(
       )
     }
   ) { innerPadding ->
-    Column(
+    Box(
       modifier = Modifier
         .fillMaxSize()
         .padding(innerPadding)
-        .nestedScroll(nestedScrollConnection)
     ) {
-      // Cabecera superior: YouTube (persistente, sin recargar) + Brújula Sintáctica + Traductor + Lienzo + Buscadores
       Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .layout { measurable, constraints ->
-            val placeable = measurable.measure(constraints)
-            val currentOffset = if (youtubeHeightPx > 0f) {
-              scrollOffsetY.coerceIn(-youtubeHeightPx, 0f).roundToInt()
-            } else {
-              0
-            }
-            val reportedHeight = (placeable.height + currentOffset).coerceAtLeast(0)
-            layout(placeable.width, reportedHeight) {
-              placeable.placeRelative(0, currentOffset)
-            }
-          }
+        modifier = Modifier.fillMaxSize()
       ) {
-        // 1. REPRODUCTOR Y BUSCADOR CRUDO DE YOUTUBE DIRECTO DE INTERNET
-        // Fuera de LazyColumn para que NUNCA se desmonte ni se recargue, y el audio siga sonando sin cortes.
-        RawYouTubeTray(
-          modifier = Modifier.onSizeChanged { size ->
-            if (size.height > 0) {
-              youtubeHeightPx = size.height.toFloat()
-            }
-          }
-        )
-
-        // 2. BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores
+        // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
         Column(
           modifier = Modifier
             .fillMaxWidth()
@@ -629,9 +560,8 @@ fun VocabularyScreen(
             )
           }
         }
-      }
 
-      // 3. LISTA DE LAS 2,809 PALABRAS
+        // 3. LISTA DE LAS 2,809 PALABRAS
       LazyColumn(
         state = listState,
         modifier = Modifier
@@ -699,6 +629,14 @@ fun VocabularyScreen(
         }
       }
     }
+
+    // BANDEJA FLOTANTE DE YOUTUBE: Vive activada desde el botón flotante inferior
+    // Permanece en el árbol de composición para no perder NUNCA el estado web ni el audio (anti-reseteo)
+      FloatingYouTubeTray(
+        isOpen = isYouTubeTrayOpen,
+        onClose = { isYouTubeTrayOpen = false }
+      )
+    }
   }
 
   if (showRoadmapDialog) {
@@ -743,8 +681,48 @@ fun VocabularyScreen(
 }
 
 /**
+ * Botón Flotante Inferior de YouTube.
+ * Reemplaza la flecha anterior. Al tocarlo, abre o cierra la bandeja flotante de YouTube
+ * sin reiniciar la reproducción ni perder la búsqueda web (anti-reseteo total).
+ */
+@Composable
+fun YouTubeFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("fab_youtube_toggle"),
+    shape = CircleShape,
+    color = Color(0xFF101923),
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFFFF0000)) else null,
+    shadowElevation = 8.dp
+  ) {
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = Color(0xFFFF0000),
+        modifier = Modifier.size(28.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = if (isOpen) "Ocultar YouTube" else "Abrir YouTube",
+            tint = Color.White,
+            modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
  * Botón Flotante Inferior de Flecha de Navegación Rápida.
- * Ubicado al lado del botón '+'.
  * Cuando YouTube está en pantalla, muestra una flecha mirando hacia abajo (Icons.Default.KeyboardArrowDown)
  * que al tocarla baja y coloca de inmediato la vista del vocabulario y sus funciones (como en la imagen 2).
  * Cuando se está en la vista del vocabulario, la flecha mira hacia arriba para volver a mostrar YouTube.
