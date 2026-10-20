@@ -212,8 +212,8 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("compass_chip_Conector").performClick()
     composeTestRule.waitForIdle()
 
-    // Click clear button to remove selection
-    composeTestRule.onNodeWithTag("btn_clear_compass_selection").performClick()
+    // Click Conector chip again to toggle and remove selection (X button removed)
+    composeTestRule.onNodeWithTag("compass_chip_Conector").performClick()
     composeTestRule.waitForIdle()
   }
 

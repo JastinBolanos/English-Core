@@ -18,10 +18,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,19 +32,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -57,8 +64,71 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
+/**
+ * Atajos de búsqueda rápida en YouTube.
+ */
+data class YouTubeSearchShortcut(
+    val label: String,
+    val query: String
+)
+
+enum class SearchCategory(val title: String) {
+    ALL("⭐ Todo en Uno"),
+    CONNECTED_SPEECH("🎬 Habla Pegada"),
+    SLANG_PHRASALS("🔥 Jerga Callejera"),
+    SPEED_REFLEX("⚡ Velocidad y Reflejo")
+}
+
+val ALL_SHORTCUTS = listOf(
+    YouTubeSearchShortcut("🎬 Habla Pegada", "american english connected speech practice"),
+    YouTubeSearchShortcut("🍿 Escenas con Subs", "learn english with movie scenes english subtitles"),
+    YouTubeSearchShortcut("🗣️ Reducciones Rápidas", "fast english reductions gonna wanna gotta"),
+    YouTubeSearchShortcut("🎙️ Podcast sin Guion", "casual english podcast unscripted"),
+    YouTubeSearchShortcut("🔥 Slang Callejero", "daily american slang and phrasal verbs"),
+    YouTubeSearchShortcut("🔗 Phrasal Verbs", "everyday english connectors in conversation"),
+    YouTubeSearchShortcut("🎮 Streams IRL", "IRL stream highlights english chat"),
+    YouTubeSearchShortcut("🎤 Entrevistas Calle", "street interviews english subtitles"),
+    YouTubeSearchShortcut("⚡ Shadowing en Vivo", "real life english conversation shadowing"),
+    YouTubeSearchShortcut("🧠 Narrar mi Día", "narrate your day in english vlog"),
+    YouTubeSearchShortcut("🔀 Conectores Nativos", "everyday english connectors in conversation")
+)
+
+val CONNECTED_SPEECH_SHORTCUTS = listOf(
+    YouTubeSearchShortcut("🎬 Connected Speech", "connected speech american english"),
+    YouTubeSearchShortcut("🗣️ Reducciones didja whaddaya", "fast english reductions didja whaddaya"),
+    YouTubeSearchShortcut("🍿 Movie Clips con Subs", "movie clips with english subtitles"),
+    YouTubeSearchShortcut("📺 TV Series con Subs", "tv series scenes english subtitles"),
+    YouTubeSearchShortcut("⚡ How Natives Speak Fast", "how natives speak fast english"),
+    YouTubeSearchShortcut("🔗 Linking Sounds Practice", "english linking sounds practice"),
+    YouTubeSearchShortcut("🎧 Real Listening Subs", "real english listening with subtitles")
+)
+
+val SLANG_PHRASALS_SHORTCUTS = listOf(
+    YouTubeSearchShortcut("🎙️ Unscripted Podcast", "unscripted english podcast conversation"),
+    YouTubeSearchShortcut("☕ Casual Podcast Clips", "casual american podcast clips"),
+    YouTubeSearchShortcut("🔥 Street Slang & Phrasals", "american street slang and phrasal verbs"),
+    YouTubeSearchShortcut("💬 Everyday Phrasal Verbs", "everyday phrasal verbs in context"),
+    YouTubeSearchShortcut("🎮 Twitch IRL Highlights", "twitch IRL stream highlights english"),
+    YouTubeSearchShortcut("🎤 Candid Street Interviews", "street interviews candid english"),
+    YouTubeSearchShortcut("👥 Informal Native Chat", "informal english conversation native speakers")
+)
+
+val SPEED_REFLEX_SHORTCUTS = listOf(
+    YouTubeSearchShortcut("🧠 Narrate Your Day", "narrate your day in english"),
+    YouTubeSearchShortcut("📅 Daily Routine Vlog", "daily routine vlog natural english"),
+    YouTubeSearchShortcut("🔀 Conectores Nativos", "english conversation connectors native"),
+    YouTubeSearchShortcut("⚡ Shadowing Practice", "shadowing english conversation practice"),
+    YouTubeSearchShortcut("💡 Think in English", "think in english without translating"),
+    YouTubeSearchShortcut("🗣️ Spontaneous Speaking", "spontaneous english speaking practice"),
+    YouTubeSearchShortcut("⏱️ Fast Q&A Questions", "real time english Q&A fast questions")
+)
 
 /**
  * Bandeja Flotante de YouTube Oficial.
@@ -70,7 +140,9 @@ import androidx.compose.ui.viewinterop.AndroidView
  *   al cerrar o cambiar de vista NUNCA se recarga, no se destruye y el audio
  *   continúa reproduciéndose sin cortes.
  * - Navegación completa: Retroceso (Atrás), Avance (Adelante), Inicio y Recarga.
- * - Barra superior idéntica a la maqueta con botón de encogimiento/cierre en la esquina superior derecha.
+ * - Botón de cierre 'X' en la esquina superior derecha en vez de flecha.
+ * - Bandeja lateral de búsquedas directas justo abajo de la pantalla de YouTube
+ *   con términos organizados y un solo toque para buscar inmediatamente.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -83,8 +155,14 @@ fun FloatingYouTubeTray(
     var isLoadingPage by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+
+    var selectedCategory by remember { mutableStateOf(SearchCategory.ALL) }
+    var activeQuery by remember { mutableStateOf<String?>(null) }
+
     val configuration = LocalConfiguration.current
-    val expandedHeight = (configuration.screenHeightDp * 0.65f).dp
+    val totalTrayHeight = (configuration.screenHeightDp * 0.80f).dp
+    // Calculamos el alto del webview para dar cabida perfecta a la barra de atajos inferior (~70dp)
+    val webViewHeight = (totalTrayHeight - 110.dp).coerceAtLeast(300.dp)
 
     val context = LocalContext.current
     val persistentWebView = remember(context) {
@@ -99,14 +177,13 @@ fun FloatingYouTubeTray(
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-            // Permitir scroll libre dentro del WebView al interactuar con YouTube
-            setOnTouchListener { v, event ->
+            setOnTouchListener { view, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
                     }
                 }
                 false
@@ -117,23 +194,30 @@ fun FloatingYouTubeTray(
                 domStorageEnabled = true
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-                loadWithOverviewMode = true
                 useWideViewPort = true
-                allowFileAccess = true
+                loadWithOverviewMode = true
+                allowFileAccess = false
+                allowContentAccess = false
                 cacheMode = WebSettings.LOAD_DEFAULT
-                userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                userAgentString =
+                    "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro Build/UD1A.230803.041; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.82 Mobile Safari/537.36"
             }
 
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     loadProgress = newProgress / 100f
                     isLoadingPage = newProgress < 100
+                    canGoBack = view?.canGoBack() == true
+                    canGoForward = view?.canGoForward() == true
                 }
             }
 
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     isLoadingPage = true
+                    canGoBack = view?.canGoBack() == true
+                    canGoForward = view?.canGoForward() == true
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -148,18 +232,14 @@ fun FloatingYouTubeTray(
                     canGoForward = view?.canGoForward() == true
                 }
 
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val url = request?.url?.toString().orEmpty()
-                    if (url.startsWith("intent://") || url.startsWith("vnd.youtube:")) {
-                        val vid = when {
-                            url.contains("videoId=") -> url.substringAfter("videoId=").substringBefore("&")
-                            url.contains("watch?v=") -> url.substringAfter("watch?v=").substringBefore("&")
-                            else -> ""
-                        }
-                        if (vid.isNotBlank()) {
-                            view?.loadUrl("https://m.youtube.com/watch?v=$vid")
-                            return true
-                        }
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
+                    val url = request?.url?.toString() ?: return false
+                    if (url.startsWith("intent:") || url.startsWith("vnd.youtube:")) {
+                        val fallback = "https://m.youtube.com"
+                        view?.loadUrl(fallback)
                         return true
                     }
                     return false
@@ -170,33 +250,45 @@ fun FloatingYouTubeTray(
         }
     }
 
-    // Interceptar el botón Back de Android para navegar atrás en YouTube antes de cerrar la bandeja
-    BackHandler(enabled = isOpen) {
-        if (persistentWebView.canGoBack()) {
-            persistentWebView.goBack()
-        } else {
-            onClose()
+    if (isOpen) {
+        BackHandler {
+            if (persistentWebView.canGoBack()) {
+                persistentWebView.goBack()
+            } else {
+                onClose()
+            }
         }
     }
 
-    // Animación suave de apertura y cierre (deslizamiento y opacidad)
-    val animOffsetY by animateDpAsState(
-        targetValue = if (isOpen) 0.dp else (-1000).dp,
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "floating_youtube_anim_offset"
-    )
     val animAlpha by animateFloatAsState(
         targetValue = if (isOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 250),
-        label = "floating_youtube_anim_alpha"
+        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+        label = "youtube_tray_alpha"
     )
 
-    // Contenedor que flota sobre el contenido
+    val animOffsetY by animateDpAsState(
+        targetValue = if (isOpen) 0.dp else (-totalTrayHeight - 40.dp),
+        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        label = "youtube_tray_offset"
+    )
+
+    val currentShortcuts = when (selectedCategory) {
+        SearchCategory.ALL -> ALL_SHORTCUTS
+        SearchCategory.CONNECTED_SPEECH -> CONNECTED_SPEECH_SHORTCUTS
+        SearchCategory.SLANG_PHRASALS -> SLANG_PHRASALS_SHORTCUTS
+        SearchCategory.SPEED_REFLEX -> SPEED_REFLEX_SHORTCUTS
+    }
+
     Box(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                // Si la bandeja está cerrada, no bloqueamos toques en la pantalla inferior
+                alpha = animAlpha
+            }
     ) {
-        // Scrim semitransparente táctico que permite cerrar al tocar fuera
-        if (animAlpha > 0.01f) {
+        // Fondo semi-transparente para dar foco a la bandeja flotante cuando está abierta
+        if (animAlpha > 0.05f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -212,11 +304,12 @@ fun FloatingYouTubeTray(
             )
         }
 
-        // Tarjeta flotante con altura de 65% de la pantalla
+        // Tarjeta flotante con altura del 80% de la pantalla
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .height(totalTrayHeight)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
                 .offset(y = animOffsetY)
                 .graphicsLayer { alpha = animAlpha }
                 .testTag("floating_youtube_tray"),
@@ -227,14 +320,14 @@ fun FloatingYouTubeTray(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(6.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
             ) {
-                // Barra superior de navegación web (estilo HUD con controles y botón encoger en esquina derecha)
+                // Barra superior de navegación web (estilo HUD con controles y botón X de cierre)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .padding(horizontal = 4.dp, vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -328,11 +421,11 @@ fun FloatingYouTubeTray(
                         }
                     }
 
-                    // Botón de encoger/cerrar en esquina derecha con recuadro y borde rojizo (ícono ^)
+                    // Botón 'X' de cierre en esquina derecha con recuadro y borde rojizo
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF3B1212).copy(alpha = 0.85f),
-                        border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.85f)),
+                        color = Color(0xFF3B1212).copy(alpha = 0.9f),
+                        border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.9f)),
                         modifier = Modifier
                             .size(30.dp)
                             .clickable { onClose() }
@@ -340,8 +433,8 @@ fun FloatingYouTubeTray(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Default.KeyboardArrowUp,
-                                contentDescription = "Ocultar bandeja de YouTube",
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar bandeja de YouTube",
                                 tint = Color(0xFFFCA5A5),
                                 modifier = Modifier.size(18.dp)
                             )
@@ -363,11 +456,11 @@ fun FloatingYouTubeTray(
                     Spacer(modifier = Modifier.height(2.dp))
                 }
 
-                // Contenedor del WebView con altura del 65% de la pantalla
+                // Contenedor del WebView ocupando el espacio disponible dentro del 80% de la pantalla
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(expandedHeight)
+                        .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Color.Black)
                 ) {
@@ -378,6 +471,97 @@ fun FloatingYouTubeTray(
                             .fillMaxSize()
                             .testTag("raw_youtube_webview")
                     )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // BANDEJA LATERAL DE BÚSQUEDAS AUTOMÁTICAS (Justo abajo de la bandeja de YouTube)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF020617).copy(alpha = 0.85f))
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                        .testTag("youtube_search_shortcuts_tray")
+                ) {
+                    // 1. Selector de categorías (Pestañas horizontales compactas)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SearchCategory.entries.forEach { cat ->
+                            val isSelected = selectedCategory == cat
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) Color(0xFFDC2626) else Color(0xFF1E293B),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) Color(0xFFEF4444) else Color(0xFF334155)
+                                ),
+                                modifier = Modifier
+                                    .clickable { selectedCategory = cat }
+                                    .testTag("category_tab_${cat.name}")
+                            ) {
+                                Text(
+                                    text = cat.title,
+                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // 2. Fila lateral de botones de búsqueda (LazyRow con desplazamiento lateral fluido)
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        items(currentShortcuts) { shortcut ->
+                            val isCurrentActive = activeQuery == shortcut.query
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isCurrentActive) Color(0xFF7F1D1D) else Color(0xFF1E293B),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isCurrentActive) Color(0xFFEF4444) else Color(0xFF38BDF8).copy(alpha = 0.45f)
+                                ),
+                                modifier = Modifier
+                                    .clickable {
+                                        activeQuery = shortcut.query
+                                        val encoded = URLEncoder.encode(shortcut.query, StandardCharsets.UTF_8.toString())
+                                        persistentWebView.loadUrl("https://m.youtube.com/results?search_query=$encoded")
+                                    }
+                                    .testTag("shortcut_btn_${shortcut.label.take(10).replace(" ", "_")}")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = null,
+                                        tint = if (isCurrentActive) Color(0xFFFCA5A5) else Color(0xFF38BDF8),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        text = shortcut.label,
+                                        color = if (isCurrentActive) Color(0xFFFEF2F2) else Color(0xFFE2E8F0),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

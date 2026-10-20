@@ -336,6 +336,7 @@ fun VocabularyScreen(
             }
           }
 
+          Spacer(modifier = Modifier.width(10.dp))
 
           // Píldora táctica discreta 'Ruta' alineada limpiamente a la derecha
           Surface(
@@ -1257,7 +1258,7 @@ fun TacticalRoadmapDialog(
 
         HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
 
-        // SECCIÓN A: LO QUE CUBRE ESTE LABORATORIO (85% DEL IDIOMA)
+        // SECCIÓN A: LO QUE CUBRE ESTE LABORATORIO (FUERZA INTERNA + YOUTUBE INTEGRADO)
         Surface(
           shape = RoundedCornerShape(14.dp),
           color = Color(0xFF1E293B).copy(alpha = 0.75f),
@@ -1278,7 +1279,7 @@ fun TacticalRoadmapDialog(
                 border = BorderStroke(1.dp, Color(0xFF34D399))
               ) {
                 Text(
-                  text = "85%",
+                  text = "95%",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.ExtraBold,
                   color = Color(0xFF34D399),
@@ -1295,7 +1296,6 @@ fun TacticalRoadmapDialog(
               )
             }
 
-            // 4 Nodos de progreso conectados
             RoadmapLabPillarItem(
               emoji = "🟢",
               title = "Vocabulario Nuclear (92% cobertura)",
@@ -1304,12 +1304,22 @@ fun TacticalRoadmapDialog(
             RoadmapLabPillarItem(
               emoji = "🟡",
               title = "Sintaxis Posicional y Conectores",
-              description = "Pensar en bloques directos (Conector ➔ Sujeto ➔ Verbo ➔ Objeto) sin traducir mentalmente palabra por palabra."
+              description = "Pensar en bloques directos (Conector ➔ Sujeto ➔ Verbo ➔ Sustantivo ➔ Modificador) sin traducir mentalmente palabra por palabra."
             )
             RoadmapLabPillarItem(
               emoji = "🔵",
               title = "Fonética Limpia (TTS)",
               description = "Memoria auditiva de alta fidelidad: pronunciación nativa palabra por palabra y lectura corrida de frases armadas."
+            )
+            RoadmapLabPillarItem(
+              emoji = "🎬",
+              title = "Habla Pegada (Connected Speech)",
+              description = "Bandeja integrada de YouTube y atajos directos para entrenar enlaces y reducciones de los nativos (gonna, wanna, gotta, didja, whaddaya) con subtítulos en inglés."
+            )
+            RoadmapLabPillarItem(
+              emoji = "🔥",
+              title = "Jerga Callejera (Slang & Phrasal Verbs)",
+              description = "Atajos de búsqueda instantánea a podcasts conversacionales y streams reales para absorber expresiones cotidianas (figure out, hang out, screw up, my bad)."
             )
             RoadmapLabPillarItem(
               emoji = "🌐",
@@ -1319,7 +1329,7 @@ fun TacticalRoadmapDialog(
           }
         }
 
-        // SECCIÓN B: LO QUE DEBES CAZAR AFUERA (15% CALLE Y FLUIDEZ REAL)
+        // SECCIÓN B: LO QUE DEBES CAZAR AFUERA (SOLO VELOCIDAD SIN BORRADOR)
         Surface(
           shape = RoundedCornerShape(14.dp),
           color = Color(0xFF1E293B).copy(alpha = 0.75f),
@@ -1340,7 +1350,7 @@ fun TacticalRoadmapDialog(
                 border = BorderStroke(1.dp, Color(0xFFFBBF24))
               ) {
                 Text(
-                  text = "15%",
+                  text = "5%",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.ExtraBold,
                   color = Color(0xFFFBBF24),
@@ -1349,7 +1359,7 @@ fun TacticalRoadmapDialog(
                 )
               }
               Text(
-                text = "LO QUE DEBES CAZAR AFUERA (CALLE Y FLUIDEZ REAL)",
+                text = "LO QUE DEBES CAZAR AFUERA (REFLEJO EN VIVO)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFFFBBF24),
@@ -1358,25 +1368,13 @@ fun TacticalRoadmapDialog(
             }
 
             Text(
-              text = "Las 3 únicas cosas que ninguna app puede darte y que debes entrenar en el mundo real:",
+              text = "Lo único que ninguna app puede sustituir y que debes entrenar en el mundo real:",
               style = MaterialTheme.typography.bodySmall,
               color = Color(0xFF94A3B8),
               fontSize = 11.sp
             )
 
-            // 3 Misiones Externas
-            RoadmapExternalMissionCard(
-              icon = "🎬",
-              title = "Habla Pegada (Connected Speech)",
-              whatIs = "Los nativos ligan y reducen palabras al hablar rápido (gonna, wanna, gotta, didja, whaddaya).",
-              action = "Ver películas, series o YouTube con audio y subtítulos en inglés (nunca en español) para sincronizar ojo y oído."
-            )
-            RoadmapExternalMissionCard(
-              icon = "🔥",
-              title = "Jerga Callejera (Slang & Phrasal Verbs)",
-              whatIs = "Combinaciones cotidianas que cambian de significado según el contexto (figure out, hang out, screw up, my bad).",
-              action = "Escuchar podcasts conversacionales o streams informales donde hablen sin guion predeterminado."
-            )
+            // Misión Externa Única
             RoadmapExternalMissionCard(
               icon = "⚡",
               title = "Velocidad sin Borrador (Reflejo en Vivo)",
@@ -1519,89 +1517,55 @@ private fun SyntaxCompassHeader(
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 14.dp, vertical = 2.dp),
-    verticalAlignment = Alignment.CenterVertically
+      .padding(horizontal = 12.dp, vertical = 2.dp)
+      .horizontalScroll(rememberScrollState()),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(6.dp)
   ) {
-    // Fila deslizable horizontalmente para las categorías sintácticas
-    Row(
-      modifier = Modifier
-        .weight(1f)
-        .horizontalScroll(rememberScrollState()),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      CompassStepChip(
-        color = Color(0xFFFACC15),
-        label = "Conector",
-        isSelected = isConnectorSelected,
-        onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
-        onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
-        testTag = "compass_chip_Conector"
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-      CompassStepChip(
-        color = Color(0xFFA855F7),
-        label = "Sujeto",
-        isSelected = isPronounSelected,
-        onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
-        onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
-        testTag = "compass_chip_Sujeto"
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-      CompassStepChip(
-        color = Color(0xFF38BDF8),
-        label = "Verbo",
-        isSelected = isVerbSelected,
-        onClick = { onSelectFilter(SyntaxFilter.VERB) },
-        onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
-        testTag = "compass_chip_Verbo"
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-      CompassStepChip(
-        color = Color(0xFF34D399),
-        label = "Sustantivo",
-        isSelected = isNounSelected,
-        onClick = { onSelectFilter(SyntaxFilter.NOUN) },
-        onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
-        testTag = "compass_chip_Sustantivo"
-      )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-      CompassStepChip(
-        color = Color(0xFFE2E8F0),
-        label = "Modificador",
-        isSelected = isModifierSelected,
-        onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
-        onLongClick = { onExplainFilter(SyntaxFilter.MODIFIER) },
-        testTag = "compass_chip_Modificador"
-      )
-    }
-
-    Spacer(modifier = Modifier.width(4.dp))
-
-    // Separador vertical sutil entre los chips y la X fija
-    VerticalDivider(
-      modifier = Modifier.height(14.dp),
-      thickness = 1.dp,
-      color = Color(0xFF334155)
+    CompassStepChip(
+      color = Color(0xFFFACC15),
+      label = "Conector",
+      isSelected = isConnectorSelected,
+      onClick = { onSelectFilter(SyntaxFilter.CONNECTOR) },
+      onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
+      testTag = "compass_chip_Conector"
     )
-
-    Spacer(modifier = Modifier.width(4.dp))
-
-    // Botón X compacto y fijo al costado para deseleccionar todo y dejar las 2809 palabras libres
-    Box(
-      modifier = Modifier
-        .size(24.dp)
-        .clickable(onClick = onClearFilter)
-        .testTag("btn_clear_compass_selection"),
-      contentAlignment = Alignment.Center
-    ) {
-      Icon(
-        imageVector = Icons.Default.Close,
-        contentDescription = "Deseleccionar todo y ver las 2809 palabras",
-        tint = if (selectedFilter != null) Color(0xFFEF4444) else Color(0xFF64748B),
-        modifier = Modifier.size(14.dp)
-      )
-    }
+    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+    CompassStepChip(
+      color = Color(0xFFA855F7),
+      label = "Sujeto",
+      isSelected = isPronounSelected,
+      onClick = { onSelectFilter(SyntaxFilter.SUBJECT) },
+      onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
+      testTag = "compass_chip_Sujeto"
+    )
+    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+    CompassStepChip(
+      color = Color(0xFF38BDF8),
+      label = "Verbo",
+      isSelected = isVerbSelected,
+      onClick = { onSelectFilter(SyntaxFilter.VERB) },
+      onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
+      testTag = "compass_chip_Verbo"
+    )
+    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+    CompassStepChip(
+      color = Color(0xFF34D399),
+      label = "Sustantivo",
+      isSelected = isNounSelected,
+      onClick = { onSelectFilter(SyntaxFilter.NOUN) },
+      onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
+      testTag = "compass_chip_Sustantivo"
+    )
+    Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+    CompassStepChip(
+      color = Color(0xFFE2E8F0),
+      label = "Modificador",
+      isSelected = isModifierSelected,
+      onClick = { onSelectFilter(SyntaxFilter.MODIFIER) },
+      onLongClick = { onExplainFilter(SyntaxFilter.MODIFIER) },
+      testTag = "compass_chip_Modificador"
+    )
   }
 }
 
