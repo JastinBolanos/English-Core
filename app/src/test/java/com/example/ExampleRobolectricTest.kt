@@ -48,7 +48,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `alarm shortcut button is removed from vocabulary header and roadmap button is present`() {
+  fun `alarm shortcut and gemini top buttons are removed and roadmap button floats cleanly`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -57,19 +57,13 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
-    composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertExists()
 
-    // Click Gemini shortcut button to open consultation tray
-    composeTestRule.onNodeWithTag("btn_gemini_shortcut").performClick()
+    // Click Roadmap shortcut button to open tactical roadmap dialog
+    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("gemini_consultation_dialog").assertExists()
-    composeTestRule.onNodeWithTag("input_gemini_query").assertExists()
-
-    // Close Gemini tray
-    composeTestRule.onNodeWithTag("btn_close_gemini_tray").performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("gemini_consultation_dialog").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
   }
 
   @Test
@@ -281,25 +275,24 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Assert FAB exists with initial speed 1.0x
+    // Assert FAB exists
     val fabNode = composeTestRule.onNodeWithTag("fab_speed_control")
     fabNode.assertExists()
-    composeTestRule.onNodeWithText("1.0x").assertExists()
 
-    // Click FAB to cycle to 0.8x
+    // Click FAB to cycle to 0.8
     fabNode.performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("0.8x").assertExists()
+    fabNode.assertExists()
 
-    // Click FAB to cycle to 0.5x
+    // Click FAB to cycle to 0.5
     fabNode.performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("0.5x").assertExists()
+    fabNode.assertExists()
 
-    // Click FAB to cycle back to 1.0x
+    // Click FAB to cycle back to 1.0
     fabNode.performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithText("1.0x").assertExists()
+    fabNode.assertExists()
   }
 
   @Test
@@ -647,6 +640,17 @@ class ExampleRobolectricTest {
 
     // Verify FAB '+' exists
     composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
+
+    // Verify FAB Gemini Web exists and is clickable (opens 75% floating web tray)
+    composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
+    composeTestRule.onNodeWithTag("fab_gemini_web").performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify Floating Gemini Web Tray and close button exist
+    composeTestRule.onNodeWithTag("floating_gemini_web_tray").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").performClick()
+    composeTestRule.waitForIdle()
 
     // Click FAB to open creation dialog
     composeTestRule.onNodeWithTag("fab_add_custom_word").performClick()

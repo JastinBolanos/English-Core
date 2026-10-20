@@ -451,36 +451,6 @@ fun FloatingYouTubeTray(
                         }
                     }
 
-                    // Badge central de búsqueda directa anti-distracción
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF1E293B).copy(alpha = 0.9f),
-                        border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-                        modifier = Modifier.clickable {
-                            activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
-                            persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
-                        }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = Color(0xFF38BDF8),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Text(
-                                text = "Conversación",
-                                color = Color(0xFFE2E8F0),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
                     // Botón 'X' de cierre en esquina derecha con recuadro y borde rojizo
                     Surface(
                         shape = RoundedCornerShape(8.dp),

@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
@@ -15,7 +17,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -83,6 +90,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import com.example.presentation.youtube.RawYouTubeTray
 import com.example.presentation.youtube.FloatingYouTubeTray
+import com.example.presentation.gemini.FloatingGeminiWebTray
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
@@ -101,6 +109,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -108,8 +117,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -197,11 +204,6 @@ fun VocabularyScreen(
   val translationState by viewModel.translationState.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
-  val showGeminiDialog by viewModel.showGeminiDialog.collectAsStateWithLifecycle()
-  val geminiMessages by viewModel.geminiMessages.collectAsStateWithLifecycle()
-  val isGeminiLoading by viewModel.isGeminiLoading.collectAsStateWithLifecycle()
-  val geminiInputText by viewModel.geminiInputText.collectAsStateWithLifecycle()
-  val geminiApiKey by viewModel.geminiApiKey.collectAsStateWithLifecycle()
   val spanishInputText by viewModel.spanishInputText.collectAsStateWithLifecycle()
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
@@ -223,6 +225,7 @@ fun VocabularyScreen(
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
 
   var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isGeminiWebTrayOpen by rememberSaveable { mutableStateOf(false) }
 
 
   androidx.compose.runtime.LaunchedEffect(searchQuery) {
@@ -259,120 +262,47 @@ fun VocabularyScreen(
     modifier = modifier
       .fillMaxSize()
       .testTag("screen_vocabulario"),
+    floatingActionButtonPosition = FabPosition.Center,
     floatingActionButton = {
       Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
-        YouTubeFloatingActionButton(
-          isOpen = isYouTubeTrayOpen,
-          onClick = { isYouTubeTrayOpen = !isYouTubeTrayOpen }
+        // 1. Extremo izquierdo: Ruta / Brújula (invertido con el de velocidad)
+        RoadmapFloatingActionButton(
+          isOpen = showRoadmapDialog,
+          onClick = { showRoadmapDialog = !showRoadmapDialog }
         )
+        // 2. Costado izquierdo del +: Gemini Web
+        GeminiWebFloatingActionButton(
+          isOpen = isGeminiWebTrayOpen,
+          onClick = {
+            isGeminiWebTrayOpen = !isGeminiWebTrayOpen
+            if (isGeminiWebTrayOpen) {
+              isYouTubeTrayOpen = false
+            }
+          }
+        )
+        // 3. Botón de EN MEDIO: Añadir palabra (+)
         AddWordFloatingActionButton(
           onClick = { viewModel.openAddWordDialog() }
         )
+        // 4. Costado derecho del +: YouTube
+        YouTubeFloatingActionButton(
+          isOpen = isYouTubeTrayOpen,
+          onClick = {
+            isYouTubeTrayOpen = !isYouTubeTrayOpen
+            if (isYouTubeTrayOpen) {
+              isGeminiWebTrayOpen = false
+            }
+          }
+        )
+        // 5. Extremo derecho: Reductor de velocidad (invertido con el de brújula)
         SpeedFloatingActionButton(
           currentSpeed = currentSpeechSpeed,
           onClick = { viewModel.onToggleSpeed() }
         )
       }
-    },
-    topBar = {
-      TopAppBar(
-        title = {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            Text(
-              text = "HUD Laboratorio",
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.Bold
-            )
-            if (words.isNotEmpty()) {
-              Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-              ) {
-                Text(
-                  text = "${filteredWords.size} palabras",
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = FontWeight.Bold,
-                  color = MaterialTheme.colorScheme.onPrimaryContainer,
-                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
-              }
-            }
-          }
-        },
-        actions = {
-          // Botón de Gemini con estrella de Gemini (ubicado justo entre la píldora de 2809 palabras y el botón de Ruta)
-          Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF0F172A),
-            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.75f)),
-            modifier = Modifier
-              .clickable { viewModel.openGeminiDialog() }
-              .testTag("btn_gemini_shortcut")
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Filled.AutoAwesome,
-                contentDescription = "Consultar a Gemini IA",
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(15.dp)
-              )
-              Text(
-                text = "Gemini",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFE0F2FE),
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp
-              )
-            }
-          }
-
-          Spacer(modifier = Modifier.width(10.dp))
-
-          // Píldora táctica discreta 'Ruta' alineada limpiamente a la derecha
-          Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFF0F172A),
-            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.55f)),
-            modifier = Modifier
-              .padding(end = 12.dp)
-              .clickable { showRoadmapDialog = true }
-              .testTag("btn_roadmap_shortcut")
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Explore,
-                contentDescription = "Ver Mapa de Ruta Táctica",
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(14.dp)
-              )
-              Text(
-                text = "Ruta",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFE0F2FE),
-                fontWeight = FontWeight.Bold,
-                fontSize = 11.sp
-              )
-            }
-          }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = MaterialTheme.colorScheme.surface
-        )
-      )
     }
   ) { innerPadding ->
     Box(
@@ -391,14 +321,6 @@ fun VocabularyScreen(
             .padding(bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-          // BRÚJULA SINTÁCTICA ULTRA-FINA Y SIEMPRE VISIBLE (Conector > Sujeto > Verbo > Sustantivo > Modificador)
-          SyntaxCompassHeader(
-            selectedFilter = selectedSyntaxFilter,
-            onSelectFilter = { filter -> viewModel.selectSyntaxFilter(filter) },
-            onExplainFilter = { filter -> explainedFilter = filter },
-            onClearFilter = { viewModel.clearSyntaxFilter() }
-          )
-
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
           SpanishToEnglishWriterCard(
             spanishText = spanishInputText,
@@ -560,6 +482,15 @@ fun VocabularyScreen(
               }
             )
           }
+
+          // BRÚJULA SINTÁCTICA ULTRA-FINA (Conector > Sujeto > Verbo > Sustantivo > Modificador)
+          // Ubicado justo abajo del buscador de palabras y selector del número de palabras (# 1-2809)
+          SyntaxCompassHeader(
+            selectedFilter = selectedSyntaxFilter,
+            onSelectFilter = { filter -> viewModel.selectSyntaxFilter(filter) },
+            onExplainFilter = { filter -> explainedFilter = filter },
+            onClearFilter = { viewModel.clearSyntaxFilter() }
+          )
         }
 
         // 3. LISTA DE LAS 2,809 PALABRAS
@@ -637,6 +568,10 @@ fun VocabularyScreen(
         isOpen = isYouTubeTrayOpen,
         onClose = { isYouTubeTrayOpen = false }
       )
+      FloatingGeminiWebTray(
+        isOpen = isGeminiWebTrayOpen,
+        onClose = { isGeminiWebTrayOpen = false }
+      )
     }
   }
 
@@ -665,20 +600,6 @@ fun VocabularyScreen(
       onDismiss = { explainedFilter = null }
     )
   }
-
-  GeminiConsultationTray(
-    isOpen = showGeminiDialog,
-    onDismiss = { viewModel.closeGeminiDialog() },
-    messages = geminiMessages,
-    isLoading = isGeminiLoading,
-    inputText = geminiInputText,
-    onInputTextChanged = { viewModel.updateGeminiInputText(it) },
-    onSendMessage = { viewModel.sendGeminiQuery(it) },
-    onClearChat = { viewModel.clearGeminiChat() },
-    apiKey = geminiApiKey,
-    onApiKeyChanged = { viewModel.updateGeminiApiKey(it) },
-    draftPhrase = draftWords.joinToString(" ") { it.lemma }
-  )
 }
 
 /**
@@ -715,6 +636,95 @@ fun YouTubeFloatingActionButton(
             contentDescription = if (isOpen) "Ocultar YouTube" else "Abrir YouTube",
             tint = Color.White,
             modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Ruta Táctica (Brújula).
+ * Ubicado inmediatamente al lado del botón de YouTube, con solo el icono de brújula (0 texto).
+ * Al tocarlo abre la bandeja de Ruta Táctica normalmente.
+ */
+@Composable
+fun RoadmapFloatingActionButton(
+  isOpen: Boolean = false,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_roadmap_shortcut"),
+    shape = CircleShape,
+    color = Color(0xFF101923),
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
+    shadowElevation = 8.dp
+  ) {
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = Color(0xFF0284C7),
+        modifier = Modifier.size(28.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.Explore,
+            contentDescription = "Abrir Ruta Táctica",
+            tint = Color.White,
+            modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * URL directa a Géminis Web (Google AI Search / Gemini Mode) para resolver cualquier consulta en vivo.
+ */
+const val GEMINI_WEB_URL =
+  "https://www.google.com/search?client=ms-android-zte&hs=8eqq&sca_esv=f805f121b9f8e54d&sxsrf=APpeQnsqh0udAtTBjMevx4L_BM-liBl99w%3A1792494801229&udm=50&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832VTJOOCxW_fyN-Q_ezyf8gKKYi6DYGSj2Ng7gxGZN3oaoqNkvqcw0gjT8z58Q3rjcd-DOsrGjYtbRDd9MfcP_OXc30v1Zb9LanikIgCzV0VsqA2nqB9np11qGHG-trzG67oLJE90WZyf8oIateP_ijZNgZeza-znfZx1_bnEMEQw6UX1Dg&vsint=&ntc=1&cs=1&sa=X&ved=0CAEQoo4PahcKEwjQ7NXAu8iXAxUAAAAAHQAAAAAQGg&biw=423&bih=834&dpr=1.7&zs=1"
+
+/**
+ * Botón Flotante Inferior de Géminis Web.
+ * Ubicado inmediatamente al lado del botón de YouTube. Abre de manera automática
+ * Géminis Web en el navegador para cualquier consulta o duda de inglés en tiempo real.
+ */
+@Composable
+fun GeminiWebFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val borderColor = if (isOpen) Color(0xFF60A5FA) else Color(0xFF1E293B)
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("fab_gemini_web"),
+    shape = CircleShape,
+    color = Color(0xFF101923),
+    border = BorderStroke(1.5.dp, borderColor),
+    shadowElevation = 8.dp
+  ) {
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF2563EB) else Color(0xFF1A73E8),
+        modifier = Modifier.size(28.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.AutoAwesome,
+            contentDescription = if (isOpen) "Cerrar Géminis Web" else "Abrir Géminis Web Flotante",
+            tint = Color.White,
+            modifier = Modifier.size(17.dp)
           )
         }
       }
@@ -1127,10 +1137,115 @@ fun AddCustomWordDialog(
 }
 
 /**
+ * Icono de velocímetro analógico interactivo con aguja animada.
+ * La aguja se mueve en tiempo real reflejando el nivel de velocidad:
+ * - 0.5x (más bajo): aguja orientada a la izquierda (baja velocidad).
+ * - 0.8x (medio): aguja en el centro vertical.
+ * - 1.0x (alta velocidad): aguja orientada a la derecha (máxima velocidad).
+ * Permite reconocer el nivel visualmente sin necesidad de textos ni números.
+ */
+@Composable
+fun AnimatedSpeedometerIcon(
+  currentSpeed: Float,
+  modifier: Modifier = Modifier
+) {
+  val targetAngle = when {
+    currentSpeed <= 0.55f -> -50f // Lo más bajo: punta a la izquierda
+    currentSpeed <= 0.85f -> 0f   // En medio: aguja centrada verticalmente
+    else -> 50f                   // Alta velocidad: punta hacia la derecha
+  }
+
+  val animatedAngle by animateFloatAsState(
+    targetValue = targetAngle,
+    animationSpec = spring(
+      dampingRatio = Spring.DampingRatioMediumBouncy,
+      stiffness = Spring.StiffnessMediumLow
+    ),
+    label = "speedometer_needle_angle"
+  )
+
+  Canvas(modifier = modifier.size(26.dp)) {
+    val w = size.width
+    val h = size.height
+    // Centro del dial (ligeramente hacia abajo para balancear el arco superior)
+    val centerDial = Offset(w / 2f, h * 0.62f)
+    val radius = w * 0.44f
+
+    // 1. Arco base del velocímetro (desde abajo a la izquierda hasta abajo a la derecha)
+    drawArc(
+      color = Color(0xFF00E5FF).copy(alpha = 0.45f),
+      startAngle = 145f,
+      sweepAngle = 250f,
+      useCenter = false,
+      topLeft = Offset(centerDial.x - radius, centerDial.y - radius),
+      size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f),
+      style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+    )
+
+    // 2. Marcas o puntos guía en las 3 posiciones clave (Bajo: -50°, Medio: 0°, Alto: +50°)
+    val markAngles = listOf(-50f, 0f, 50f)
+    for (markAngle in markAngles) {
+      val isCurrent = (markAngle == targetAngle)
+      val rad = Math.toRadians((markAngle - 90f).toDouble())
+      val tickStart = Offset(
+        centerDial.x + (radius - 1.dp.toPx()) * cos(rad).toFloat(),
+        centerDial.y + (radius - 1.dp.toPx()) * sin(rad).toFloat()
+      )
+      val tickEnd = Offset(
+        centerDial.x + (radius - 4.dp.toPx()) * cos(rad).toFloat(),
+        centerDial.y + (radius - 4.dp.toPx()) * sin(rad).toFloat()
+      )
+      drawLine(
+        color = if (isCurrent) Color(0xFF00E5FF) else Color(0xFF00E5FF).copy(alpha = 0.35f),
+        start = tickStart,
+        end = tickEnd,
+        strokeWidth = if (isCurrent) 2.dp.toPx() else 1.2.dp.toPx(),
+        cap = StrokeCap.Round
+      )
+    }
+
+    // 3. Aguja indicadora ("punta indicadora / aguja")
+    val needleRad = Math.toRadians((animatedAngle - 90f).toDouble())
+    val needleLength = radius * 0.88f
+    val needleTip = Offset(
+      centerDial.x + needleLength * cos(needleRad).toFloat(),
+      centerDial.y + needleLength * sin(needleRad).toFloat()
+    )
+
+    // Línea de la aguja
+    drawLine(
+      color = Color(0xFF00E5FF),
+      start = centerDial,
+      end = needleTip,
+      strokeWidth = 2.5.dp.toPx(),
+      cap = StrokeCap.Round
+    )
+
+    // Punta brillante en el extremo de la aguja
+    drawCircle(
+      color = Color.White,
+      radius = 1.6.dp.toPx(),
+      center = needleTip
+    )
+
+    // 4. Pivote central
+    drawCircle(
+      color = Color(0xFF00E5FF),
+      radius = 3.2.dp.toPx(),
+      center = centerDial
+    )
+    drawCircle(
+      color = Color(0xFF101923),
+      radius = 1.4.dp.toPx(),
+      center = centerDial
+    )
+  }
+}
+
+/**
  * Botón Flotante Inferior de Velocidad TTS Global.
- * Muestra el ícono de velocímetro (Speed) y el nivel actual ('1.0x', '0.8x' o '0.5x').
- * Estética HUD oscura (fondo #121824 con borde cian / menta brillante).
- * Al tocarlo, cicla inmediatamente: 1.0x -> 0.8x -> 0.5x -> 1.0x.
+ * Muestra el velocímetro con aguja interactiva en tiempo real sin números en pantalla.
+ * Al tocarlo, cicla inmediatamente: 1.0 -> 0.8 -> 0.5 -> 1.0.
  */
 @Composable
 fun SpeedFloatingActionButton(
@@ -1138,39 +1253,26 @@ fun SpeedFloatingActionButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val speedLabel = when {
-    currentSpeed <= 0.55f -> "0.5x"
-    currentSpeed <= 0.85f -> "0.8x"
-    else -> "1.0x"
+  val speedDesc = when {
+    currentSpeed <= 0.55f -> "Velocidad baja: 0.5x"
+    currentSpeed <= 0.85f -> "Velocidad media: 0.8x"
+    else -> "Velocidad normal: 1.0x"
   }
 
   Surface(
     onClick = onClick,
-    modifier = modifier
-      .testTag("fab_speed_control"),
-    shape = RoundedCornerShape(20.dp),
+    modifier = modifier.testTag("fab_speed_control"),
+    shape = CircleShape,
     color = Color(0xFF101923),
     border = null,
     shadowElevation = 8.dp
   ) {
-    Row(
-      modifier = Modifier
-        .padding(horizontal = 14.dp, vertical = 10.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
     ) {
-      Icon(
-        imageVector = Icons.Default.Speed,
-        contentDescription = "Velocidad de reproducción",
-        tint = Color(0xFF00E5FF),
-        modifier = Modifier.size(20.dp)
-      )
-      Text(
-        text = speedLabel,
-        color = Color(0xFFE2E8F0),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.5.sp
+      AnimatedSpeedometerIcon(
+        currentSpeed = currentSpeed
       )
     }
   }
