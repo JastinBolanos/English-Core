@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
@@ -133,8 +134,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import com.example.ui.theme.FrederickaTheGreatFontFamily
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -334,9 +339,12 @@ fun VocabularyScreen(
           modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 10.dp, bottom = 2.dp),
+            .padding(top = 4.dp, bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+          // Espacio superior encima de todo: "English" centrado con tipografía Fredericka la Grande y efectos de luz
+          AnimatedEnglishHeader()
+
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
           SpanishToEnglishWriterCard(
             spanishText = spanishInputText,
@@ -789,6 +797,124 @@ fun GoogleTranslateFloatingActionButton(
         }
       }
     }
+  }
+}
+
+/**
+ * Cabecera superior con la palabra "English" centrada, en tipografía Fredericka la Grande,
+ * con animaciones y efectos de luz luminosos específicos para esa palabra.
+ */
+@Composable
+fun AnimatedEnglishHeader(
+  modifier: Modifier = Modifier
+) {
+  val infiniteTransition = rememberInfiniteTransition(label = "english_light_effects")
+
+  // 1. Barrido continuo de haz de luz brillante a través de las letras
+  val shimmerOffset by infiniteTransition.animateFloat(
+    initialValue = -350f,
+    targetValue = 950f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 3200, easing = LinearEasing),
+      repeatMode = RepeatMode.Restart
+    ),
+    label = "light_shimmer_sweep"
+  )
+
+  // 2. Resplandor pulsante / respiración suave de luz ambiental
+  val pulseGlow by infiniteTransition.animateFloat(
+    initialValue = 0.55f,
+    targetValue = 1.0f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "light_pulse_glow"
+  )
+
+  // 3. Gradiente cromático de luz viva que baña las letras grabadas de Fredericka la Grande
+  val lightBrush = Brush.linearGradient(
+    colors = listOf(
+      Color(0xFFCBD5E1),              // Tiza plateada base
+      Color(0xFF38BDF8),              // Destello celeste brillante
+      Color(0xFFFFFFFF),              // Luz pura reflectante
+      Color(0xFFFDE047),              // Chispa dorada solar
+      Color(0xFF00E5FF),              // Neón cian
+      Color(0xFFCBD5E1)               // Retorno suave
+    ),
+    start = Offset(shimmerOffset, 0f),
+    end = Offset(shimmerOffset + 260f, 0f)
+  )
+
+  Box(
+    modifier = modifier
+      .fillMaxWidth()
+      .padding(top = 2.dp, bottom = 2.dp)
+      .testTag("header_english_space"),
+    contentAlignment = Alignment.Center
+  ) {
+    // 1. Halo ambiental de fondo suave y difuso
+    Box(
+      modifier = Modifier
+        .size(width = 210.dp, height = 36.dp)
+        .graphicsLayer {
+          alpha = pulseGlow * 0.35f
+          scaleX = 0.95f + pulseGlow * 0.1f
+          scaleY = 0.95f + pulseGlow * 0.1f
+        }
+        .background(
+          brush = Brush.radialGradient(
+            colors = listOf(
+              Color(0xFF0284C7).copy(alpha = 0.5f),
+              Color(0xFF38BDF8).copy(alpha = 0.2f),
+              Color.Transparent
+            )
+          ),
+          shape = CircleShape
+        )
+    )
+
+    // 2. Capa de resplandor difuso detrás de la palabra "English"
+    Text(
+      text = "English",
+      fontFamily = FrederickaTheGreatFontFamily,
+      fontSize = 34.sp,
+      fontWeight = FontWeight.Normal,
+      letterSpacing = 2.5.sp,
+      textAlign = TextAlign.Center,
+      color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.45f),
+      style = TextStyle(
+        shadow = Shadow(
+          color = Color(0xFF00E5FF).copy(alpha = pulseGlow * 0.8f),
+          offset = Offset(0f, 0f),
+          blurRadius = 18f * pulseGlow
+        )
+      ),
+      modifier = Modifier.graphicsLayer {
+        alpha = pulseGlow * 0.75f
+        scaleX = 1.01f
+        scaleY = 1.01f
+      }
+    )
+
+    // 3. Capa principal del texto con tipografía Fredericka la Grande y efecto de luz en barrido
+    Text(
+      text = "English",
+      fontFamily = FrederickaTheGreatFontFamily,
+      fontSize = 34.sp,
+      fontWeight = FontWeight.Normal,
+      letterSpacing = 2.5.sp,
+      textAlign = TextAlign.Center,
+      style = TextStyle(
+        brush = lightBrush,
+        shadow = Shadow(
+          color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.9f),
+          offset = Offset(0f, 2f),
+          blurRadius = 12f * pulseGlow
+        )
+      ),
+      modifier = Modifier.testTag("text_english_title")
+    )
   }
 }
 

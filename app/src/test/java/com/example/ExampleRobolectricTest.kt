@@ -722,6 +722,19 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_close_floating_translate_web").performClick()
     composeTestRule.waitForIdle()
   }
+
+  @Test
+  fun `verify animated english header with fredericka font exists at top of screen`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("header_english_space").assertExists()
+    composeTestRule.onNodeWithTag("text_english_title").assertExists()
+  }
 }
 
 
