@@ -67,7 +67,15 @@ class VocabularyViewModel @Inject constructor(
   private val _isGeminiLoading = MutableStateFlow(false)
   val isGeminiLoading: StateFlow<Boolean> = _isGeminiLoading.asStateFlow()
 
-  private val _geminiApiKey = MutableStateFlow("")
+  private val _geminiApiKey = MutableStateFlow(
+    try {
+      com.example.BuildConfig.GEMINI_API_KEY.takeIf {
+        it.isNotBlank() && it != "your_api_key_here" && it != "your_gemini_api_key_here"
+      } ?: ""
+    } catch (_: Throwable) {
+      ""
+    }
+  )
   val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
   private val _geminiInputText = MutableStateFlow("")
@@ -95,7 +103,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob = viewModelScope.launch {
       kotlinx.coroutines.delay(350)
       if (_spanishInputText.value.trim() != clean) return@launch
-      spanishToEnglishTranslator.translate(clean, "", viewModelScope)
+      spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope)
     }
   }
 
@@ -103,7 +111,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob?.cancel()
     val clean = _spanishInputText.value.trim()
     if (clean.isBlank()) return
-    spanishToEnglishTranslator.translate(clean, "", viewModelScope)
+    spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope)
   }
 
   fun clearSpanishTranslator() {

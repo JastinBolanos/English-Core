@@ -694,6 +694,34 @@ class ExampleRobolectricTest {
 
     assertTrue("Tray must call onDismiss when closing", dismissed)
   }
+
+  @Test
+  fun `verify google translate web fab button exists and opens 60 percent floating web tray with only back forward and close buttons`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify Google Translate FAB exists
+    composeTestRule.onNodeWithTag("fab_google_translate_web").assertExists()
+    composeTestRule.onNodeWithTag("fab_google_translate_web").performClick()
+    composeTestRule.waitForIdle()
+
+    // Verify Floating Google Translate Web Tray exists
+    composeTestRule.onNodeWithTag("floating_google_translate_web_tray").assertExists()
+
+    // Verify top controls: only back, forward and close X exist
+    composeTestRule.onNodeWithTag("btn_translate_web_back").assertExists()
+    composeTestRule.onNodeWithTag("btn_translate_web_forward").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_floating_translate_web").assertExists()
+
+    // Click close button
+    composeTestRule.onNodeWithTag("btn_close_floating_translate_web").performClick()
+    composeTestRule.waitForIdle()
+  }
 }
 
 

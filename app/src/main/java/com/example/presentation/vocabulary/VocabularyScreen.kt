@@ -91,6 +91,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import com.example.presentation.youtube.RawYouTubeTray
 import com.example.presentation.youtube.FloatingYouTubeTray
 import com.example.presentation.gemini.FloatingGeminiWebTray
+import com.example.presentation.translate.FloatingGoogleTranslateWebTray
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
@@ -227,6 +228,7 @@ fun VocabularyScreen(
 
   var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGeminiWebTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isGoogleTranslateWebTrayOpen by rememberSaveable { mutableStateOf(false) }
 
 
   androidx.compose.runtime.LaunchedEffect(searchQuery) {
@@ -266,42 +268,55 @@ fun VocabularyScreen(
     floatingActionButtonPosition = FabPosition.Center,
     floatingActionButton = {
       Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
-        // 1. Extremo izquierdo: Ruta / Brújula (invertido con el de velocidad)
+        // 1. Costado izquierdo: Ruta / Brújula
         RoadmapFloatingActionButton(
           isOpen = showRoadmapDialog,
           onClick = { showRoadmapDialog = !showRoadmapDialog }
         )
-        // 2. Costado izquierdo del +: Gemini Web
+        // 2. Costado izquierdo: Gemini Web
         GeminiWebFloatingActionButton(
           isOpen = isGeminiWebTrayOpen,
           onClick = {
             isGeminiWebTrayOpen = !isGeminiWebTrayOpen
             if (isGeminiWebTrayOpen) {
               isYouTubeTrayOpen = false
+              isGoogleTranslateWebTrayOpen = false
             }
           }
         )
-        // 3. Botón de EN MEDIO: Añadir palabra (+)
+        // 3. EN MEDIO: Añadir palabra (+)
         AddWordFloatingActionButton(
           onClick = { viewModel.openAddWordDialog() }
         )
-        // 4. Costado derecho del +: YouTube
+        // 4. EN MEDIO: Graduador de velocidad de sonido
+        SpeedFloatingActionButton(
+          currentSpeed = currentSpeechSpeed,
+          onClick = { viewModel.onToggleSpeed() }
+        )
+        // 5. El otro lado: YouTube Web
         YouTubeFloatingActionButton(
           isOpen = isYouTubeTrayOpen,
           onClick = {
             isYouTubeTrayOpen = !isYouTubeTrayOpen
             if (isYouTubeTrayOpen) {
               isGeminiWebTrayOpen = false
+              isGoogleTranslateWebTrayOpen = false
             }
           }
         )
-        // 5. Extremo derecho: Reductor de velocidad (invertido con el de brújula)
-        SpeedFloatingActionButton(
-          currentSpeed = currentSpeechSpeed,
-          onClick = { viewModel.onToggleSpeed() }
+        // 6. El otro lado: Google Translate Web
+        GoogleTranslateFloatingActionButton(
+          isOpen = isGoogleTranslateWebTrayOpen,
+          onClick = {
+            isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
+            if (isGoogleTranslateWebTrayOpen) {
+              isYouTubeTrayOpen = false
+              isGeminiWebTrayOpen = false
+            }
+          }
         )
       }
     }
@@ -573,6 +588,10 @@ fun VocabularyScreen(
         isOpen = isGeminiWebTrayOpen,
         onClose = { isGeminiWebTrayOpen = false }
       )
+      FloatingGoogleTranslateWebTray(
+        isOpen = isGoogleTranslateWebTrayOpen,
+        onClose = { isGoogleTranslateWebTrayOpen = false }
+      )
     }
   }
 
@@ -723,6 +742,47 @@ fun GeminiWebFloatingActionButton(
           Icon(
             imageVector = Icons.Default.AutoAwesome,
             contentDescription = if (isOpen) "Cerrar Géminis Web" else "Abrir Géminis Web Flotante",
+            tint = Color.White,
+            modifier = Modifier.size(17.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Google Traductor Web.
+ * Ubicado al lado de los 5 botones existentes. Abre de manera automática la bandeja
+ * flotante in-app del 75% con Google Translate web.
+ */
+@Composable
+fun GoogleTranslateFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("fab_google_translate_web"),
+    shape = CircleShape,
+    color = Color(0xFF101923),
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF4285F4)) else null,
+    shadowElevation = 8.dp
+  ) {
+    Box(
+      modifier = Modifier.size(48.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF1967D2) else Color(0xFF1A73E8),
+        modifier = Modifier.size(28.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.Translate,
+            contentDescription = if (isOpen) "Cerrar Traductor Web" else "Abrir Google Traductor Web",
             tint = Color.White,
             modifier = Modifier.size(17.dp)
           )
