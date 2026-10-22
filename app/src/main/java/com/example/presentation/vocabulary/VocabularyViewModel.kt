@@ -138,6 +138,13 @@ class VocabularyViewModel @Inject constructor(
     _draftWords.value = _draftWords.value + newWords
     _isPhraseUpdated.value = true
     ttsManager.speak(clean)
+    viewModelScope.launch {
+      newWords.forEach { w ->
+        try {
+          repository.incrementWordUseCount(w.id, w.lemma)
+        } catch (_: Exception) {}
+      }
+    }
   }
 
   fun openGeminiDialog() {
@@ -295,6 +302,18 @@ class VocabularyViewModel @Inject constructor(
       scope = viewModelScope,
       started = SharingStarted.WhileSubscribed(5000),
       initialValue = emptyList()
+    )
+
+  /**
+   * Contador reactivo de palabras únicas usadas al menos una vez (useCount >= 1).
+   * Refleja cuántas palabras distintas han sido incorporadas o utilizadas por el usuario.
+   */
+  val usedWordsCount: StateFlow<Int> = words
+    .map { list -> list.count { it.useCount > 0 } }
+    .stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = 0
     )
 
   /**

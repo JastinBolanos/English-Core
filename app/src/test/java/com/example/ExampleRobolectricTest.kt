@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import kotlinx.coroutines.flow.first
 
 import androidx.test.core.app.ApplicationProvider
 import com.example.domain.model.PartOfSpeech
@@ -734,6 +735,37 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("header_english_space").assertExists()
     composeTestRule.onNodeWithTag("text_english_title").assertExists()
+    composeTestRule.onNodeWithTag("counter_used_words_badge").assertExists()
+    composeTestRule.onNodeWithTag("text_used_words_count", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("icon_trophy", useUnmergedTree = true).assertExists()
+  }
+
+  @Test
+  fun `verify usedWordsCount in ViewModel calculates unique words with useCount greater than zero`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+
+    // Insert 3 words with specific useCount
+    dao.insertWord(com.example.data.local.entity.WordEntity(id = 1, rank = 1, word = "the", partOfSpeech = "modificador", useCount = 2))
+    dao.insertWord(com.example.data.local.entity.WordEntity(id = 2, rank = 2, word = "be", partOfSpeech = "verbo", useCount = 1))
+    dao.insertWord(com.example.data.local.entity.WordEntity(id = 3, rank = 3, word = "and", partOfSpeech = "conector", useCount = 0))
+
+    val wordsFlow = repo.getAllWords()
+    val firstList = wordsFlow.first()
+    assertEquals(3, firstList.size)
+    assertEquals(2, firstList.count { it.useCount > 0 })
+
+    // When useCount increments on 'and'
+    repo.incrementWordUseCount(3, "and")
+    val updatedList = wordsFlow.first()
+    assertEquals(3, updatedList.count { it.useCount > 0 })
+
+    db.close()
   }
 }
 

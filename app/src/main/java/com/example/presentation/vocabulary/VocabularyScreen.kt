@@ -84,6 +84,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -215,6 +216,7 @@ fun VocabularyScreen(
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
   val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
+  val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
 
   val context = LocalContext.current
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
@@ -343,7 +345,7 @@ fun VocabularyScreen(
           verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           // Espacio superior encima de todo: "English" centrado con tipografía Fredericka la Grande y efectos de luz
-          AnimatedEnglishHeader()
+          AnimatedEnglishHeader(usedWordsCount = usedWordsCount)
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
           SpanishToEnglishWriterCard(
@@ -802,12 +804,15 @@ fun GoogleTranslateFloatingActionButton(
 
 /**
  * Cabecera superior con la palabra "English" centrada, en tipografía Fredericka la Grande,
- * con animaciones y efectos de luz luminosos específicos para esa palabra.
+ * con animaciones y efectos de luz luminosos específicos para esa palabra,
+ * y en la esquina superior al nivel del título el contador de palabras usadas con trofeo.
  */
 @Composable
 fun AnimatedEnglishHeader(
+  usedWordsCount: Int = 0,
   modifier: Modifier = Modifier
 ) {
+  val context = LocalContext.current
   val infiniteTransition = rememberInfiniteTransition(label = "english_light_effects")
 
   // 1. Barrido continuo de haz de luz brillante a través de las letras
@@ -915,6 +920,52 @@ fun AnimatedEnglishHeader(
       ),
       modifier = Modifier.testTag("text_english_title")
     )
+
+    // 4. Contador de palabras usadas mínimo una vez: solo el número y al costado un trofeo,
+    // ubicado en la esquina superior alineado al nivel del título English
+    Row(
+      modifier = Modifier
+        .align(Alignment.CenterEnd)
+        .padding(end = 12.dp)
+        .background(
+          color = Color(0xFF101923).copy(alpha = 0.88f),
+          shape = RoundedCornerShape(12.dp)
+        )
+        .border(
+          width = 1.dp,
+          color = Color(0xFFFACC15).copy(alpha = 0.45f),
+          shape = RoundedCornerShape(12.dp)
+        )
+        .clickable {
+          Toast.makeText(
+            context,
+            "$usedWordsCount palabras usadas al menos una vez",
+            Toast.LENGTH_SHORT
+          ).show()
+        }
+        .padding(horizontal = 8.dp, vertical = 4.dp)
+        .testTag("counter_used_words_badge"),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+      Text(
+        text = "$usedWordsCount",
+        style = MaterialTheme.typography.titleMedium.copy(
+          fontWeight = FontWeight.Bold,
+          fontSize = 14.sp,
+          color = Color(0xFFF8FAFC)
+        ),
+        modifier = Modifier.testTag("text_used_words_count")
+      )
+      Icon(
+        imageVector = Icons.Default.EmojiEvents,
+        contentDescription = "Trofeo de palabras usadas",
+        tint = Color(0xFFFACC15),
+        modifier = Modifier
+          .size(17.dp)
+          .testTag("icon_trophy")
+      )
+    }
   }
 }
 
