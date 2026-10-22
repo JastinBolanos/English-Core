@@ -2615,7 +2615,7 @@ fun TacticalRoadmapDialog(
         border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
         shadowElevation = 10.dp,
         modifier = Modifier
-          .fillMaxWidth(0.65f)
+          .fillMaxWidth(0.94f)
           .fillMaxHeight(0.65f)
           .clickable(
             interactionSource = remember { MutableInteractionSource() },
@@ -2626,9 +2626,9 @@ fun TacticalRoadmapDialog(
         Column(
           modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp)
+            .padding(16.dp)
             .verticalScroll(rememberScrollState()),
-          verticalArrangement = Arrangement.spacedBy(10.dp)
+          verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
           // Cabecera del Mapa Táctico
           Row(
@@ -2637,15 +2637,14 @@ fun TacticalRoadmapDialog(
             horizontalArrangement = Arrangement.SpaceBetween
           ) {
             Row(
-              modifier = Modifier.weight(1f, fill = false),
               verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(6.dp)
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
               Icon(
                 imageVector = Icons.Default.Explore,
                 contentDescription = null,
                 tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(19.dp)
+                modifier = Modifier.size(22.dp)
               )
               Column {
                 Text(
@@ -2653,14 +2652,13 @@ fun TacticalRoadmapDialog(
                   style = MaterialTheme.typography.titleMedium,
                   fontWeight = FontWeight.ExtraBold,
                   color = Color(0xFFF8FAFC),
-                  fontSize = 13.5.sp
+                  fontSize = 16.sp
                 )
                 Text(
-                  text = "Estrategia de dominio y fluidez",
+                  text = "Estrategia de dominio y fluidez en inglés real",
                   style = MaterialTheme.typography.labelSmall,
                   color = Color(0xFF94A3B8),
-                  fontSize = 9.5.sp,
-                  maxLines = 1
+                  fontSize = 11.sp
                 )
               }
             }

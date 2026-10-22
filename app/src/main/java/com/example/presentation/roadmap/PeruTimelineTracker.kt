@@ -178,7 +178,7 @@ object PeruTimelineTracker {
         for (dayNumber in 1..244) {
             val dateStr = fullFormat.format(cal.time).uppercase(peruLocale)
             val shortDate = shortFormat.format(cal.time).uppercase(peruLocale)
-            val dow = dayOfWeekFormat.format(cal.time).replace(".", "").capitalize(peruLocale)
+            val dow = dayOfWeekFormat.format(cal.time).replace(".", "").replaceFirstChar { it.uppercase(peruLocale) }
 
             val monthNumber = when (dayNumber) {
                 in 1..32 -> 1

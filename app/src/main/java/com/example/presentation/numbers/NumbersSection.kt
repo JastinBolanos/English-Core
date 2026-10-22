@@ -31,7 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -479,7 +479,7 @@ private fun NumberRowCard(
                     .testTag("btn_speak_number_${entry.number}")
             ) {
                 Icon(
-                    imageVector = Icons.Default.VolumeUp,
+                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Escuchar pronunciación de ${entry.word}",
                     tint = if (isPlaying) Color(0xFF0F172A) else Color(0xFF38BDF8),
                     modifier = Modifier.size(18.dp)
