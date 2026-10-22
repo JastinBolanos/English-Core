@@ -20,7 +20,10 @@ data class RestoredBackupData(
     val usedWordsCount: Int,
     val studyTimerMillis: Long,
     val draftWords: List<Word>,
-    val notes: List<NoteBlock>
+    val notes: List<NoteBlock>,
+    val alphabetCounts: Map<String, Int> = emptyMap(),
+    val numberCounts: Map<Int, Int> = emptyMap(),
+    val phraseCounts: Map<Int, Int> = emptyMap()
 )
 
 /**
@@ -42,7 +45,10 @@ object AutoBackupManager {
         usedWordsCount: Int,
         studyTimerMillis: Long,
         draftWords: List<Word>,
-        notes: List<NoteBlock>
+        notes: List<NoteBlock>,
+        alphabetCounts: Map<String, Int> = emptyMap(),
+        numberCounts: Map<Int, Int> = emptyMap(),
+        phraseCounts: Map<Int, Int> = emptyMap()
     ): Boolean {
         return try {
             val rootJson = JSONObject().apply {
@@ -73,6 +79,18 @@ object AutoBackupManager {
                     })
                 }
                 put("localNotes", notesArray)
+
+                val alphabetObj = JSONObject()
+                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+                put("alphabetCounts", alphabetObj)
+
+                val numbersObj = JSONObject()
+                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+                put("numberCounts", numbersObj)
+
+                val phrasesObj = JSONObject()
+                phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
+                put("phraseCounts", phrasesObj)
             }
 
             val jsonString = rootJson.toString(2)
@@ -211,6 +229,42 @@ object AutoBackupManager {
                 }
             }
 
+            val alphabetMap = mutableMapOf<String, Int>()
+            if (root.has("alphabetCounts")) {
+                val alphabetObj = root.getJSONObject("alphabetCounts")
+                val keys = alphabetObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    alphabetMap[k] = alphabetObj.optInt(k, 0)
+                }
+            }
+
+            val numbersMap = mutableMapOf<Int, Int>()
+            if (root.has("numberCounts")) {
+                val numbersObj = root.getJSONObject("numberCounts")
+                val keys = numbersObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val num = k.toIntOrNull()
+                    if (num != null) {
+                        numbersMap[num] = numbersObj.optInt(k, 0)
+                    }
+                }
+            }
+
+            val phrasesMap = mutableMapOf<Int, Int>()
+            if (root.has("phraseCounts")) {
+                val phrasesObj = root.getJSONObject("phraseCounts")
+                val keys = phrasesObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val id = k.toIntOrNull()
+                    if (id != null) {
+                        phrasesMap[id] = phrasesObj.optInt(k, 0)
+                    }
+                }
+            }
+
             RestoredBackupData(
                 appName = appName,
                 version = version,
@@ -218,7 +272,10 @@ object AutoBackupManager {
                 usedWordsCount = usedWordsCount,
                 studyTimerMillis = studyTimerMillis,
                 draftWords = draftList,
-                notes = notesList
+                notes = notesList,
+                alphabetCounts = alphabetMap,
+                numberCounts = numbersMap,
+                phraseCounts = phrasesMap
             )
         } catch (_: Exception) {
             null

@@ -263,6 +263,8 @@ fun VocabularyScreen(
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
   val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
+  val alphabetCounts by viewModel.alphabetCounts.collectAsStateWithLifecycle()
+  val numberCounts by viewModel.numberCounts.collectAsStateWithLifecycle()
 
   // Cronómetro nativo de estudio y diálogo de confirmación de borrado
   val studyTimerMillis by viewModel.studyTimerMillis.collectAsStateWithLifecycle()
@@ -275,8 +277,8 @@ fun VocabularyScreen(
   var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
   // Auto-backup reactivo al detectar cambios en palabras usadas o lienzo de borrador
-  LaunchedEffect(usedWordsCount, draftWords.size) {
-    if (usedWordsCount > 0 || draftWords.isNotEmpty()) {
+  LaunchedEffect(usedWordsCount, draftWords.size, alphabetCounts.size, numberCounts.size) {
+    if (usedWordsCount > 0 || draftWords.isNotEmpty() || alphabetCounts.isNotEmpty() || numberCounts.isNotEmpty()) {
       delay(1200)
       isCloudSaving = true
       delay(350)
@@ -285,7 +287,9 @@ fun VocabularyScreen(
         usedWordsCount = usedWordsCount,
         studyTimerMillis = studyTimerMillis,
         draftWords = draftWords,
-        notes = LocalNotesStorage(context).loadNotes()
+        notes = LocalNotesStorage(context).loadNotes(),
+        alphabetCounts = alphabetCounts,
+        numberCounts = numberCounts
       )
       isCloudSaving = false
     }
@@ -297,9 +301,15 @@ fun VocabularyScreen(
     val existingNotes = notesStorage.loadNotes()
     if (existingNotes.isEmpty() && usedWordsCount == 0 && AutoBackupManager.hasSurvivingBackup(context)) {
       val restored = AutoBackupManager.loadLatestBackup(context)
-      if (restored != null && (restored.notes.isNotEmpty() || restored.draftWords.isNotEmpty())) {
+      if (restored != null && (restored.notes.isNotEmpty() || restored.draftWords.isNotEmpty() || restored.alphabetCounts.isNotEmpty() || restored.numberCounts.isNotEmpty())) {
         notesStorage.saveNotes(restored.notes)
         restored.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
+        if (restored.alphabetCounts.isNotEmpty()) {
+          viewModel.restoreAlphabetCounts(restored.alphabetCounts)
+        }
+        if (restored.numberCounts.isNotEmpty()) {
+          viewModel.restoreNumberCounts(restored.numberCounts)
+        }
         backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.notes.size} notas)"
       }
     }
@@ -362,6 +372,14 @@ fun VocabularyScreen(
             })
           }
           put("localNotes", notesArray)
+
+          val alphabetObj = JSONObject()
+          alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+          put("alphabetCounts", alphabetObj)
+
+          val numbersObj = JSONObject()
+          numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+          put("numberCounts", numbersObj)
         }
 
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
@@ -411,6 +429,31 @@ fun VocabularyScreen(
                 viewModel.recordWordUsage(lemma)
               }
             }
+          }
+
+          if (rootJson.has("alphabetCounts")) {
+            val alphabetObj = rootJson.getJSONObject("alphabetCounts")
+            val countsMap = mutableMapOf<String, Int>()
+            val keys = alphabetObj.keys()
+            while (keys.hasNext()) {
+              val k = keys.next()
+              countsMap[k] = alphabetObj.optInt(k, 0)
+            }
+            viewModel.restoreAlphabetCounts(countsMap)
+          }
+
+          if (rootJson.has("numberCounts")) {
+            val numbersObj = rootJson.getJSONObject("numberCounts")
+            val countsMap = mutableMapOf<Int, Int>()
+            val keys = numbersObj.keys()
+            while (keys.hasNext()) {
+              val k = keys.next()
+              val num = k.toIntOrNull()
+              if (num != null) {
+                countsMap[num] = numbersObj.optInt(k, 0)
+              }
+            }
+            viewModel.restoreNumberCounts(countsMap)
           }
 
           backupStatusMessage = "¡Progreso restaurado con éxito! ($restoredNotesCount notas recuperadas)"
@@ -1064,17 +1107,21 @@ fun VocabularyScreen(
             }
           }
         } else if (selectedSectionTab == MainSectionTab.ALPHABET) {
-          // SECCIÓN DEL ABECEDARIO EN INGLÉS (26 LETRAS, FONÉTICA Y BOTÓN ESCUCHAR)
+          // SECCIÓN DEL ABECEDARIO EN INGLÉS (26 LETRAS, FONÉTICA, CONTADOR Y BOTÓN LIENZO)
           AlphabetListSection(
-            onSpeakLetter = { letter -> viewModel.speakWord(letter) },
+            letterCounts = alphabetCounts,
+            onSpeakLetter = { letterItem -> viewModel.speakAlphabetLetter(letterItem) },
+            onAddLetterToCanvas = { letterItem -> viewModel.addAlphabetLetterToDraft(letterItem) },
             modifier = Modifier
               .fillMaxWidth()
               .weight(1f)
           )
         } else if (selectedSectionTab == MainSectionTab.NUMBERS) {
-          // SECCIÓN DE NÚMEROS DEL 1 AL 100 EN INGLÉS (ESCRITURA, FONÉTICA Y AUDIO)
+          // SECCIÓN DE NÚMEROS DEL 1 AL 100 EN INGLÉS (ESCRITURA, FONÉTICA, CONTADOR Y BOTÓN LIENZO)
           NumbersSection(
-            onSpeakNumber = { numberWord -> viewModel.speakWord(numberWord) },
+            numberCounts = numberCounts,
+            onSpeakNumber = { entry -> viewModel.speakNumber(entry) },
+            onAddNumberToCanvas = { entry -> viewModel.addNumberToDraft(entry) },
             modifier = Modifier
               .fillMaxWidth()
               .weight(1f)
@@ -1153,6 +1200,12 @@ fun VocabularyScreen(
           if (data != null) {
             LocalNotesStorage(context).saveNotes(data.notes)
             data.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
+            if (data.alphabetCounts.isNotEmpty()) {
+              viewModel.restoreAlphabetCounts(data.alphabetCounts)
+            }
+            if (data.numberCounts.isNotEmpty()) {
+              viewModel.restoreNumberCounts(data.numberCounts)
+            }
             backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.notes.size} notas recuperadas)"
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"

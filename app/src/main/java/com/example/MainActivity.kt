@@ -93,8 +93,12 @@ fun EnglishApp() {
 
   val vocabularyViewModel: com.example.presentation.vocabulary.VocabularyViewModel =
     androidx.lifecycle.viewmodel.compose.viewModel(
-      factory = androidx.compose.runtime.remember(repository, ttsManager) {
-        com.example.presentation.vocabulary.VocabularyViewModel.Factory(repository, ttsManager)
+      factory = androidx.compose.runtime.remember(repository, ttsManager, context) {
+        com.example.presentation.vocabulary.VocabularyViewModel.Factory(
+          repository = repository,
+          ttsManager = ttsManager,
+          context = context.applicationContext
+        )
       }
     )
 

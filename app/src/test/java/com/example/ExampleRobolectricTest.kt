@@ -854,6 +854,172 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
     composeTestRule.onNodeWithTag("fab_speed_control").assertExists()
   }
+
+  @Test
+  fun `verify alphabet practice counter increments on audio and on canvas addition and persists`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    var lastSpoken = ""
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) { lastSpoken = text }
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts, context = context)
+    val letterA = com.example.presentation.alphabet.englishAlphabetCatalog.first { it.letter == "A" }
+
+    // Initial count for A is 0
+    val initialCount = viewModel.alphabetCounts.value["A"] ?: 0
+    assertEquals(0, initialCount)
+    assertTrue(viewModel.draftWords.value.isEmpty())
+
+    // 1. Listening to letter sound increments counter by 1
+    viewModel.speakAlphabetLetter(letterA)
+    assertEquals(1, viewModel.alphabetCounts.value["A"])
+    assertEquals("A", lastSpoken)
+    assertTrue("Escuchar la letra no debe agregarla al lienzo", viewModel.draftWords.value.isEmpty())
+
+    // 2. Uploading letter to canvas increments counter by 1 and adds to draft
+    viewModel.addAlphabetLetterToDraft(letterA)
+    assertEquals(2, viewModel.alphabetCounts.value["A"])
+    assertEquals(1, viewModel.draftWords.value.size)
+    assertEquals("A", viewModel.draftWords.value.first().lemma)
+
+    // 3. Verify persistence in AlphabetStorage
+    val storage = com.example.data.local.AlphabetStorage(context)
+    val persistedCounts = storage.loadCounts()
+    assertEquals(2, persistedCounts["A"])
+
+    db.close()
+  }
+
+  @Test
+  fun `verify alphabet list section UI renders items with raw counters, lienzo button and listen button`() {
+    var canvasLetter: String? = null
+    var listenedLetter: String? = null
+    val letterCounts = mapOf("A" to 5, "B" to 2)
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.alphabet.AlphabetListSection(
+          letterCounts = letterCounts,
+          onSpeakLetter = { listenedLetter = it.letter },
+          onAddLetterToCanvas = { canvasLetter = it.letter }
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify row for letter A
+    composeTestRule.onNodeWithTag("alphabet_item_A").assertExists()
+    composeTestRule.onNodeWithTag("alphabet_count_A", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("btn_add_letter_to_canvas_A").assertExists()
+    composeTestRule.onNodeWithTag("btn_listen_letter_A").assertExists()
+
+    // Click listen button for A
+    composeTestRule.onNodeWithTag("btn_listen_letter_A").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals("A", listenedLetter)
+
+    // Click add to canvas button for A
+    composeTestRule.onNodeWithTag("btn_add_letter_to_canvas_A").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals("A", canvasLetter)
+  }
+
+  @Test
+  fun `verify numbers practice counter increments on audio and on canvas addition and persists`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    var lastSpoken = ""
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) { lastSpoken = text }
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts, context = context)
+    val numberOne = com.example.presentation.numbers.NumbersCatalog.allNumbers.first { it.number == 1 }
+
+    // Initial count for 1 is 0
+    val initialCount = viewModel.numberCounts.value[1] ?: 0
+    assertEquals(0, initialCount)
+    assertTrue(viewModel.draftWords.value.isEmpty())
+
+    // 1. Listening to number sound increments counter by 1
+    viewModel.speakNumber(numberOne)
+    assertEquals(1, viewModel.numberCounts.value[1])
+    assertEquals("One", lastSpoken)
+    assertTrue("Escuchar el número no debe agregarlo al lienzo", viewModel.draftWords.value.isEmpty())
+
+    // 2. Uploading number to canvas increments counter by 1 and adds to draft
+    viewModel.addNumberToDraft(numberOne)
+    assertEquals(2, viewModel.numberCounts.value[1])
+    assertEquals(1, viewModel.draftWords.value.size)
+    assertEquals("One", viewModel.draftWords.value.first().lemma)
+
+    // 3. Verify persistence in NumbersStorage
+    val storage = com.example.data.local.NumbersStorage(context)
+    val persistedCounts = storage.loadCounts()
+    assertEquals(2, persistedCounts[1])
+
+    db.close()
+  }
+
+  @Test
+  fun `verify numbers list section UI renders items with raw counters, lienzo button and listen button`() {
+    var canvasNumber: Int? = null
+    var listenedNumber: Int? = null
+    val numberCounts = mapOf(1 to 7, 2 to 3)
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.numbers.NumbersSection(
+          numberCounts = numberCounts,
+          onSpeakNumber = { listenedNumber = it.number },
+          onAddNumberToCanvas = { canvasNumber = it.number }
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify row for number 1
+    composeTestRule.onNodeWithTag("number_card_1").assertExists()
+    composeTestRule.onNodeWithTag("number_count_1", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("btn_add_number_to_canvas_1").assertExists()
+    composeTestRule.onNodeWithTag("btn_speak_number_1").assertExists()
+
+    // Click listen button for 1
+    composeTestRule.onNodeWithTag("btn_speak_number_1").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(1, listenedNumber)
+
+    // Click add to canvas button for 1
+    composeTestRule.onNodeWithTag("btn_add_number_to_canvas_1").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals(1, canvasNumber)
+  }
 }
+
+
 
 

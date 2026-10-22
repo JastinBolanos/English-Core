@@ -18,7 +18,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 import com.example.data.stt.SpeechToTextManager
-
+import com.example.data.local.AlphabetStorage
+import com.example.data.local.NumbersStorage
+import com.example.data.local.PhrasesStorage
+import com.example.presentation.alphabet.AlphabetLetter
+import com.example.presentation.numbers.NumberEntry
+import com.example.domain.model.EverydayPhrase
 import com.example.domain.translation.TranslationManager
 import com.example.domain.translation.TranslationState
 
@@ -80,6 +85,137 @@ class VocabularyViewModel @Inject constructor(
 
   private val _geminiInputText = MutableStateFlow("")
   val geminiInputText: StateFlow<String> = _geminiInputText.asStateFlow()
+
+  // Gestor del Abecedario (Contador de prácticas y subida al lienzo de pruebas)
+  private val alphabetStorage = AlphabetStorage(context)
+  private val _alphabetCounts = MutableStateFlow<Map<String, Int>>(alphabetStorage.loadCounts())
+  val alphabetCounts: StateFlow<Map<String, Int>> = _alphabetCounts.asStateFlow()
+
+  fun speakAlphabetLetter(letterItem: AlphabetLetter) {
+    val newCount = alphabetStorage.incrementCount(letterItem.letter)
+    _alphabetCounts.value = _alphabetCounts.value + (letterItem.letter to newCount)
+    ttsManager.speak(letterItem.letter)
+  }
+
+  fun addAlphabetLetterToDraft(letterItem: AlphabetLetter) {
+    val letter = letterItem.letter
+    val newCount = alphabetStorage.incrementCount(letter)
+    _alphabetCounts.value = _alphabetCounts.value + (letter to newCount)
+
+    val letterWord = Word(
+      id = (letter.hashCode().toLong() and 0x7FFFFFFFL),
+      lemma = letter,
+      partOfSpeech = if (letterItem.isVowel) PartOfSpeech.MODIFIER else PartOfSpeech.OTHER,
+      rawPartOfSpeech = if (letterItem.isVowel) "vocal" else "consonante",
+      spanishTranslation = letterItem.phoneticSp,
+      microExample = letterItem.ipa,
+      useCount = newCount
+    )
+    _draftWords.value = _draftWords.value + letterWord
+    _isPhraseUpdated.value = true
+    ttsManager.speak(letter)
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
+  }
+
+  fun restoreAlphabetCounts(counts: Map<String, Int>) {
+    if (counts.isNotEmpty()) {
+      alphabetStorage.saveCounts(counts)
+      _alphabetCounts.value = counts
+    }
+  }
+
+  // Gestor de Números del 1 al 100 (Contador de prácticas y subida al lienzo de pruebas)
+  private val numbersStorage = NumbersStorage(context)
+  private val _numberCounts = MutableStateFlow<Map<Int, Int>>(numbersStorage.loadCounts())
+  val numberCounts: StateFlow<Map<Int, Int>> = _numberCounts.asStateFlow()
+
+  fun speakNumber(entry: NumberEntry) {
+    val newCount = numbersStorage.incrementCount(entry.number)
+    _numberCounts.value = _numberCounts.value + (entry.number to newCount)
+    ttsManager.speak(entry.word)
+  }
+
+  fun addNumberToDraft(entry: NumberEntry) {
+    val newCount = numbersStorage.incrementCount(entry.number)
+    _numberCounts.value = _numberCounts.value + (entry.number to newCount)
+
+    val numWord = Word(
+      id = (entry.number.toLong() + 900000L),
+      lemma = entry.word,
+      partOfSpeech = PartOfSpeech.MODIFIER,
+      rawPartOfSpeech = if (entry.isDecade) "número (decena)" else "número",
+      spanishTranslation = "${entry.number} (${entry.phoneticSp})",
+      microExample = entry.ipa,
+      useCount = newCount
+    )
+    _draftWords.value = _draftWords.value + numWord
+    _isPhraseUpdated.value = true
+    ttsManager.speak(entry.word)
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
+  }
+
+  fun restoreNumberCounts(counts: Map<Int, Int>) {
+    if (counts.isNotEmpty()) {
+      numbersStorage.saveCounts(counts)
+      _numberCounts.value = counts
+    }
+  }
+
+  // Gestor de Frases Cotidianas (Contador de prácticas y subida al lienzo de pruebas)
+  private val phrasesStorage = PhrasesStorage(context)
+  private val _phraseCounts = MutableStateFlow<Map<Int, Int>>(phrasesStorage.loadCounts())
+  val phraseCounts: StateFlow<Map<Int, Int>> = _phraseCounts.asStateFlow()
+
+  fun speakPhrase(phrase: EverydayPhrase) {
+    val newCount = phrasesStorage.incrementCount(phrase.id)
+    _phraseCounts.value = _phraseCounts.value + (phrase.id to newCount)
+    ttsManager.speak(phrase.englishHint)
+  }
+
+  fun addPhraseToDraft(phrase: EverydayPhrase) {
+    val newCount = phrasesStorage.incrementCount(phrase.id)
+    _phraseCounts.value = _phraseCounts.value + (phrase.id to newCount)
+
+    val clean = phrase.englishHint.trim()
+    if (clean.isNotBlank()) {
+      val tokens = clean.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
+      val allWords = words.value
+      val newWords = tokens.map { token ->
+        val cleanToken = token.lowercase(java.util.Locale.ROOT)
+        allWords.firstOrNull { it.lemma.equals(cleanToken, ignoreCase = true) }
+          ?: Word(
+            id = (cleanToken.hashCode().toLong() and 0x7FFFFFFFL),
+            lemma = cleanToken,
+            partOfSpeech = PartOfSpeech.OTHER,
+            spanishTranslation = phrase.spanishText
+          )
+      }
+      _draftWords.value = _draftWords.value + newWords
+      _isPhraseUpdated.value = true
+      ttsManager.speak(clean)
+      if (_isTranslationTrayExpanded.value) {
+        translateCurrentDraft()
+      }
+    }
+  }
+
+  fun sendPhraseToTranslator(phrase: EverydayPhrase) {
+    val newCount = phrasesStorage.incrementCount(phrase.id)
+    _phraseCounts.value = _phraseCounts.value + (phrase.id to newCount)
+    updateSpanishInputText(phrase.spanishText)
+    translateSpanishNow()
+  }
+
+  fun restorePhraseCounts(counts: Map<Int, Int>) {
+    if (counts.isNotEmpty()) {
+      phrasesStorage.saveCounts(counts)
+      _phraseCounts.value = counts
+    }
+  }
 
   // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
   private val spanishToEnglishTranslator = com.example.data.translation.SpanishToEnglishTranslationManager(geminiChatService)
@@ -895,12 +1031,13 @@ class VocabularyViewModel @Inject constructor(
     private val repository: VocabularyRepository,
     private val ttsManager: TtsManager,
     private val speechToTextManager: SpeechToTextManager? = null,
-    private val translationManager: TranslationManager? = null
+    private val translationManager: TranslationManager? = null,
+    private val context: android.content.Context? = null
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
       val tManager = translationManager ?: com.example.data.translation.MlKitTranslationManager()
-      return VocabularyViewModel(repository, ttsManager, speechToTextManager, tManager) as T
+      return VocabularyViewModel(repository, ttsManager, speechToTextManager, tManager, context = context) as T
     }
   }
 }
