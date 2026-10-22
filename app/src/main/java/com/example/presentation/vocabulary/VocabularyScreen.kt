@@ -264,6 +264,7 @@ fun VocabularyScreen(
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
   val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
+  val vocabularyTotalUses by viewModel.vocabularyTotalUses.collectAsStateWithLifecycle()
   val alphabetCounts by viewModel.alphabetCounts.collectAsStateWithLifecycle()
   val numberCounts by viewModel.numberCounts.collectAsStateWithLifecycle()
   val phraseCounts by viewModel.phraseCounts.collectAsStateWithLifecycle()
@@ -282,32 +283,34 @@ fun VocabularyScreen(
   LaunchedEffect(usedWordsCount, alphabetCounts, numberCounts, phraseCounts) {
     if (usedWordsCount > 0 || alphabetCounts.isNotEmpty() || numberCounts.isNotEmpty() || phraseCounts.isNotEmpty()) {
       delay(1200)
-      isCloudSaving = true
-      delay(350)
       val allWords = viewModel.words.value
-      val vocabCounts = allWords.associate { it.lemma to it.useCount }
-      val customWords = allWords.filter { it.rank > 2809 }.map { w ->
-        CustomWordRecord(
-          rank = w.rank,
-          word = w.lemma,
-          partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
-          spanishTranslation = w.spanishTranslation,
-          microExample = w.microExample,
-          useCount = w.useCount
+      if (allWords.isNotEmpty()) {
+        isCloudSaving = true
+        delay(350)
+        val vocabCounts = allWords.associate { it.lemma to it.useCount }
+        val customWords = allWords.filter { it.rank > 2809 }.map { w ->
+          CustomWordRecord(
+            rank = w.rank,
+            word = w.lemma,
+            partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+            spanishTranslation = w.spanishTranslation,
+            microExample = w.microExample,
+            useCount = w.useCount
+          )
+        }
+        AutoBackupManager.saveFullBackup(
+          context = context,
+          vocabularyWordCounts = vocabCounts,
+          allWordsDetails = allWords,
+          customWords = customWords,
+          usedWordsCount = usedWordsCount,
+          notes = LocalNotesStorage(context).loadNotes(),
+          alphabetCounts = alphabetCounts,
+          numberCounts = numberCounts,
+          phraseCounts = phraseCounts
         )
+        isCloudSaving = false
       }
-      AutoBackupManager.saveFullBackup(
-        context = context,
-        vocabularyWordCounts = vocabCounts,
-        allWordsDetails = allWords,
-        customWords = customWords,
-        usedWordsCount = usedWordsCount,
-        notes = LocalNotesStorage(context).loadNotes(),
-        alphabetCounts = alphabetCounts,
-        numberCounts = numberCounts,
-        phraseCounts = phraseCounts
-      )
-      isCloudSaving = false
     }
   }
 
@@ -318,13 +321,9 @@ fun VocabularyScreen(
     if (existingNotes.isEmpty() && usedWordsCount == 0 && AutoBackupManager.hasSurvivingBackup(context)) {
       val restored = AutoBackupManager.loadLatestBackup(context)
       if (restored != null) {
-        if (restored.customWords.isNotEmpty()) viewModel.restoreCustomWords(restored.customWords)
-        if (restored.vocabularyWordCounts.isNotEmpty()) viewModel.restoreWordCounts(restored.vocabularyWordCounts)
-        if (restored.alphabetCounts.isNotEmpty()) viewModel.restoreAlphabetCounts(restored.alphabetCounts)
-        if (restored.numberCounts.isNotEmpty()) viewModel.restoreNumberCounts(restored.numberCounts)
-        if (restored.phraseCounts.isNotEmpty()) viewModel.restorePhraseCounts(restored.phraseCounts)
-        if (restored.notes.isNotEmpty()) notesStorage.saveNotes(restored.notes)
-        backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.vocabularyWordCounts.size} palabras, ${restored.alphabetCounts.size} letras del abecedario, ${restored.numberCounts.size} números, ${restored.phraseCounts.size} frases, ${restored.customWords.size} añadidas, ${restored.notes.size} notas)"
+        viewModel.restoreFullBackup(restored, context) { _, msg ->
+          backupStatusMessage = msg
+        }
       }
     }
   }
@@ -506,10 +505,22 @@ fun VocabularyScreen(
           put("localNotes", notesArray)
         }
 
+        com.example.data.local.VocabularyStorage(context).saveCounts(vocabCounts)
+        com.example.data.backup.AutoBackupManager.saveFullBackup(
+          context = context,
+          vocabularyWordCounts = vocabCounts,
+          allWordsDetails = allWords,
+          customWords = customWords,
+          usedWordsCount = usedWordsCount,
+          notes = currentNotes,
+          alphabetCounts = alphabetCounts,
+          numberCounts = numberCounts,
+          phraseCounts = phraseCounts
+        )
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
           outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
         }
-        backupStatusMessage = "¡Copia exportada con éxito! (${allWords.size} palabras, ${completeAlphabetCounts.size} letras del abecedario, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${customWords.size} añadidas, ${currentNotes.size} notas)"
+        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount copas, ${vocabCounts.values.sum()} usos de palabras, ${allWords.size} palabras totales, ${completeAlphabetCounts.size} letras, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${currentNotes.size} notas)"
       } catch (e: Exception) {
         backupStatusMessage = "Error al exportar: ${e.message}"
       }
@@ -526,25 +537,9 @@ fun VocabularyScreen(
         if (fileContent.isNotBlank()) {
           val parsed = AutoBackupManager.parseJsonContent(fileContent)
           if (parsed != null) {
-            if (parsed.customWords.isNotEmpty()) {
-              viewModel.restoreCustomWords(parsed.customWords)
+            viewModel.restoreFullBackup(parsed, context) { _, msg ->
+              backupStatusMessage = msg
             }
-            if (parsed.vocabularyWordCounts.isNotEmpty()) {
-              viewModel.restoreWordCounts(parsed.vocabularyWordCounts)
-            }
-            if (parsed.alphabetCounts.isNotEmpty()) {
-              viewModel.restoreAlphabetCounts(parsed.alphabetCounts)
-            }
-            if (parsed.numberCounts.isNotEmpty()) {
-              viewModel.restoreNumberCounts(parsed.numberCounts)
-            }
-            if (parsed.phraseCounts.isNotEmpty()) {
-              viewModel.restorePhraseCounts(parsed.phraseCounts)
-            }
-            if (parsed.notes.isNotEmpty()) {
-              LocalNotesStorage(context).saveNotes(parsed.notes)
-            }
-            backupStatusMessage = "¡Progreso y contadores restaurados con éxito! (${parsed.vocabularyWordCounts.size} palabras, ${parsed.alphabetCounts.size} letras del abecedario, ${parsed.numberCounts.size} números, ${parsed.phraseCounts.size} frases, ${parsed.customWords.size} añadidas, ${parsed.notes.size} notas)"
           } else {
             backupStatusMessage = "Error: formato de archivo .json incompatible."
           }
@@ -1330,23 +1325,9 @@ fun VocabularyScreen(
         onDirectRestore = {
           val data = AutoBackupManager.loadLatestBackup(context)
           if (data != null) {
-            LocalNotesStorage(context).saveNotes(data.notes)
-            if (data.customWords.isNotEmpty()) {
-              viewModel.restoreCustomWords(data.customWords)
+            viewModel.restoreFullBackup(data, context) { _, msg ->
+              backupStatusMessage = msg
             }
-            if (data.vocabularyWordCounts.isNotEmpty()) {
-              viewModel.restoreWordCounts(data.vocabularyWordCounts)
-            }
-            if (data.alphabetCounts.isNotEmpty()) {
-              viewModel.restoreAlphabetCounts(data.alphabetCounts)
-            }
-            if (data.numberCounts.isNotEmpty()) {
-              viewModel.restoreNumberCounts(data.numberCounts)
-            }
-            if (data.phraseCounts.isNotEmpty()) {
-              viewModel.restorePhraseCounts(data.phraseCounts)
-            }
-            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.vocabularyWordCounts.size} palabras, ${data.alphabetCounts.size} letras del abecedario, ${data.numberCounts.size} números, ${data.phraseCounts.size} frases, ${data.customWords.size} añadidas, ${data.notes.size} notas)"
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
           }

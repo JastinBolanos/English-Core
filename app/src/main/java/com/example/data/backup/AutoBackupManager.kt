@@ -100,6 +100,7 @@ data class RestoredBackupData(
     val timestamp: Long,
     val usedWordsCount: Int,
     val totalWords: Int = 2809,
+    val totalVocabularyUses: Int = 0,
     val vocabularyWordCounts: Map<String, Int> = emptyMap(),
     val customWords: List<CustomWordRecord> = emptyList(),
     val totalAlphabetLetters: Int = 26,
@@ -400,6 +401,11 @@ object AutoBackupManager {
                 put("phraseCounts", phrasesObj)
             }
 
+            // Guardar también en el almacenamiento rápido VocabularyStorage
+            if (vocabularyWordCounts.isNotEmpty()) {
+                com.example.data.local.VocabularyStorage(context).saveCounts(vocabularyWordCounts)
+            }
+
             val jsonString = rootJson.toString(2)
             val jsonBytes = jsonString.toByteArray(StandardCharsets.UTF_8)
 
@@ -444,37 +450,86 @@ object AutoBackupManager {
 
     /**
      * Escribe el archivo en Documentos/VocabFlow/vocabflow_backup.json para que sobreviva a la desinstalación.
+     * Soporta MediaStore en Android 10+ (Q+) para compatibilidad con Scoped Storage sin fallos.
      */
     private fun saveToPublicDocuments(context: Context, bytes: ByteArray) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                val resolver = context.contentResolver
+                val queryUri = android.provider.MediaStore.Files.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID)
+                val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                val selectionArgs = arrayOf(BACKUP_FILENAME, "%$FOLDER_NAME%")
+
+                var existingUri: android.net.Uri? = null
+                resolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
+                        existingUri = android.content.ContentUris.withAppendedId(queryUri, id)
+                    }
+                }
+
+                val targetUri = existingUri ?: run {
+                    val values = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, BACKUP_FILENAME)
+                        put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                        put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOCUMENTS}/$FOLDER_NAME")
+                    }
+                    resolver.insert(queryUri, values)
+                }
+
+                if (targetUri != null) {
+                    resolver.openOutputStream(targetUri, "rwt")?.use { fos ->
+                        fos.write(bytes)
+                        fos.flush()
+                    } ?: resolver.openOutputStream(targetUri)?.use { fos ->
+                        fos.write(bytes)
+                        fos.flush()
+                    }
+                    return
+                }
+            } catch (_: Exception) {}
+        }
+
         try {
             val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
             val vocabFlowDir = File(docsDir, FOLDER_NAME)
-            if (!vocabFlowDir.exists()) {
-                vocabFlowDir.mkdirs()
-            }
+            if (!vocabFlowDir.exists()) vocabFlowDir.mkdirs()
             val targetFile = File(vocabFlowDir, BACKUP_FILENAME)
             FileOutputStream(targetFile).use { fos ->
                 fos.write(bytes)
                 fos.flush()
             }
-        } catch (_: Exception) {
-            try {
-                val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val targetFile = File(File(dlDir, FOLDER_NAME).apply { mkdirs() }, BACKUP_FILENAME)
-                FileOutputStream(targetFile).use { fos ->
-                    fos.write(bytes)
-                    fos.flush()
-                }
-            } catch (_: Exception) {
-                // Silencioso, ya se guardó internamente
+            return
+        } catch (_: Exception) {}
+
+        try {
+            val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val targetFile = File(File(dlDir, FOLDER_NAME).apply { mkdirs() }, BACKUP_FILENAME)
+            FileOutputStream(targetFile).use { fos ->
+                fos.write(bytes)
+                fos.flush()
             }
-        }
+        } catch (_: Exception) {}
     }
 
     /**
      * Verifica si existe una copia previa persistida en el teléfono (ej. de antes de desinstalar).
      */
     fun hasSurvivingBackup(context: Context): Boolean {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                val resolver = context.contentResolver
+                val queryUri = android.provider.MediaStore.Files.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val projection = arrayOf(android.provider.MediaStore.MediaColumns._ID)
+                val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                val selectionArgs = arrayOf(BACKUP_FILENAME, "%$FOLDER_NAME%")
+                resolver.query(queryUri, projection, selection, selectionArgs, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) return true
+                }
+            } catch (_: Exception) {}
+        }
+
         val docsFile = File(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), FOLDER_NAME), BACKUP_FILENAME)
         if (docsFile.exists() && docsFile.length() > 0) return true
 
@@ -489,6 +544,30 @@ object AutoBackupManager {
      * Carga los datos de la copia más reciente disponible (priorizando la pública que resiste desinstalaciones).
      */
     fun loadLatestBackup(context: Context): RestoredBackupData? {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                val resolver = context.contentResolver
+                val queryUri = android.provider.MediaStore.Files.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val projection = arrayOf(
+                    android.provider.MediaStore.MediaColumns._ID,
+                    android.provider.MediaStore.MediaColumns.DATE_MODIFIED
+                )
+                val selection = "${android.provider.MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${android.provider.MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
+                val selectionArgs = arrayOf(BACKUP_FILENAME, "%$FOLDER_NAME%")
+
+                resolver.query(queryUri, projection, selection, selectionArgs, "${android.provider.MediaStore.MediaColumns.DATE_MODIFIED} DESC")?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID))
+                        val fileUri = android.content.ContentUris.withAppendedId(queryUri, id)
+                        resolver.openInputStream(fileUri)?.bufferedReader(StandardCharsets.UTF_8)?.use { reader ->
+                            val parsed = parseJsonContent(reader.readText())
+                            if (parsed != null) return parsed
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
         val candidates = listOf(
             File(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), FOLDER_NAME), BACKUP_FILENAME),
             File(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER_NAME), BACKUP_FILENAME),
@@ -742,12 +821,16 @@ object AutoBackupManager {
                 }
             }
 
+            val effectiveUsedWords = if (usedWordsCount > 0) usedWordsCount else vocabCountsMap.values.count { it > 0 }
+            val totalVocabUses = root.optInt("totalVocabularyUses", vocabCountsMap.values.sum())
+
             RestoredBackupData(
                 appName = appName,
                 version = version,
                 timestamp = timestamp,
-                usedWordsCount = usedWordsCount,
+                usedWordsCount = effectiveUsedWords,
                 totalWords = totalWords,
+                totalVocabularyUses = totalVocabUses,
                 vocabularyWordCounts = vocabCountsMap,
                 customWords = customWordsList,
                 totalAlphabetLetters = totalAlphabetLetters,

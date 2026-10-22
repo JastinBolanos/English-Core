@@ -230,7 +230,7 @@ fun FloatingSettingsBackupTray(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Exporta tus 2,809 palabras, 26 letras del abecedario, 100 números y 50 frases cotidianas con sus contadores individuales exactos y notas locales en un archivo .json estándar. Podrás restaurarlo en cualquier momento sin perder tu progreso.",
+                                text = "Exporta tus 2,809 palabras con sus contadores de uso exactos, tus copas ganadas (palabras practicadas mínimo 1 vez), 26 letras del abecedario, 100 números, 50 frases cotidianas y notas locales en un archivo .json estándar. Podrás restaurarlo en cualquier momento, incluso tras desinstalar y reinstalar la app, sin perder tu historial ni volver a 0.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.5.sp,
                                     lineHeight = 16.sp,
@@ -242,9 +242,9 @@ fun FloatingSettingsBackupTray(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Resumen de estado actual del usuario
+                    // Resumen de estado actual del usuario (6 MÓDULOS)
                     Text(
-                        text = "ESTADO ACTUAL DE TU PROGRESO",
+                        text = "ESTADO ACTUAL DE TU PROGRESO (6 MÓDULOS)",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 10.sp,
@@ -258,11 +258,54 @@ fun FloatingSettingsBackupTray(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    // FILA 1: Copas Ganadas (🏆) y Usos de Vocabulario (📚)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Tarjeta 1: Palabras Vocabulario
+                        // Módulo 1: Copas (Palabras usadas mínimo 1 vez)
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("card_progress_trophies"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF131D33)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                0.8.dp,
+                                Color(0xFFFACC15).copy(alpha = 0.35f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "🏆 $vocabularyActiveWords",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFFACC15)
+                                )
+                                Text(
+                                    text = "Copas (mín. 1 uso)",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFFDE047),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$vocabularyActiveWords palabras con copa",
+                                    fontSize = 8.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        // Módulo 2: Usos de Vocabulario (Frecuencia total de uso)
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -273,7 +316,7 @@ fun FloatingSettingsBackupTray(
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 0.8.dp,
-                                Color(0xFF38BDF8).copy(alpha = 0.25f)
+                                Color(0xFF38BDF8).copy(alpha = 0.35f)
                             )
                         ) {
                             Column(
@@ -283,21 +326,36 @@ fun FloatingSettingsBackupTray(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "🏆 $vocabularyTotalUses",
+                                    text = "📚 $vocabularyTotalUses",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color(0xFFFACC15)
+                                    color = Color(0xFF38BDF8)
                                 )
                                 Text(
-                                    text = "Vocabulario ($vocabularyActiveWords act.)",
+                                    text = "Usos Vocabulario",
                                     fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF7DD3FC),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$vocabularyTotalUses usos acumulados",
+                                    fontSize = 8.5.sp,
                                     color = Color(0xFF94A3B8),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
+                    }
 
-                        // Tarjeta 2: Notas locales
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // FILA 2: Notas Locales (📝) y Abecedario (🔤)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Módulo 3: Notas locales
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -308,7 +366,7 @@ fun FloatingSettingsBackupTray(
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 0.8.dp,
-                                Color(0xFF38BDF8).copy(alpha = 0.25f)
+                                Color(0xFF60A5FA).copy(alpha = 0.3f)
                             )
                         ) {
                             Column(
@@ -321,25 +379,25 @@ fun FloatingSettingsBackupTray(
                                     text = "📝 $localNotesCount",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color(0xFF38BDF8)
+                                    color = Color(0xFF60A5FA)
                                 )
                                 Text(
                                     text = "Notas locales",
                                     fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF93C5FD),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$localNotesCount notas guardadas",
+                                    fontSize = 8.5.sp,
                                     color = Color(0xFF94A3B8),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Tarjeta 3: Abecedario
+                        // Módulo 4: Abecedario
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -350,7 +408,7 @@ fun FloatingSettingsBackupTray(
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 0.8.dp,
-                                Color(0xFF38BDF8).copy(alpha = 0.25f)
+                                Color(0xFF2DD4BF).copy(alpha = 0.3f)
                             )
                         ) {
                             Column(
@@ -363,18 +421,33 @@ fun FloatingSettingsBackupTray(
                                     text = "🔤 $alphabetTotalUses",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    color = Color(0xFF38BDF8)
+                                    color = Color(0xFF2DD4BF)
                                 )
                                 Text(
                                     text = "Abecedario ($alphabetActiveCount/26)",
                                     fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF5EEAD4),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$alphabetTotalUses prácticas de letras",
+                                    fontSize = 8.5.sp,
                                     color = Color(0xFF94A3B8),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
+                    }
 
-                        // Tarjeta 4: Números
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // FILA 3: Números (🔢) y Frases Cotidianas (💬)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Módulo 5: Números
                         Card(
                             modifier = Modifier
                                 .weight(1f)
@@ -385,7 +458,7 @@ fun FloatingSettingsBackupTray(
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 0.8.dp,
-                                Color(0xFF38BDF8).copy(alpha = 0.25f)
+                                Color(0xFF34D399).copy(alpha = 0.3f)
                             )
                         ) {
                             Column(
@@ -403,39 +476,38 @@ fun FloatingSettingsBackupTray(
                                 Text(
                                     text = "Números ($numbersActiveCount/100)",
                                     fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF6EE7B7),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$numbersTotalUses prácticas de números",
+                                    fontSize = 8.5.sp,
                                     color = Color(0xFF94A3B8),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Tarjeta 5: Frases Cotidianas
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("card_progress_phrases"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF131D33)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.8.dp,
-                            Color(0xFF38BDF8).copy(alpha = 0.25f)
-                        )
-                    ) {
-                        Row(
+                        // Módulo 6: Frases cotidianas
+                        Card(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .weight(1f)
+                                .testTag("card_progress_phrases"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF131D33)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                0.8.dp,
+                                Color(0xFFA855F7).copy(alpha = 0.3f)
+                            )
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     text = "💬 $phrasesTotalUses",
@@ -444,17 +516,19 @@ fun FloatingSettingsBackupTray(
                                     color = Color(0xFFA855F7)
                                 )
                                 Text(
-                                    text = "Frases cotidianas ($phrasesActiveCount/50 practicadas)",
-                                    fontSize = 10.5.sp,
-                                    color = Color(0xFF94A3B8)
+                                    text = "Frases ($phrasesActiveCount/50)",
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFFC084FC),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "$phrasesTotalUses prácticas de frases",
+                                    fontSize = 8.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                            Text(
-                                text = "Nube local",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF38BDF8)
-                            )
                         }
                     }
 

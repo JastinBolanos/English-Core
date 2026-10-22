@@ -48,11 +48,18 @@ interface WordDao {
   @Query("UPDATE words SET useCount = :count WHERE id = :id")
   suspend fun setUseCount(id: Long, count: Int): Int
 
+  @Query("UPDATE words SET useCount = 0 WHERE useCount > 0")
+  suspend fun resetAllUseCounts(): Int
+
   @androidx.room.Transaction
-  suspend fun updateAllUseCounts(counts: Map<String, Int>) {
+  suspend fun updateAllUseCounts(counts: Map<String, Int>, resetOthersFirst: Boolean = false) {
+    if (resetOthersFirst) {
+      resetAllUseCounts()
+    }
     for ((word, count) in counts) {
-      if (word.isNotBlank()) {
-        setUseCountByWord(word.lowercase().trim(), count)
+      val clean = word.lowercase().trim()
+      if (clean.isNotBlank() && count > 0) {
+        setUseCountByWord(clean, count)
       }
     }
   }

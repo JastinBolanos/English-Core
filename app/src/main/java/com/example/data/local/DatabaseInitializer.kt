@@ -53,7 +53,14 @@ class DatabaseInitializer @Inject constructor(
   suspend fun syncCustomWords() {
     try {
       val customStorage = CustomWordsStorage(context)
-      val customWords = customStorage.loadCustomWords()
+      var customWords = customStorage.loadCustomWords()
+      if (customWords.isEmpty()) {
+        val backup = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
+        if (backup != null && backup.customWords.isNotEmpty()) {
+          customWords = backup.customWords
+          backup.customWords.forEach { customStorage.saveCustomWord(it) }
+        }
+      }
       for (cw in customWords) {
         val clean = cw.word.lowercase(Locale.ROOT).trim()
         com.example.domain.util.WordGrammarCatalog.injectGrammarTypes(mapOf(clean to cw.partOfSpeech))
@@ -76,6 +83,8 @@ class DatabaseInitializer @Inject constructor(
               useCount = cw.useCount
             )
           )
+        } else if (cw.useCount > existing.useCount) {
+          wordDao.setUseCountByWord(clean, cw.useCount)
         }
       }
     } catch (_: Exception) {}
@@ -95,6 +104,22 @@ class DatabaseInitializer @Inject constructor(
             if (existing != null && existing.useCount > 0) {
               existingUseCounts[lemma] = existing.useCount
             }
+          }
+        }
+      } catch (_: Exception) {}
+    }
+
+    // Si la base de datos estaba vacía (ej. reinstalación), consultar VocabularyStorage o AutoBackupManager
+    if (existingUseCounts.isEmpty()) {
+      try {
+        val cached = VocabularyStorage(context).loadCounts()
+        if (cached.isNotEmpty()) {
+          existingUseCounts.putAll(cached)
+        } else {
+          val backup = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
+          if (backup != null && backup.vocabularyWordCounts.isNotEmpty()) {
+            existingUseCounts.putAll(backup.vocabularyWordCounts)
+            VocabularyStorage(context).saveCounts(backup.vocabularyWordCounts)
           }
         }
       } catch (_: Exception) {}

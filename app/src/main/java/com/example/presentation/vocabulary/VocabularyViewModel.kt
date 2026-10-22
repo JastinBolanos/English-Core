@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 import com.example.data.stt.SpeechToTextManager
@@ -231,7 +232,8 @@ class VocabularyViewModel @Inject constructor(
   fun restoreWordCounts(counts: Map<String, Int>) {
     if (counts.isNotEmpty()) {
       viewModelScope.launch {
-        repository.setWordUseCounts(counts)
+        context?.let { com.example.data.local.VocabularyStorage(it).saveCounts(counts) }
+        repository.setWordUseCounts(counts, resetOthersFirst = true)
       }
     }
   }
@@ -240,6 +242,62 @@ class VocabularyViewModel @Inject constructor(
     if (customWords.isNotEmpty()) {
       viewModelScope.launch {
         repository.restoreCustomWords(customWords)
+      }
+    }
+  }
+
+  fun restoreFullBackup(
+    data: com.example.data.backup.RestoredBackupData,
+    context: android.content.Context,
+    onComplete: (Boolean, String) -> Unit = { _, _ -> }
+  ) {
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      try {
+        if (data.notes.isNotEmpty()) {
+          com.example.presentation.notes.LocalNotesStorage(context).saveNotes(data.notes)
+        }
+        if (data.customWords.isNotEmpty()) {
+          repository.restoreCustomWords(data.customWords)
+        }
+        if (data.vocabularyWordCounts.isNotEmpty()) {
+          val vocabStorage = com.example.data.local.VocabularyStorage(context)
+          vocabStorage.saveCounts(data.vocabularyWordCounts)
+          repository.setWordUseCounts(data.vocabularyWordCounts, resetOthersFirst = true)
+        }
+        if (data.alphabetCounts.isNotEmpty()) {
+          alphabetStorage.saveCounts(data.alphabetCounts)
+          _alphabetCounts.value = data.alphabetCounts
+        }
+        if (data.numberCounts.isNotEmpty()) {
+          numbersStorage.saveCounts(data.numberCounts)
+          _numberCounts.value = data.numberCounts
+        }
+        if (data.phraseCounts.isNotEmpty()) {
+          phrasesStorage.saveCounts(data.phraseCounts)
+          _phraseCounts.value = data.phraseCounts
+        }
+        com.example.data.backup.AutoBackupManager.saveFullBackup(
+          context = context,
+          vocabularyWordCounts = data.vocabularyWordCounts,
+          customWords = data.customWords,
+          usedWordsCount = data.usedWordsCount.takeIf { it > 0 } ?: data.vocabularyWordCounts.values.count { it > 0 },
+          notes = data.notes,
+          alphabetCounts = data.alphabetCounts,
+          numberCounts = data.numberCounts,
+          phraseCounts = data.phraseCounts
+        )
+        val activeWordsCount = data.vocabularyWordCounts.values.count { it > 0 }
+        val totalWordUses = data.vocabularyWordCounts.values.sum()
+        withContext(kotlinx.coroutines.Dispatchers.Main) {
+          onComplete(
+            true,
+            "¡Progreso restaurado con éxito! $activeWordsCount copas, $totalWordUses usos de vocabulario, ${data.alphabetCounts.size} letras, ${data.numberCounts.size} números, ${data.phraseCounts.size} frases y ${data.notes.size} notas."
+          )
+        }
+      } catch (e: Exception) {
+        withContext(kotlinx.coroutines.Dispatchers.Main) {
+          onComplete(false, "Error al restaurar: ${e.message}")
+        }
       }
     }
   }
@@ -473,6 +531,17 @@ class VocabularyViewModel @Inject constructor(
    */
   val usedWordsCount: StateFlow<Int> = words
     .map { list -> list.count { it.useCount > 0 } }
+    .stateIn(
+      scope = viewModelScope,
+      started = SharingStarted.WhileSubscribed(5000),
+      initialValue = 0
+    )
+
+  /**
+   * Contador reactivo de usos totales acumulados en todas las palabras del vocabulario.
+   */
+  val vocabularyTotalUses: StateFlow<Int> = words
+    .map { list -> list.sumOf { it.useCount } }
     .stateIn(
       scope = viewModelScope,
       started = SharingStarted.WhileSubscribed(5000),

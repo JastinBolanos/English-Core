@@ -27,6 +27,10 @@ class VocabularyRepositoryImpl @Inject constructor(
     context?.let { com.example.data.local.CustomWordsStorage(it) }
   }
 
+  private val vocabularyStorage by lazy {
+    context?.let { com.example.data.local.VocabularyStorage(it) }
+  }
+
   /**
    * Obtiene todas las palabras respetando el Orden de Combate (rank ASC).
    */
@@ -45,8 +49,10 @@ class VocabularyRepositoryImpl @Inject constructor(
   }
 
   override suspend fun incrementWordUseCount(word: String) {
-    if (word.isNotBlank()) {
-      wordDao.incrementUseCountByWord(word.trim())
+    val clean = word.trim()
+    if (clean.isNotBlank()) {
+      wordDao.incrementUseCountByWord(clean)
+      vocabularyStorage?.incrementCount(clean)
     }
   }
 
@@ -55,14 +61,19 @@ class VocabularyRepositoryImpl @Inject constructor(
     if (id > 0L) {
       rowsUpdated = wordDao.incrementUseCount(id)
     }
-    if (rowsUpdated == 0 && word.isNotBlank()) {
-      wordDao.incrementUseCountByWord(word.trim())
+    val clean = word.trim()
+    if (rowsUpdated == 0 && clean.isNotBlank()) {
+      wordDao.incrementUseCountByWord(clean)
+    }
+    if (clean.isNotBlank()) {
+      vocabularyStorage?.incrementCount(clean)
     }
   }
 
-  override suspend fun setWordUseCounts(counts: Map<String, Int>) {
+  override suspend fun setWordUseCounts(counts: Map<String, Int>, resetOthersFirst: Boolean) {
     withContext(Dispatchers.IO) {
-      wordDao.updateAllUseCounts(counts)
+      vocabularyStorage?.saveCounts(counts)
+      wordDao.updateAllUseCounts(counts, resetOthersFirst)
     }
   }
 
