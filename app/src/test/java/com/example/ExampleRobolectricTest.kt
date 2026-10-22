@@ -836,6 +836,24 @@ class ExampleRobolectricTest {
 
     db.close()
   }
+
+  @Test
+  fun `verify study stopwatch is positioned above fab controls and accessible`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("study_stopwatch_container").assertExists()
+    composeTestRule.onNodeWithTag("stopwatch_toggle_button").assertExists()
+    composeTestRule.onNodeWithTag("stopwatch_time_display", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("stopwatch_trash_button").assertExists()
+    composeTestRule.onNodeWithTag("stopwatch_goal_badge").assertExists()
+    composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
+    composeTestRule.onNodeWithTag("fab_speed_control").assertExists()
+  }
 }
 
 

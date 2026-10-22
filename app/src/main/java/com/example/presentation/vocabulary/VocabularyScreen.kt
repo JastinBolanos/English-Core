@@ -352,57 +352,70 @@ fun VocabularyScreen(
       .testTag("screen_vocabulario"),
     floatingActionButtonPosition = FabPosition.Center,
     floatingActionButton = {
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
       ) {
-        // 1. Costado izquierdo: Ruta / Brújula
-        RoadmapFloatingActionButton(
-          isOpen = showRoadmapDialog,
-          onClick = { showRoadmapDialog = !showRoadmapDialog }
+        // Cronómetro nativo de estudio situado justo arriba de los botones centrales: (+) y graduador de velocidad
+        StudyStopwatchWidget(
+          studyTimerMillis = studyTimerMillis,
+          isRunning = isStudyTimerRunning,
+          onTogglePlayPause = { viewModel.toggleStudyTimer() },
+          onResetClick = { viewModel.requestResetStudyTimer() }
         )
-        // 2. Costado izquierdo: Gemini Web
-        GeminiWebFloatingActionButton(
-          isOpen = isGeminiWebTrayOpen,
-          onClick = {
-            isGeminiWebTrayOpen = !isGeminiWebTrayOpen
-            if (isGeminiWebTrayOpen) {
-              isYouTubeTrayOpen = false
-              isGoogleTranslateWebTrayOpen = false
+
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(4.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          // 1. Costado izquierdo: Ruta / Brújula
+          RoadmapFloatingActionButton(
+            isOpen = showRoadmapDialog,
+            onClick = { showRoadmapDialog = !showRoadmapDialog }
+          )
+          // 2. Costado izquierdo: Gemini Web
+          GeminiWebFloatingActionButton(
+            isOpen = isGeminiWebTrayOpen,
+            onClick = {
+              isGeminiWebTrayOpen = !isGeminiWebTrayOpen
+              if (isGeminiWebTrayOpen) {
+                isYouTubeTrayOpen = false
+                isGoogleTranslateWebTrayOpen = false
+              }
             }
-          }
-        )
-        // 3. EN MEDIO: Añadir palabra (+)
-        AddWordFloatingActionButton(
-          onClick = { viewModel.openAddWordDialog() }
-        )
-        // 4. EN MEDIO: Graduador de velocidad de sonido
-        SpeedFloatingActionButton(
-          currentSpeed = currentSpeechSpeed,
-          onClick = { viewModel.onToggleSpeed() }
-        )
-        // 5. El otro lado: YouTube Web
-        YouTubeFloatingActionButton(
-          isOpen = isYouTubeTrayOpen,
-          onClick = {
-            isYouTubeTrayOpen = !isYouTubeTrayOpen
-            if (isYouTubeTrayOpen) {
-              isGeminiWebTrayOpen = false
-              isGoogleTranslateWebTrayOpen = false
+          )
+          // 3. EN MEDIO: Añadir palabra (+)
+          AddWordFloatingActionButton(
+            onClick = { viewModel.openAddWordDialog() }
+          )
+          // 4. EN MEDIO: Graduador de velocidad de sonido
+          SpeedFloatingActionButton(
+            currentSpeed = currentSpeechSpeed,
+            onClick = { viewModel.onToggleSpeed() }
+          )
+          // 5. El otro lado: YouTube Web
+          YouTubeFloatingActionButton(
+            isOpen = isYouTubeTrayOpen,
+            onClick = {
+              isYouTubeTrayOpen = !isYouTubeTrayOpen
+              if (isYouTubeTrayOpen) {
+                isGeminiWebTrayOpen = false
+                isGoogleTranslateWebTrayOpen = false
+              }
             }
-          }
-        )
-        // 6. El otro lado: Google Translate Web
-        GoogleTranslateFloatingActionButton(
-          isOpen = isGoogleTranslateWebTrayOpen,
-          onClick = {
-            isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
-            if (isGoogleTranslateWebTrayOpen) {
-              isYouTubeTrayOpen = false
-              isGeminiWebTrayOpen = false
+          )
+          // 6. El otro lado: Google Translate Web
+          GoogleTranslateFloatingActionButton(
+            isOpen = isGoogleTranslateWebTrayOpen,
+            onClick = {
+              isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
+              if (isGoogleTranslateWebTrayOpen) {
+                isYouTubeTrayOpen = false
+                isGeminiWebTrayOpen = false
+              }
             }
-          }
-        )
+          )
+        }
       }
     }
   ) { innerPadding ->
@@ -419,16 +432,12 @@ fun VocabularyScreen(
           modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 4.dp, bottom = 2.dp),
-          verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(top = 2.dp, bottom = 1.dp),
+          verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-          // Espacio superior encima de todo: "English" centrado con cronómetro nativo y contador de palabras usadas
+          // Espacio superior encima de todo: "English" centrado con contador de palabras usadas
           AnimatedEnglishHeader(
-            usedWordsCount = usedWordsCount,
-            studyTimerMillis = studyTimerMillis,
-            isStudyTimerRunning = isStudyTimerRunning,
-            onToggleTimer = { viewModel.toggleStudyTimer() },
-            onResetTimerClick = { viewModel.requestResetStudyTimer() }
+            usedWordsCount = usedWordsCount
           )
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
@@ -481,7 +490,7 @@ fun VocabularyScreen(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 16.dp, vertical = 2.dp)
+              .padding(horizontal = 16.dp, vertical = 1.dp)
               .testTag("tab_selector_vocabulario_frases"),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -493,7 +502,7 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.VOCABULARY }
-                .padding(horizontal = 20.dp, vertical = 2.dp)
+                .padding(horizontal = 12.dp, vertical = 1.dp)
                 .testTag("tab_vocabulario_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -501,23 +510,23 @@ fun VocabularyScreen(
                 text = "Vocabulario",
                 style = MaterialTheme.typography.titleMedium.copy(
                   fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 15.sp,
+                  fontSize = 12.5.sp,
                   color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(3.dp))
+              Spacer(modifier = Modifier.height(2.dp))
               Box(
                 modifier = Modifier
-                  .width(52.dp)
-                  .height(3.dp)
+                  .width(36.dp)
+                  .height(2.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
+                    shape = RoundedCornerShape(1.dp)
                   )
               )
             }
 
-            Spacer(modifier = Modifier.width(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
             // 2. Botón de solo texto "Frases" con su rayita baja
             Column(
@@ -526,7 +535,7 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.PHRASES }
-                .padding(horizontal = 20.dp, vertical = 2.dp)
+                .padding(horizontal = 12.dp, vertical = 1.dp)
                 .testTag("tab_frases_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -534,33 +543,33 @@ fun VocabularyScreen(
                 text = "Frases",
                 style = MaterialTheme.typography.titleMedium.copy(
                   fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 15.sp,
+                  fontSize = 12.5.sp,
                   color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(3.dp))
+              Spacer(modifier = Modifier.height(2.dp))
               Box(
                 modifier = Modifier
-                  .width(42.dp)
-                  .height(3.dp)
+                  .width(28.dp)
+                  .height(2.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
+                    shape = RoundedCornerShape(1.dp)
                   )
               )
             }
           }
 
           if (selectedSectionTab == MainSectionTab.VOCABULARY) {
-            // FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - ULTRA-FINAS (LA MITAD DEL ALTO)
+            // FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - Mismo alto que el traductor (34dp)
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 16.dp, vertical = 1.dp),
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              // Buscador de texto tradicional (Filtro) - Delgada (30dp de alto, mitad del tamaño)
+              // Buscador de texto tradicional (Filtro) - Alto 34dp igual al traductor superior
               BasicTextField(
                 value = searchQuery,
                 onValueChange = {
@@ -572,7 +581,7 @@ fun VocabularyScreen(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                   color = Color.White,
-                  fontSize = 13.sp
+                  fontSize = 12.sp
                 ),
                 cursorBrush = SolidColor(Color.White),
                 modifier = Modifier
@@ -582,7 +591,7 @@ fun VocabularyScreen(
                   Row(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(30.dp)
+                      .height(34.dp)
                       .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
                       .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 10.dp),
@@ -592,7 +601,7 @@ fun VocabularyScreen(
                       imageVector = Icons.Default.Search,
                       contentDescription = null,
                       tint = Color(0xFF94A3B8),
-                      modifier = Modifier.size(16.dp)
+                      modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Box(
@@ -618,7 +627,7 @@ fun VocabularyScreen(
                 }
               )
 
-              // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Delgada (30dp de alto, mitad del tamaño)
+              // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Alto 34dp igual al traductor superior (ancho intacto)
               BasicTextField(
                 value = jumpRankInput,
                 onValueChange = { raw ->
@@ -639,18 +648,18 @@ fun VocabularyScreen(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                   color = Color(0xFF38BDF8),
                   fontWeight = FontWeight.Bold,
-                  fontSize = 12.sp,
+                  fontSize = 11.5.sp,
                   textAlign = TextAlign.Center
                 ),
                 cursorBrush = SolidColor(Color(0xFF38BDF8)),
                 modifier = Modifier
-                  .width(98.dp)
+                  .width(86.dp)
                   .testTag("jump_rank_input"),
                 decorationBox = { innerTextField ->
                   Box(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(30.dp)
+                      .height(34.dp)
                       .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
                       .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 6.dp),
@@ -661,7 +670,7 @@ fun VocabularyScreen(
                         text = "# 1-${words.maxOfOrNull { it.rank } ?: 2809}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B),
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         textAlign = TextAlign.Center
                       )
                     }
@@ -690,7 +699,7 @@ fun VocabularyScreen(
               .fillMaxWidth()
               .weight(1f)
               .testTag("vocabulary_list"),
-            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 115.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             when {
@@ -987,18 +996,13 @@ fun GoogleTranslateFloatingActionButton(
 
 /**
  * Cabecera superior con la palabra "English" centrada, en tipografía Fredericka la Grande,
- * con animaciones y efectos de luz luminosos específicos para esa palabra,
- * en la esquina superior al nivel del título:
- * - A la izquierda: Cronómetro nativo de estudio con play/pause, tacho con confirmación y meta de 1h.
+ * con animaciones y efectos de luz luminosos específicos para esa palabra:
+ * - Al centro: Palabra "English" con efecto de resplandor y barrido luminoso.
  * - A la derecha: Contador de palabras usadas con trofeo.
  */
 @Composable
 fun AnimatedEnglishHeader(
   usedWordsCount: Int = 0,
-  studyTimerMillis: Long = 0L,
-  isStudyTimerRunning: Boolean = false,
-  onToggleTimer: () -> Unit = {},
-  onResetTimerClick: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -1043,45 +1047,45 @@ fun AnimatedEnglishHeader(
   Box(
     modifier = modifier
       .fillMaxWidth()
-      .padding(top = 2.dp, bottom = 2.dp)
+      .padding(top = 1.dp, bottom = 1.dp)
       .testTag("header_english_space"),
     contentAlignment = Alignment.Center
   ) {
     // 1. Halo ambiental de fondo suave y difuso
     Box(
       modifier = Modifier
-        .size(width = 180.dp, height = 36.dp)
+        .size(width = 130.dp, height = 26.dp)
         .graphicsLayer {
           alpha = pulseGlow * 0.35f
           scaleX = 0.95f + pulseGlow * 0.1f
           scaleY = 0.95f + pulseGlow * 0.1f
         }
-        .background(
-          brush = Brush.radialGradient(
-            colors = listOf(
-              Color(0xFF0284C7).copy(alpha = 0.5f),
-              Color(0xFF38BDF8).copy(alpha = 0.2f),
-              Color.Transparent
-            )
-          ),
-          shape = CircleShape
-        )
+      .background(
+        brush = Brush.radialGradient(
+          colors = listOf(
+            Color(0xFF0284C7).copy(alpha = 0.5f),
+            Color(0xFF38BDF8).copy(alpha = 0.2f),
+            Color.Transparent
+          )
+        ),
+        shape = CircleShape
+      )
     )
 
     // 2. Capa de resplandor difuso detrás de la palabra "English"
     Text(
       text = "English",
       fontFamily = FrederickaTheGreatFontFamily,
-      fontSize = 28.sp,
+      fontSize = 22.sp,
       fontWeight = FontWeight.Normal,
-      letterSpacing = 2.sp,
+      letterSpacing = 1.5.sp,
       textAlign = TextAlign.Center,
       color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.45f),
       style = TextStyle(
         shadow = Shadow(
           color = Color(0xFF00E5FF).copy(alpha = pulseGlow * 0.8f),
           offset = Offset(0f, 0f),
-          blurRadius = 16f * pulseGlow
+          blurRadius = 14f * pulseGlow
         )
       ),
       modifier = Modifier.graphicsLayer {
@@ -1095,45 +1099,34 @@ fun AnimatedEnglishHeader(
     Text(
       text = "English",
       fontFamily = FrederickaTheGreatFontFamily,
-      fontSize = 28.sp,
+      fontSize = 22.sp,
       fontWeight = FontWeight.Normal,
-      letterSpacing = 2.sp,
+      letterSpacing = 1.5.sp,
       textAlign = TextAlign.Center,
       style = TextStyle(
         brush = lightBrush,
         shadow = Shadow(
           color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.9f),
-          offset = Offset(0f, 2f),
-          blurRadius = 12f * pulseGlow
+          offset = Offset(0f, 1.5f),
+          blurRadius = 10f * pulseGlow
         )
       ),
       modifier = Modifier.testTag("text_english_title")
     )
 
-    // 4. Cronómetro nativo de estudio (Esquina superior izquierda al nivel de English)
-    StudyStopwatchWidget(
-      studyTimerMillis = studyTimerMillis,
-      isRunning = isStudyTimerRunning,
-      onTogglePlayPause = onToggleTimer,
-      onResetClick = onResetTimerClick,
-      modifier = Modifier
-        .align(Alignment.CenterStart)
-        .padding(start = 8.dp)
-    )
-
-    // 5. Contador de palabras usadas mínimo una vez con trofeo (Esquina superior derecha)
+    // 4. Contador de palabras usadas mínimo una vez con trofeo (Esquina superior derecha)
     Row(
       modifier = Modifier
         .align(Alignment.CenterEnd)
         .padding(end = 8.dp)
         .background(
           color = Color(0xFF101923).copy(alpha = 0.88f),
-          shape = RoundedCornerShape(12.dp)
+          shape = RoundedCornerShape(10.dp)
         )
         .border(
           width = 1.dp,
           color = Color(0xFFFACC15).copy(alpha = 0.45f),
-          shape = RoundedCornerShape(12.dp)
+          shape = RoundedCornerShape(10.dp)
         )
         .clickable {
           Toast.makeText(
@@ -1142,16 +1135,16 @@ fun AnimatedEnglishHeader(
             Toast.LENGTH_SHORT
           ).show()
         }
-        .padding(horizontal = 8.dp, vertical = 4.dp)
+        .padding(horizontal = 6.dp, vertical = 2.dp)
         .testTag("counter_used_words_badge"),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(4.dp)
+      horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
       Text(
         text = "$usedWordsCount",
         style = MaterialTheme.typography.titleMedium.copy(
           fontWeight = FontWeight.Bold,
-          fontSize = 13.sp,
+          fontSize = 11.5.sp,
           color = Color(0xFFF8FAFC)
         ),
         modifier = Modifier.testTag("text_used_words_count")
@@ -1161,7 +1154,7 @@ fun AnimatedEnglishHeader(
         contentDescription = "Trofeo de palabras usadas",
         tint = Color(0xFFFACC15),
         modifier = Modifier
-          .size(16.dp)
+          .size(13.dp)
           .testTag("icon_trophy")
       )
     }
@@ -1174,7 +1167,7 @@ fun AnimatedEnglishHeader(
  * - Botón de Play/Pausa: Al presionar corre y si se vuelve a presionar se detiene.
  * - Botón de Tacho: Antes de eliminar y volver a 0 pregunta "¿Quieres eliminar este cronómetro?".
  * - Meta de 1 hora: Anillo de progreso y cálculo dinámico de cuánto falta para completar 1 hora.
- * - Ubicado en la esquina superior izquierda al nivel de la palabra "English".
+ * - Ubicado flotante arriba de los botones centrales (+) y graduador de velocidad.
  */
 @Composable
 fun StudyStopwatchWidget(
@@ -1213,105 +1206,126 @@ fun StudyStopwatchWidget(
     label = "running_border_glow"
   )
 
-  Row(
-    modifier = modifier
-      .background(
-        color = Color(0xFF0F172A).copy(alpha = 0.94f),
-        shape = RoundedCornerShape(12.dp)
-      )
-      .border(
-        width = 1.dp,
-        color = when {
-          isGoalCompleted -> Color(0xFF10B981)
-          isRunning -> Color(0xFF00E5FF).copy(alpha = borderAlpha)
-          else -> Color(0xFF475569).copy(alpha = 0.5f)
-        },
-        shape = RoundedCornerShape(12.dp)
-      )
-      .padding(horizontal = 4.dp, vertical = 2.dp)
-      .testTag("study_stopwatch_container"),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(2.dp)
+  Surface(
+    modifier = modifier.testTag("study_stopwatch_container"),
+    shape = CircleShape,
+    color = Color(0xFF0B132B).copy(alpha = 0.40f),
+    shadowElevation = 0.dp,
+    border = BorderStroke(
+      width = 1.dp,
+      color = when {
+        isGoalCompleted -> Color(0xFF10B981).copy(alpha = 0.85f)
+        isRunning -> Color(0xFF00E5FF).copy(alpha = borderAlpha)
+        else -> Color.White.copy(alpha = 0.15f)
+      }
+    )
   ) {
-    // 1. Botón Play / Pause con anillo de progreso hacia 1 hora
-    Box(
-      modifier = Modifier
-        .size(28.dp)
-        .clip(CircleShape)
-        .clickable(onClick = onTogglePlayPause)
-        .testTag("stopwatch_toggle_button"),
-      contentAlignment = Alignment.Center
+    Row(
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-      Canvas(modifier = Modifier.size(24.dp)) {
-        drawCircle(
-          color = Color(0xFF334155),
-          radius = size.minDimension / 2f - 2f,
-          style = Stroke(width = 2f)
-        )
-        drawArc(
-          color = if (isGoalCompleted) Color(0xFF10B981) else Color(0xFF00E5FF),
-          startAngle = -90f,
-          sweepAngle = 360f * goalProgress,
-          useCenter = false,
-          style = Stroke(width = 2.5f, cap = StrokeCap.Round)
+      // 1. Botón Play / Pause con anillo de progreso hacia 1 hora
+      Box(
+        modifier = Modifier
+          .size(28.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onTogglePlayPause)
+          .testTag("stopwatch_toggle_button"),
+        contentAlignment = Alignment.Center
+      ) {
+        Canvas(modifier = Modifier.size(24.dp)) {
+          drawCircle(
+            color = Color(0xFF334155).copy(alpha = 0.6f),
+            radius = size.minDimension / 2f - 2f,
+            style = Stroke(width = 2f)
+          )
+          drawArc(
+            color = if (isGoalCompleted) Color(0xFF10B981) else Color(0xFF00E5FF),
+            startAngle = -90f,
+            sweepAngle = 360f * goalProgress,
+            useCenter = false,
+            style = Stroke(width = 2.5f, cap = StrokeCap.Round)
+          )
+        }
+
+        Icon(
+          imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+          contentDescription = if (isRunning) "Pausar cronómetro" else "Iniciar cronómetro",
+          tint = if (isRunning) Color(0xFF00E5FF) else Color(0xFF34D399),
+          modifier = Modifier.size(15.dp)
         )
       }
 
-      Icon(
-        imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-        contentDescription = if (isRunning) "Pausar cronómetro" else "Iniciar cronómetro",
-        tint = if (isRunning) Color(0xFF00E5FF) else Color(0xFF34D399),
-        modifier = Modifier.size(14.dp)
-      )
-    }
-
-    // 2. Visor de tiempo: minutos, segundos y minuteros/centisegundos
-    Column(
-      modifier = Modifier
-        .clickable {
-          val msg = if (isGoalCompleted) {
-            "🎉 ¡Completaste tu meta de 1 hora de estudio de inglés! ($hours h $minutes m)"
-          } else {
-            "⏱️ Estudio activo: $minutes min $seconds seg\n🎯 Meta 1h: ${(goalProgress * 100).toInt()}% (Faltan $remainingMinutes min para completar tu hora)"
-          }
-          Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-        }
-        .padding(horizontal = 2.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-      verticalArrangement = Arrangement.Center
-    ) {
+      // 2. Visor de tiempo: Números GRANDES y visibles flotando
       Text(
         text = formattedTime,
         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.5.sp,
-        color = if (isRunning) Color(0xFF38BDF8) else Color(0xFFF1F5F9),
-        modifier = Modifier.testTag("stopwatch_time_display")
+        fontSize = 18.sp,
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 1.sp,
+        color = if (isRunning) Color(0xFF38BDF8) else Color(0xFFFFFFFF),
+        style = TextStyle(
+          shadow = Shadow(
+            color = Color.Black.copy(alpha = 0.85f),
+            offset = Offset(0f, 1.5f),
+            blurRadius = 6f
+          )
+        ),
+        modifier = Modifier
+          .clickable {
+            val msg = if (isGoalCompleted) {
+              "🎉 ¡Completaste tu meta de 1 hora de estudio de inglés! ($hours h $minutes m)"
+            } else {
+              "⏱️ Estudio activo: $minutes min $seconds seg\n🎯 Meta 1h: ${(goalProgress * 100).toInt()}% (Faltan $remainingMinutes min para completar tu hora)"
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+          }
+          .padding(horizontal = 2.dp)
+          .testTag("stopwatch_time_display")
       )
-      Text(
-        text = if (isGoalCompleted) "1h ✓" else "1h: ${(goalProgress * 100).toInt()}%",
-        fontSize = 8.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = if (isGoalCompleted) Color(0xFF34D399) else Color(0xFF94A3B8)
-      )
-    }
 
-    // 3. Botón Tacho de eliminar y volver a 0 (pregunta confirmación antes de eliminar)
-    Box(
-      modifier = Modifier
-        .size(26.dp)
-        .clip(CircleShape)
-        .clickable(onClick = onResetClick)
-        .testTag("stopwatch_trash_button"),
-      contentAlignment = Alignment.Center
-    ) {
-      Icon(
-        imageVector = Icons.Default.DeleteOutline,
-        contentDescription = "Eliminar y volver a cero cronómetro",
-        tint = Color(0xFFEF4444).copy(alpha = 0.85f),
-        modifier = Modifier.size(15.dp)
-      )
+      // 3. Botón Tacho de eliminar y volver a 0 (pregunta confirmación antes de eliminar)
+      Box(
+        modifier = Modifier
+          .size(26.dp)
+          .clip(CircleShape)
+          .clickable(onClick = onResetClick)
+          .testTag("stopwatch_trash_button"),
+        contentAlignment = Alignment.Center
+      ) {
+        Icon(
+          imageVector = Icons.Default.DeleteOutline,
+          contentDescription = "Eliminar y volver a cero cronómetro",
+          tint = Color(0xFFEF4444).copy(alpha = 0.85f),
+          modifier = Modifier.size(15.dp)
+        )
+      }
+
+      // 4. En el otro costado: Medidor de meta 1h : 0% en chip semitransparente independiente
+      Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isGoalCompleted) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFF1E293B).copy(alpha = 0.45f),
+        border = BorderStroke(0.5.dp, if (isGoalCompleted) Color(0xFF10B981).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.15f)),
+        modifier = Modifier
+          .clickable {
+            val msg = if (isGoalCompleted) {
+              "🎉 ¡Completaste tu meta de 1 hora de estudio de inglés! ($hours h $minutes m)"
+            } else {
+              "⏱️ Estudio activo: $minutes min $seconds seg\n🎯 Meta 1h: ${(goalProgress * 100).toInt()}% (Faltan $remainingMinutes min para completar tu hora)"
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+          }
+          .testTag("stopwatch_goal_badge")
+      ) {
+        Text(
+          text = if (isGoalCompleted) "1h ✓" else "1h: ${(goalProgress * 100).toInt()}%",
+          fontSize = 9.5.sp,
+          fontWeight = FontWeight.Bold,
+          color = if (isGoalCompleted) Color(0xFF34D399) else Color(0xFF94A3B8),
+          modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+        )
+      }
     }
   }
 }
@@ -1421,15 +1435,15 @@ fun EverydayPhrasesSection(
     LazyRow(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 2.dp),
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
+        .padding(horizontal = 12.dp, vertical = 1.dp),
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
       items(categories.size) { index ->
         val cat = categories[index]
         val isSelected = (cat == "Todas" && selectedCategory == null) || selectedCategory == cat
         Surface(
           onClick = { selectedCategory = if (cat == "Todas") null else cat },
-          shape = RoundedCornerShape(14.dp),
+          shape = RoundedCornerShape(12.dp),
           color = if (isSelected) Color(0xFF0284C7) else Color(0xFF1E293B),
           border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
           modifier = Modifier.testTag("phrase_category_chip_$cat")
@@ -1437,9 +1451,9 @@ fun EverydayPhrasesSection(
           Text(
             text = cat,
             color = if (isSelected) Color.White else Color(0xFF94A3B8),
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
           )
         }
       }
@@ -1451,8 +1465,8 @@ fun EverydayPhrasesSection(
         .fillMaxWidth()
         .weight(1f)
         .testTag("everyday_phrases_list"),
-      contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 85.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp)
+      contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 115.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
       itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { _, phrase ->
         Card(
@@ -1461,7 +1475,7 @@ fun EverydayPhrasesSection(
             containerColor = Color(0xFF0F172A).copy(alpha = 0.95f)
           ),
           border = BorderStroke(1.dp, Color(0xFF334155)),
-          shape = RoundedCornerShape(12.dp),
+          shape = RoundedCornerShape(10.dp),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("phrase_card_${phrase.id}")
@@ -1469,13 +1483,13 @@ fun EverydayPhrasesSection(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 12.dp, vertical = 10.dp),
+              .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
             // Número ordinal (#1, #2...)
             Box(
               modifier = Modifier
-                .size(28.dp)
+                .size(24.dp)
                 .background(Color(0xFF1E293B), shape = CircleShape)
                 .border(1.dp, Color(0xFF0284C7).copy(alpha = 0.6f), shape = CircleShape),
               contentAlignment = Alignment.Center
@@ -1485,25 +1499,25 @@ fun EverydayPhrasesSection(
                 style = MaterialTheme.typography.labelSmall.copy(
                   fontWeight = FontWeight.Bold,
                   color = Color(0xFF38BDF8),
-                  fontSize = 11.sp
+                  fontSize = 10.sp
                 )
               )
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(
               modifier = Modifier.weight(1f),
-              verticalArrangement = Arrangement.spacedBy(2.dp)
+              verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
               // Categoría pill
               Text(
                 text = phrase.category.uppercase(),
                 style = MaterialTheme.typography.labelSmall.copy(
                   fontWeight = FontWeight.Bold,
-                  fontSize = 9.sp,
+                  fontSize = 8.5.sp,
                   color = Color(0xFFFACC15),
-                  letterSpacing = 0.8.sp
+                  letterSpacing = 0.6.sp
                 )
               )
               // Texto en español (la frase)
@@ -1511,7 +1525,7 @@ fun EverydayPhrasesSection(
                 text = phrase.spanishText,
                 style = MaterialTheme.typography.bodyMedium.copy(
                   fontWeight = FontWeight.SemiBold,
-                  fontSize = 14.sp,
+                  fontSize = 12.5.sp,
                   color = Color(0xFFF8FAFC)
                 )
               )
@@ -1520,38 +1534,38 @@ fun EverydayPhrasesSection(
                 Text(
                   text = phrase.englishHint,
                   style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     color = Color(0xFF94A3B8)
                   )
                 )
               }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             // Botón indicador para enviar al traductor nativo
             Surface(
               onClick = { onPhraseClick(phrase) },
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               color = Color(0xFF0284C7).copy(alpha = 0.25f),
               border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.6f)),
               modifier = Modifier.testTag("phrase_send_to_translator_${phrase.id}")
             ) {
               Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
               ) {
                 Icon(
                   imageVector = Icons.AutoMirrored.Filled.Send,
                   contentDescription = "Enviar al traductor",
                   tint = Color(0xFF38BDF8),
-                  modifier = Modifier.size(13.dp)
+                  modifier = Modifier.size(12.dp)
                 )
                 Text(
                   text = "Traducir",
                   color = Color(0xFF38BDF8),
-                  fontSize = 11.sp,
+                  fontSize = 10.sp,
                   fontWeight = FontWeight.Bold
                 )
               }
@@ -2477,7 +2491,7 @@ private fun SyntaxCompassHeader(
   Box(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(vertical = 2.dp),
+      .padding(vertical = 1.dp),
     contentAlignment = Alignment.Center
   ) {
     Row(
@@ -2485,7 +2499,7 @@ private fun SyntaxCompassHeader(
         .horizontalScroll(rememberScrollState())
         .padding(horizontal = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+      horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
     ) {
       CompassStepChip(
         color = Color(0xFFFACC15),
@@ -2495,7 +2509,7 @@ private fun SyntaxCompassHeader(
         onLongClick = { onExplainFilter(SyntaxFilter.CONNECTOR) },
         testTag = "compass_chip_Conector"
       )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 8.sp)
       CompassStepChip(
         color = Color(0xFFA855F7),
         label = "Sujeto",
@@ -2504,7 +2518,7 @@ private fun SyntaxCompassHeader(
         onLongClick = { onExplainFilter(SyntaxFilter.SUBJECT) },
         testTag = "compass_chip_Sujeto"
       )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 8.sp)
       CompassStepChip(
         color = Color(0xFF38BDF8),
         label = "Verbo",
@@ -2513,7 +2527,7 @@ private fun SyntaxCompassHeader(
         onLongClick = { onExplainFilter(SyntaxFilter.VERB) },
         testTag = "compass_chip_Verbo"
       )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 8.sp)
       CompassStepChip(
         color = Color(0xFF34D399),
         label = "Sustantivo",
@@ -2522,7 +2536,7 @@ private fun SyntaxCompassHeader(
         onLongClick = { onExplainFilter(SyntaxFilter.NOUN) },
         testTag = "compass_chip_Sustantivo"
       )
-      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 9.sp)
+      Text("➔", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 8.sp)
       CompassStepChip(
         color = Color(0xFFE2E8F0),
         label = "Modificador",
@@ -2591,12 +2605,12 @@ private fun CompassStepChip(
           }
         }
       }
-      .padding(horizontal = 4.dp, vertical = 2.dp)
+      .padding(horizontal = 3.dp, vertical = 1.dp)
   ) {
     Text(
       text = label,
       color = if (isSelected) color else color.copy(alpha = 0.9f),
-      fontSize = 12.sp,
+      fontSize = 10.5.sp,
       fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
       textDecoration = if (isSelected) TextDecoration.Underline else TextDecoration.None,
       maxLines = 1,
@@ -2958,7 +2972,7 @@ private fun DraftScratchpadHeader(
   Surface(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 2.dp)
+      .padding(horizontal = 16.dp, vertical = 1.dp)
       .testTag("draft_scratchpad"),
     shape = RoundedCornerShape(8.dp),
     color = Color(0xFF1E293B).copy(alpha = 0.5f),
@@ -2968,8 +2982,8 @@ private fun DraftScratchpadHeader(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 10.dp, vertical = 4.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp)
+        .padding(horizontal = 8.dp, vertical = 2.dp),
+      verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
       // Cabecera del Scratchpad
       Row(
@@ -3148,7 +3162,7 @@ private fun DraftScratchpadHeader(
             style = MaterialTheme.typography.bodySmall,
             color = Color(0xFF94A3B8),
             fontStyle = FontStyle.Italic,
-            fontSize = 11.sp
+            fontSize = 9.5.sp
           )
         }
       } else {
@@ -3564,7 +3578,7 @@ fun WordHudCard(
           }
         )
       }
-      .padding(vertical = 3.dp)
+      .padding(vertical = 1.dp)
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -3576,11 +3590,11 @@ fun WordHudCard(
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = Color(0xFF64748B),
-        fontSize = 11.sp,
-        modifier = Modifier.width(36.dp)
+        fontSize = 9.5.sp,
+        modifier = Modifier.width(28.dp)
       )
 
-      Spacer(modifier = Modifier.width(8.dp))
+      Spacer(modifier = Modifier.width(6.dp))
 
       // Palabra, contador crudo y categoría flotando sin caja
       Column(
@@ -3589,20 +3603,20 @@ fun WordHudCard(
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           Text(
             text = word.lemma,
             style = MaterialTheme.typography.titleMedium.copy(
               fontWeight = FontWeight.Bold,
-              fontSize = 15.sp
+              fontSize = 12.5.sp
             ),
             color = wordColor
           )
           // Contador crudo de uso: sin fondo, sin bordes, sin cajas
           Text(
             text = "${word.useCount}",
-            fontSize = 12.sp,
+            fontSize = 10.5.sp,
             fontWeight = if (word.useCount > 0) FontWeight.Bold else FontWeight.Normal,
             color = if (word.useCount > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
             modifier = Modifier.testTag("word_use_count_${word.rank}")
@@ -3612,7 +3626,7 @@ fun WordHudCard(
           text = word.displayCategoryLabel,
           style = MaterialTheme.typography.labelSmall,
           color = wordColor.copy(alpha = 0.85f),
-          fontSize = 10.sp
+          fontSize = 8.5.sp
         )
       }
 
@@ -3620,14 +3634,14 @@ fun WordHudCard(
       IconButton(
         onClick = onSpeak,
         modifier = Modifier
-          .size(28.dp)
+          .size(24.dp)
           .testTag("btn_speak_word_${word.rank}")
       ) {
         Icon(
           imageVector = Icons.AutoMirrored.Filled.VolumeUp,
           contentDescription = "Pronunciar ${word.lemma}",
           tint = Color(0xFF94A3B8),
-          modifier = Modifier.size(17.dp)
+          modifier = Modifier.size(14.dp)
         )
       }
 
@@ -3641,14 +3655,14 @@ fun WordHudCard(
           }
         },
         modifier = Modifier
-          .size(28.dp)
+          .size(24.dp)
           .testTag("btn_toggle_details_${word.rank}")
       ) {
         Icon(
           imageVector = if (isRevealed) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
           contentDescription = if (isRevealed) "Cerrar bandeja de ${word.lemma}" else "Abrir bandeja de ${word.lemma}",
           tint = if (isRevealed) Color(0xFF38BDF8) else Color(0xFF64748B),
-          modifier = Modifier.size(19.dp)
+          modifier = Modifier.size(16.dp)
         )
       }
     }

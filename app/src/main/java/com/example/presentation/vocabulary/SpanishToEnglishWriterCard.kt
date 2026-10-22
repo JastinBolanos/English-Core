@@ -99,18 +99,18 @@ fun SpanishToEnglishWriterCard(
   Column(
     modifier = modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 2.dp)
+      .padding(horizontal = 16.dp, vertical = 1.dp)
       .testTag("spanish_english_writer_card"),
-    verticalArrangement = Arrangement.spacedBy(6.dp)
+    verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {
-    // 1. Una sola caja limpia con el símbolo de traductor a su costado - Altura cómoda para escritura (42dp)
+    // 1. Una sola caja limpia con el símbolo de traductor a su costado - Altura compacta (34dp)
     BasicTextField(
       value = spanishText,
       onValueChange = onSpanishTextChanged,
       singleLine = true,
       textStyle = MaterialTheme.typography.bodyMedium.copy(
         color = Color(0xFFF8FAFC),
-        fontSize = 13.5.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Medium
       ),
       cursorBrush = SolidColor(Color(0xFF38BDF8)),
@@ -130,19 +130,19 @@ fun SpanishToEnglishWriterCard(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
-            .background(Color(0xFF0F172A), shape = RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
+            .height(34.dp)
+            .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
+            .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
           Icon(
             imageVector = Icons.Default.Translate,
             contentDescription = "Traductor",
             tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
           )
-          Spacer(modifier = Modifier.width(10.dp))
+          Spacer(modifier = Modifier.width(8.dp))
           Box(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.CenterStart
@@ -152,7 +152,7 @@ fun SpanishToEnglishWriterCard(
                 text = "Escribe una palabra o frase",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF64748B),
-                fontSize = 12.5.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
               )
@@ -161,7 +161,7 @@ fun SpanishToEnglishWriterCard(
           }
           if (isTranslating) {
             CircularProgressIndicator(
-              modifier = Modifier.size(16.dp),
+              modifier = Modifier.size(15.dp),
               strokeWidth = 2.dp,
               color = Color(0xFF38BDF8)
             )
