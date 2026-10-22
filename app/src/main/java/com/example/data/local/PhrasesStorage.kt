@@ -57,7 +57,7 @@ class PhrasesStorage(private val context: Context?) {
         }
         val root = JSONObject()
         counts.forEach { (k, v) -> root.put(k.toString(), v) }
-        prefs.edit().putString(KEY_PHRASES_COUNTS_JSON, root.toString()).apply()
+        prefs.edit().putString(KEY_PHRASES_COUNTS_JSON, root.toString()).commit()
     }
 
     @Synchronized
@@ -66,6 +66,6 @@ class PhrasesStorage(private val context: Context?) {
             memoryFallback.clear()
             return
         }
-        prefs.edit().remove(KEY_PHRASES_COUNTS_JSON).apply()
+        prefs.edit().remove(KEY_PHRASES_COUNTS_JSON).commit()
     }
 }

@@ -1095,8 +1095,8 @@ class ExampleRobolectricTest {
     assertEquals(0, parsed.numberCounts[2])
     assertEquals(3, parsed.numberCounts[100])
 
-    // Contadores de frases
-    assertEquals(3, parsed.phraseCounts.size)
+    // Contadores de frases (Asegura las 50 frases cotidianas y contadores exactos)
+    assertEquals(50, parsed.phraseCounts.size)
     assertEquals(7, parsed.phraseCounts[1])
     assertEquals(0, parsed.phraseCounts[2])
     assertEquals(12, parsed.phraseCounts[50])
@@ -1361,6 +1361,73 @@ class ExampleRobolectricTest {
     assertEquals(9, loaded[50])
     assertEquals(0, loaded[99])
     assertEquals(12, loaded[100])
+  }
+
+  @Test
+  fun `verify detailed 50 phrases backup retains individual counts and restores to PhrasesStorage without zeroing`() {
+    val samplePhraseCounts = mapOf(
+      1 to 18,
+      2 to 5,
+      10 to 2,
+      50 to 9
+    )
+
+    val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    // Guardar copia completa usando AutoBackupManager con contadores de frases
+    val success = com.example.data.backup.AutoBackupManager.saveFullBackup(
+      context = context,
+      usedWordsCount = 0,
+      notes = emptyList(),
+      phraseCounts = samplePhraseCounts
+    )
+    assertTrue("Copia completa con frases debe guardarse exitosamente", success)
+
+    // Cargar y parsear archivo de backup
+    val restored = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
+    assertNotNull(restored)
+    assertEquals(50, restored!!.totalPhrases)
+    assertEquals(4, restored.usedPhrasesCount)
+
+    // Verificar que las 50 frases existen en la lista y en el mapa de contadores
+    assertEquals(50, restored.allPhrases.size)
+    assertEquals(50, restored.phraseCounts.size)
+
+    assertEquals(18, restored.phraseCounts[1])
+    assertEquals(5, restored.phraseCounts[2])
+    assertEquals(0, restored.phraseCounts[3])
+    assertEquals(2, restored.phraseCounts[10])
+    assertEquals(0, restored.phraseCounts[49])
+    assertEquals(9, restored.phraseCounts[50])
+
+    // Verificar detalles individuales de frases
+    val phrase1 = restored.allPhrases.first { it.id == 1 }
+    assertEquals("Buenos días, ¿dormiste bien anoche?", phrase1.spanishText)
+    assertEquals("Mañana", phrase1.category)
+    assertEquals("Good morning, did you sleep well last night?", phrase1.englishHint)
+    assertEquals(18, phrase1.useCount)
+
+    val phrase3 = restored.allPhrases.first { it.id == 3 }
+    assertEquals("Voy a preparar una taza de café caliente.", phrase3.spanishText)
+    assertEquals("Desayuno", phrase3.category)
+    assertEquals(0, phrase3.useCount)
+
+    val phrase50 = restored.allPhrases.first { it.id == 50 }
+    assertEquals("Buenas noches a todos, que tengan un lindo descanso hasta mañana.", phrase50.spanishText)
+    assertEquals("Noche", phrase50.category)
+    assertEquals(9, phrase50.useCount)
+
+    // Simular restauración en PhrasesStorage
+    val phrasesStorage = com.example.data.local.PhrasesStorage(context)
+    phrasesStorage.saveCounts(restored.phraseCounts)
+
+    val loaded = phrasesStorage.loadCounts()
+    assertEquals(18, loaded[1])
+    assertEquals(5, loaded[2])
+    assertEquals(0, loaded[3])
+    assertEquals(2, loaded[10])
+    assertEquals(0, loaded[49])
+    assertEquals(9, loaded[50])
   }
 }
 

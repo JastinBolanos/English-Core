@@ -230,7 +230,7 @@ fun FloatingSettingsBackupTray(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Exporta tus 2,809 palabras, 26 letras del abecedario, 100 números con sus contadores individuales exactos, notas locales y frases en un archivo .json estándar. Podrás restaurarlo en cualquier momento sin perder tu progreso.",
+                                text = "Exporta tus 2,809 palabras, 26 letras del abecedario, 100 números y 50 frases cotidianas con sus contadores individuales exactos y notas locales en un archivo .json estándar. Podrás restaurarlo en cualquier momento sin perder tu progreso.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 11.5.sp,
                                     lineHeight = 16.sp,
