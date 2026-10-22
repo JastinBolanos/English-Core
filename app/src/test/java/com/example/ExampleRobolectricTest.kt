@@ -1082,11 +1082,12 @@ class ExampleRobolectricTest {
     assertEquals(0, parsed.vocabularyWordCounts["abandon"])
     assertEquals(32, parsed.vocabularyWordCounts["house"])
 
-    // Contadores de abecedario
-    assertEquals(3, parsed.alphabetCounts.size)
+    // Contadores de abecedario (Asegura las 26 letras y contadores exactos)
+    assertEquals(26, parsed.alphabetCounts.size)
     assertEquals(5, parsed.alphabetCounts["A"])
     assertEquals(0, parsed.alphabetCounts["B"])
     assertEquals(8, parsed.alphabetCounts["C"])
+    assertEquals(0, parsed.alphabetCounts["Z"])
 
     // Contadores de números
     assertEquals(3, parsed.numberCounts.size)
@@ -1204,6 +1205,92 @@ class ExampleRobolectricTest {
     assertEquals("Recordar repasar los phrasal verbs de get y take cada mañana a las 8am.", parsed.notes[0].text)
     assertTrue(parsed.notes[0].isCompleted)
     assertEquals(1700000000000L, parsed.notes[0].createdAt)
+  }
+
+  @Test
+  fun `test AutoBackupManager preserves all 26 alphabet letters with exact use counts and restores them without zeroing`() {
+    val sampleAlphabetCounts = mapOf(
+      "A" to 14,
+      "B" to 0,
+      "C" to 7,
+      "D" to 1,
+      "E" to 22,
+      "Z" to 3
+    )
+
+    val jsonString = org.json.JSONObject().apply {
+      put("appName", "VocabFlow")
+      put("version", 2)
+      put("exportedAt", System.currentTimeMillis())
+      put("totalAlphabetLetters", 26)
+      put("usedAlphabetLettersCount", 5)
+      put("totalAlphabetUses", sampleAlphabetCounts.values.sum())
+
+      val alphabetLettersArray = org.json.JSONArray()
+      com.example.data.backup.standardAlphabetCatalog.forEach { std ->
+        val count = sampleAlphabetCounts[std.letter] ?: 0
+        alphabetLettersArray.put(org.json.JSONObject().apply {
+          put("index", std.index)
+          put("letter", std.letter)
+          put("ipa", std.ipa)
+          put("phoneticSp", std.phoneticSp)
+          put("isVowel", std.isVowel)
+          if (std.note.isNotBlank()) put("note", std.note)
+          put("useCount", count)
+        })
+      }
+      put("allAlphabetLetters", alphabetLettersArray)
+
+      val alphabetObj = org.json.JSONObject()
+      com.example.data.backup.standardAlphabetCatalog.forEach { std ->
+        alphabetObj.put(std.letter, sampleAlphabetCounts[std.letter] ?: 0)
+      }
+      put("alphabetCounts", alphabetObj)
+    }.toString(2)
+
+    val parsed = com.example.data.backup.AutoBackupManager.parseJsonContent(jsonString)
+    assertNotNull(parsed)
+    assertEquals(26, parsed!!.totalAlphabetLetters)
+    assertEquals(5, parsed.usedAlphabetLettersCount)
+
+    // Verificar que todas las 26 letras existen con sus contadores reales
+    assertEquals(26, parsed.allAlphabetLetters.size)
+    assertEquals(26, parsed.alphabetCounts.size)
+
+    assertEquals(14, parsed.alphabetCounts["A"])
+    assertEquals(0, parsed.alphabetCounts["B"])
+    assertEquals(7, parsed.alphabetCounts["C"])
+    assertEquals(1, parsed.alphabetCounts["D"])
+    assertEquals(22, parsed.alphabetCounts["E"])
+    assertEquals(0, parsed.alphabetCounts["F"])
+    assertEquals(3, parsed.alphabetCounts["Z"])
+
+    val letterA = parsed.allAlphabetLetters.first { it.letter == "A" }
+    assertEquals(1, letterA.index)
+    assertEquals("éi", letterA.phoneticSp)
+    assertTrue(letterA.isVowel)
+    assertEquals(14, letterA.useCount)
+
+    val letterB = parsed.allAlphabetLetters.first { it.letter == "B" }
+    assertEquals(2, letterB.index)
+    assertEquals(0, letterB.useCount)
+
+    val letterZ = parsed.allAlphabetLetters.first { it.letter == "Z" }
+    assertEquals(26, letterZ.index)
+    assertEquals(3, letterZ.useCount)
+
+    // Simular restauración en AlphabetStorage
+    val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+    val alphabetStorage = com.example.data.local.AlphabetStorage(context)
+    alphabetStorage.saveCounts(parsed.alphabetCounts)
+
+    val loaded = alphabetStorage.loadCounts()
+    assertEquals(14, loaded["A"])
+    assertEquals(0, loaded["B"])
+    assertEquals(7, loaded["C"])
+    assertEquals(1, loaded["D"])
+    assertEquals(22, loaded["E"])
+    assertEquals(3, loaded["Z"])
   }
 }
 

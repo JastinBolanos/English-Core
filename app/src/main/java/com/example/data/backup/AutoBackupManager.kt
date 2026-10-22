@@ -11,6 +11,45 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 
+data class AlphabetLetterRecord(
+    val index: Int,
+    val letter: String,
+    val ipa: String,
+    val phoneticSp: String,
+    val isVowel: Boolean,
+    val note: String = "",
+    val useCount: Int = 0
+)
+
+val standardAlphabetCatalog = listOf(
+    AlphabetLetterRecord(index = 1, letter = "A", ipa = "/ei/", phoneticSp = "éi", isVowel = true),
+    AlphabetLetterRecord(index = 2, letter = "B", ipa = "/biː/", phoneticSp = "bí", isVowel = false),
+    AlphabetLetterRecord(index = 3, letter = "C", ipa = "/siː/", phoneticSp = "sí", isVowel = false),
+    AlphabetLetterRecord(index = 4, letter = "D", ipa = "/diː/", phoneticSp = "dí", isVowel = false),
+    AlphabetLetterRecord(index = 5, letter = "E", ipa = "/iː/", phoneticSp = "í", isVowel = true),
+    AlphabetLetterRecord(index = 6, letter = "F", ipa = "/ef/", phoneticSp = "ef", isVowel = false),
+    AlphabetLetterRecord(index = 7, letter = "G", ipa = "/dʒiː/", phoneticSp = "yí", isVowel = false),
+    AlphabetLetterRecord(index = 8, letter = "H", ipa = "/eɪtʃ/", phoneticSp = "éich", isVowel = false),
+    AlphabetLetterRecord(index = 9, letter = "I", ipa = "/aɪ/", phoneticSp = "ái", isVowel = true),
+    AlphabetLetterRecord(index = 10, letter = "J", ipa = "/dʒeɪ/", phoneticSp = "yéi", isVowel = false),
+    AlphabetLetterRecord(index = 11, letter = "K", ipa = "/keɪ/", phoneticSp = "kéi", isVowel = false),
+    AlphabetLetterRecord(index = 12, letter = "L", ipa = "/el/", phoneticSp = "el", isVowel = false),
+    AlphabetLetterRecord(index = 13, letter = "M", ipa = "/em/", phoneticSp = "em", isVowel = false),
+    AlphabetLetterRecord(index = 14, letter = "N", ipa = "/en/", phoneticSp = "en", isVowel = false),
+    AlphabetLetterRecord(index = 15, letter = "O", ipa = "/əʊ/", phoneticSp = "óu", isVowel = true),
+    AlphabetLetterRecord(index = 16, letter = "P", ipa = "/piː/", phoneticSp = "pí", isVowel = false),
+    AlphabetLetterRecord(index = 17, letter = "Q", ipa = "/kjuː/", phoneticSp = "kiú", isVowel = false),
+    AlphabetLetterRecord(index = 18, letter = "R", ipa = "/ɑːr/", phoneticSp = "ar", isVowel = false),
+    AlphabetLetterRecord(index = 19, letter = "S", ipa = "/es/", phoneticSp = "es", isVowel = false),
+    AlphabetLetterRecord(index = 20, letter = "T", ipa = "/tiː/", phoneticSp = "tí", isVowel = false),
+    AlphabetLetterRecord(index = 21, letter = "U", ipa = "/juː/", phoneticSp = "iú", isVowel = true),
+    AlphabetLetterRecord(index = 22, letter = "V", ipa = "/viː/", phoneticSp = "ví", isVowel = false),
+    AlphabetLetterRecord(index = 23, letter = "W", ipa = "/ˈdʌb.əl.juː/", phoneticSp = "dábal-iú", isVowel = false),
+    AlphabetLetterRecord(index = 24, letter = "X", ipa = "/eks/", phoneticSp = "eks", isVowel = false),
+    AlphabetLetterRecord(index = 25, letter = "Y", ipa = "/waɪ/", phoneticSp = "wái", isVowel = false),
+    AlphabetLetterRecord(index = 26, letter = "Z", ipa = "/ziː/ · /zed/", phoneticSp = "zí / zed", isVowel = false, note = "zí en EE. UU. / zed en Reino Unido")
+)
+
 data class RestoredBackupData(
     val appName: String,
     val version: Int,
@@ -19,6 +58,9 @@ data class RestoredBackupData(
     val totalWords: Int = 2809,
     val vocabularyWordCounts: Map<String, Int> = emptyMap(),
     val customWords: List<CustomWordRecord> = emptyList(),
+    val totalAlphabetLetters: Int = 26,
+    val usedAlphabetLettersCount: Int = 0,
+    val allAlphabetLetters: List<AlphabetLetterRecord> = emptyList(),
     val alphabetCounts: Map<String, Int> = emptyMap(),
     val numberCounts: Map<Int, Int> = emptyMap(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
@@ -33,8 +75,8 @@ data class RestoredBackupData(
  * Persiste los datos completos para evitar cualquier pérdida de progreso:
  * 1. Lista de las 2809 palabras de frecuencia con el contador exacto de cada una (ej. you=2, the=12, etc.)
  * 2. Nuevas palabras personalizadas añadidas después de la 2809 (2810, 2811...) con sus datos y contador
- * 3. Notas locales con su contenido íntegro (texto, estado, id, fecha de creación)
- * 4. Contadores del Abecedario (26 letras)
+ * 3. Catálogo completo de las 26 letras del abecedario (A a la Z) con fonética IPA y su contador individual exacto
+ * 4. Notas locales con su contenido íntegro (texto, estado, id, fecha de creación)
  * 5. Contadores de Números (1 al 100)
  * 6. Contadores de Frases Cotidianas (50 frases)
  */
@@ -55,6 +97,7 @@ object AutoBackupManager {
         usedWordsCount: Int,
         notes: List<NoteBlock>,
         alphabetCounts: Map<String, Int> = emptyMap(),
+        allAlphabetLettersDetails: List<AlphabetLetterRecord> = emptyList(),
         numberCounts: Map<Int, Int> = emptyMap(),
         phraseCounts: Map<Int, Int> = emptyMap()
     ): Boolean {
@@ -145,9 +188,61 @@ object AutoBackupManager {
                 }
                 put("localNotes", notesArray)
 
-                // 5. Contadores del abecedario
+                // 5. Array detallado con las 26 letras del abecedario y sus contadores exactos (A a la Z)
+                val alphabetLettersArray = JSONArray()
+                val completeAlphabetCounts = mutableMapOf<String, Int>()
+
+                val baseAlphabet = if (allAlphabetLettersDetails.isNotEmpty()) {
+                    allAlphabetLettersDetails
+                } else {
+                    standardAlphabetCatalog.map { std ->
+                        std.copy(useCount = alphabetCounts[std.letter] ?: 0)
+                    }
+                }
+
+                baseAlphabet.forEach { letterRecord ->
+                    val cleanLetter = letterRecord.letter.uppercase().trim()
+                    completeAlphabetCounts[cleanLetter] = letterRecord.useCount
+                    val obj = JSONObject().apply {
+                        put("index", letterRecord.index)
+                        put("letter", cleanLetter)
+                        put("ipa", letterRecord.ipa)
+                        put("phoneticSp", letterRecord.phoneticSp)
+                        put("isVowel", letterRecord.isVowel)
+                        if (letterRecord.note.isNotBlank()) {
+                            put("note", letterRecord.note)
+                        }
+                        put("useCount", letterRecord.useCount)
+                    }
+                    alphabetLettersArray.put(obj)
+                }
+
+                // Si hubiese letras personalizadas o adicionales en alphabetCounts
+                alphabetCounts.forEach { (k, v) ->
+                    val cleanKey = k.uppercase().trim()
+                    if (!completeAlphabetCounts.containsKey(cleanKey)) {
+                        completeAlphabetCounts[cleanKey] = v
+                        val obj = JSONObject().apply {
+                            put("index", 26 + completeAlphabetCounts.size)
+                            put("letter", cleanKey)
+                            put("ipa", "")
+                            put("phoneticSp", "")
+                            put("isVowel", false)
+                            put("useCount", v)
+                        }
+                        alphabetLettersArray.put(obj)
+                    }
+                }
+                put("allAlphabetLetters", alphabetLettersArray)
+
+                // Metadatos específicos del abecedario
+                put("totalAlphabetLetters", completeAlphabetCounts.size)
+                put("usedAlphabetLettersCount", completeAlphabetCounts.values.count { it > 0 })
+                put("totalAlphabetUses", completeAlphabetCounts.values.sum())
+
+                // Diccionario completo de contadores del abecedario (A -> conteo, B -> conteo...)
                 val alphabetObj = JSONObject()
-                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+                completeAlphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
                 put("alphabetCounts", alphabetObj)
 
                 // 6. Contadores de números
@@ -303,16 +398,57 @@ object AutoBackupManager {
                 }
             }
 
-            // Contadores del abecedario
+            // Contadores y lista detallada de las 26 letras del abecedario
             val alphabetMap = mutableMapOf<String, Int>()
+            val alphabetList = mutableListOf<AlphabetLetterRecord>()
+
+            if (root.has("allAlphabetLetters")) {
+                val array = root.getJSONArray("allAlphabetLetters")
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val letter = obj.optString("letter", "").uppercase().trim()
+                    val count = obj.optInt("useCount", 0)
+                    if (letter.isNotBlank()) {
+                        alphabetMap[letter] = count
+                        alphabetList.add(
+                            AlphabetLetterRecord(
+                                index = obj.optInt("index", i + 1),
+                                letter = letter,
+                                ipa = obj.optString("ipa", ""),
+                                phoneticSp = obj.optString("phoneticSp", ""),
+                                isVowel = obj.optBoolean("isVowel", false),
+                                note = obj.optString("note", ""),
+                                useCount = count
+                            )
+                        )
+                    }
+                }
+            }
+
             if (root.has("alphabetCounts")) {
                 val alphabetObj = root.getJSONObject("alphabetCounts")
                 val keys = alphabetObj.keys()
                 while (keys.hasNext()) {
                     val k = keys.next()
-                    alphabetMap[k.uppercase().trim()] = alphabetObj.optInt(k, 0)
+                    val cleanKey = k.uppercase().trim()
+                    val count = alphabetObj.optInt(k, 0)
+                    alphabetMap[cleanKey] = count
                 }
             }
+
+            // Asegurar que las 26 letras estándar existen en alphabetMap (con 0 si no se practicaron aún)
+            standardAlphabetCatalog.forEach { std ->
+                if (!alphabetMap.containsKey(std.letter)) {
+                    alphabetMap[std.letter] = 0
+                }
+                if (alphabetList.none { it.letter == std.letter }) {
+                    alphabetList.add(std.copy(useCount = alphabetMap[std.letter] ?: 0))
+                }
+            }
+            alphabetList.sortBy { it.index }
+
+            val totalAlphabetLetters = root.optInt("totalAlphabetLetters", maxOf(26, alphabetMap.size))
+            val usedAlphabetLettersCount = root.optInt("usedAlphabetLettersCount", alphabetMap.values.count { it > 0 })
 
             // Contadores de números
             val numbersMap = mutableMapOf<Int, Int>()
@@ -367,6 +503,9 @@ object AutoBackupManager {
                 totalWords = totalWords,
                 vocabularyWordCounts = vocabCountsMap,
                 customWords = customWordsList,
+                totalAlphabetLetters = totalAlphabetLetters,
+                usedAlphabetLettersCount = usedAlphabetLettersCount,
+                allAlphabetLetters = alphabetList,
                 alphabetCounts = alphabetMap,
                 numberCounts = numbersMap,
                 phraseCounts = phrasesMap,

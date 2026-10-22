@@ -55,7 +55,7 @@ class AlphabetStorage(private val context: Context?) {
         }
         val root = JSONObject()
         counts.forEach { (k, v) -> root.put(k.uppercase(), v) }
-        prefs.edit().putString(KEY_ALPHABET_COUNTS_JSON, root.toString()).apply()
+        prefs.edit().putString(KEY_ALPHABET_COUNTS_JSON, root.toString()).commit()
     }
 
     @Synchronized
@@ -64,6 +64,6 @@ class AlphabetStorage(private val context: Context?) {
             memoryFallback.clear()
             return
         }
-        prefs.edit().remove(KEY_ALPHABET_COUNTS_JSON).apply()
+        prefs.edit().remove(KEY_ALPHABET_COUNTS_JSON).commit()
     }
 }
