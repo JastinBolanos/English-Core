@@ -1089,8 +1089,8 @@ class ExampleRobolectricTest {
     assertEquals(8, parsed.alphabetCounts["C"])
     assertEquals(0, parsed.alphabetCounts["Z"])
 
-    // Contadores de números
-    assertEquals(3, parsed.numberCounts.size)
+    // Contadores de números (Asegura los 100 números y contadores exactos)
+    assertEquals(100, parsed.numberCounts.size)
     assertEquals(10, parsed.numberCounts[1])
     assertEquals(0, parsed.numberCounts[2])
     assertEquals(3, parsed.numberCounts[100])
@@ -1291,6 +1291,76 @@ class ExampleRobolectricTest {
     assertEquals(1, loaded["D"])
     assertEquals(22, loaded["E"])
     assertEquals(3, loaded["Z"])
+  }
+
+  @Test
+  fun `verify detailed 100 numbers backup retains individual counts and restores to NumbersStorage without zeroing`() {
+    val sampleNumberCounts = mapOf(
+      1 to 15,
+      2 to 8,
+      10 to 4,
+      25 to 1,
+      50 to 9,
+      100 to 12
+    )
+
+    val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    // Guardar copia completa usando AutoBackupManager
+    val success = com.example.data.backup.AutoBackupManager.saveFullBackup(
+      context = context,
+      usedWordsCount = 0,
+      notes = emptyList(),
+      numberCounts = sampleNumberCounts
+    )
+    assertTrue("Copia completa debe guardarse exitosamente", success)
+
+    // Cargar y parsear archivo de backup
+    val restored = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
+    assertNotNull(restored)
+    assertEquals(100, restored!!.totalNumbers)
+    assertEquals(6, restored.usedNumbersCount)
+
+    // Verificar que los 100 números existen en la lista y en el mapa de contadores
+    assertEquals(100, restored.allNumbers.size)
+    assertEquals(100, restored.numberCounts.size)
+
+    assertEquals(15, restored.numberCounts[1])
+    assertEquals(8, restored.numberCounts[2])
+    assertEquals(0, restored.numberCounts[3])
+    assertEquals(4, restored.numberCounts[10])
+    assertEquals(1, restored.numberCounts[25])
+    assertEquals(9, restored.numberCounts[50])
+    assertEquals(0, restored.numberCounts[99])
+    assertEquals(12, restored.numberCounts[100])
+
+    // Verificar detalles individuales de números
+    val num1 = restored.allNumbers.first { it.number == 1 }
+    assertEquals("One", num1.word)
+    assertEquals("uán", num1.phoneticSp)
+    assertEquals(15, num1.useCount)
+
+    val num3 = restored.allNumbers.first { it.number == 3 }
+    assertEquals("Three", num3.word)
+    assertEquals(0, num3.useCount)
+
+    val num100 = restored.allNumbers.first { it.number == 100 }
+    assertEquals("One hundred", num100.word)
+    assertEquals(12, num100.useCount)
+
+    // Simular restauración en NumbersStorage
+    val numbersStorage = com.example.data.local.NumbersStorage(context)
+    numbersStorage.saveCounts(restored.numberCounts)
+
+    val loaded = numbersStorage.loadCounts()
+    assertEquals(15, loaded[1])
+    assertEquals(8, loaded[2])
+    assertEquals(0, loaded[3])
+    assertEquals(4, loaded[10])
+    assertEquals(1, loaded[25])
+    assertEquals(9, loaded[50])
+    assertEquals(0, loaded[99])
+    assertEquals(12, loaded[100])
   }
 }
 

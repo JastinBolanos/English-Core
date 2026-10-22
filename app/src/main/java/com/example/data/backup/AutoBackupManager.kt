@@ -5,6 +5,7 @@ import android.os.Environment
 import com.example.data.local.CustomWordRecord
 import com.example.domain.model.Word
 import com.example.presentation.notes.NoteBlock
+import com.example.presentation.numbers.NumbersCatalog
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -50,6 +51,28 @@ val standardAlphabetCatalog = listOf(
     AlphabetLetterRecord(index = 26, letter = "Z", ipa = "/ziː/ · /zed/", phoneticSp = "zí / zed", isVowel = false, note = "zí en EE. UU. / zed en Reino Unido")
 )
 
+data class NumberRecord(
+    val number: Int,
+    val word: String,
+    val ipa: String,
+    val phoneticSp: String,
+    val isDecade: Boolean = false,
+    val useCount: Int = 0
+)
+
+val standardNumbersCatalog: List<NumberRecord> by lazy {
+    NumbersCatalog.allNumbers.map { entry ->
+        NumberRecord(
+            number = entry.number,
+            word = entry.word,
+            ipa = entry.ipa,
+            phoneticSp = entry.phoneticSp,
+            isDecade = entry.isDecade,
+            useCount = 0
+        )
+    }
+}
+
 data class RestoredBackupData(
     val appName: String,
     val version: Int,
@@ -62,6 +85,9 @@ data class RestoredBackupData(
     val usedAlphabetLettersCount: Int = 0,
     val allAlphabetLetters: List<AlphabetLetterRecord> = emptyList(),
     val alphabetCounts: Map<String, Int> = emptyMap(),
+    val totalNumbers: Int = 100,
+    val usedNumbersCount: Int = 0,
+    val allNumbers: List<NumberRecord> = emptyList(),
     val numberCounts: Map<Int, Int> = emptyMap(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
     val notes: List<NoteBlock> = emptyList()
@@ -99,6 +125,7 @@ object AutoBackupManager {
         alphabetCounts: Map<String, Int> = emptyMap(),
         allAlphabetLettersDetails: List<AlphabetLetterRecord> = emptyList(),
         numberCounts: Map<Int, Int> = emptyMap(),
+        allNumbersDetails: List<NumberRecord> = emptyList(),
         phraseCounts: Map<Int, Int> = emptyMap()
     ): Boolean {
         return try {
@@ -245,9 +272,56 @@ object AutoBackupManager {
                 completeAlphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
                 put("alphabetCounts", alphabetObj)
 
-                // 6. Contadores de números
+                // 6. Array detallado con los 100 números (1 al 100) y sus contadores exactos
+                val numbersArray = JSONArray()
+                val completeNumbersCounts = mutableMapOf<Int, Int>()
+
+                val baseNumbers = if (allNumbersDetails.isNotEmpty()) {
+                    allNumbersDetails
+                } else {
+                    standardNumbersCatalog.map { std ->
+                        std.copy(useCount = numberCounts[std.number] ?: 0)
+                    }
+                }
+
+                baseNumbers.forEach { numRecord ->
+                    completeNumbersCounts[numRecord.number] = numRecord.useCount
+                    val obj = JSONObject().apply {
+                        put("number", numRecord.number)
+                        put("word", numRecord.word)
+                        put("ipa", numRecord.ipa)
+                        put("phoneticSp", numRecord.phoneticSp)
+                        put("isDecade", numRecord.isDecade)
+                        put("useCount", numRecord.useCount)
+                    }
+                    numbersArray.put(obj)
+                }
+
+                // Si hubiese números adicionales en numberCounts
+                numberCounts.forEach { (k, v) ->
+                    if (!completeNumbersCounts.containsKey(k)) {
+                        completeNumbersCounts[k] = v
+                        val obj = JSONObject().apply {
+                            put("number", k)
+                            put("word", k.toString())
+                            put("ipa", "")
+                            put("phoneticSp", "")
+                            put("isDecade", (k % 10 == 0))
+                            put("useCount", v)
+                        }
+                        numbersArray.put(obj)
+                    }
+                }
+                put("allNumbers", numbersArray)
+
+                // Metadatos específicos de los números
+                put("totalNumbers", completeNumbersCounts.size)
+                put("usedNumbersCount", completeNumbersCounts.values.count { it > 0 })
+                put("totalNumberUses", completeNumbersCounts.values.sum())
+
+                // Diccionario completo de contadores de números ("1" -> conteo, "2" -> conteo... "100" -> conteo)
                 val numbersObj = JSONObject()
-                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+                completeNumbersCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
                 put("numberCounts", numbersObj)
 
                 // 7. Contadores de frases cotidianas
@@ -450,8 +524,32 @@ object AutoBackupManager {
             val totalAlphabetLetters = root.optInt("totalAlphabetLetters", maxOf(26, alphabetMap.size))
             val usedAlphabetLettersCount = root.optInt("usedAlphabetLettersCount", alphabetMap.values.count { it > 0 })
 
-            // Contadores de números
+            // Contadores y lista detallada de los 100 números (1 al 100)
             val numbersMap = mutableMapOf<Int, Int>()
+            val numbersList = mutableListOf<NumberRecord>()
+
+            if (root.has("allNumbers")) {
+                val array = root.getJSONArray("allNumbers")
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val num = obj.optInt("number", 0)
+                    val count = obj.optInt("useCount", 0)
+                    if (num > 0) {
+                        numbersMap[num] = count
+                        numbersList.add(
+                            NumberRecord(
+                                number = num,
+                                word = obj.optString("word", ""),
+                                ipa = obj.optString("ipa", ""),
+                                phoneticSp = obj.optString("phoneticSp", ""),
+                                isDecade = obj.optBoolean("isDecade", false),
+                                useCount = count
+                            )
+                        )
+                    }
+                }
+            }
+
             if (root.has("numberCounts")) {
                 val numbersObj = root.getJSONObject("numberCounts")
                 val keys = numbersObj.keys()
@@ -459,10 +557,25 @@ object AutoBackupManager {
                     val k = keys.next()
                     val num = k.toIntOrNull()
                     if (num != null) {
-                        numbersMap[num] = numbersObj.optInt(k, 0)
+                        val count = numbersObj.optInt(k, 0)
+                        numbersMap[num] = count
                     }
                 }
             }
+
+            // Asegurar que todos los 100 números estándar existen en numbersMap (con 0 si no se practicaron aún)
+            standardNumbersCatalog.forEach { std ->
+                if (!numbersMap.containsKey(std.number)) {
+                    numbersMap[std.number] = 0
+                }
+                if (numbersList.none { it.number == std.number }) {
+                    numbersList.add(std.copy(useCount = numbersMap[std.number] ?: 0))
+                }
+            }
+            numbersList.sortBy { it.number }
+
+            val totalNumbers = root.optInt("totalNumbers", maxOf(100, numbersMap.size))
+            val usedNumbersCount = root.optInt("usedNumbersCount", numbersMap.values.count { it > 0 })
 
             // Contadores de frases cotidianas
             val phrasesMap = mutableMapOf<Int, Int>()
@@ -507,6 +620,9 @@ object AutoBackupManager {
                 usedAlphabetLettersCount = usedAlphabetLettersCount,
                 allAlphabetLetters = alphabetList,
                 alphabetCounts = alphabetMap,
+                totalNumbers = totalNumbers,
+                usedNumbersCount = usedNumbersCount,
+                allNumbers = numbersList,
                 numberCounts = numbersMap,
                 phraseCounts = phrasesMap,
                 notes = notesList

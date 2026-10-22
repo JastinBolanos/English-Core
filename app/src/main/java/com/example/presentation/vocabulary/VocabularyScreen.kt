@@ -324,7 +324,7 @@ fun VocabularyScreen(
         if (restored.numberCounts.isNotEmpty()) viewModel.restoreNumberCounts(restored.numberCounts)
         if (restored.phraseCounts.isNotEmpty()) viewModel.restorePhraseCounts(restored.phraseCounts)
         if (restored.notes.isNotEmpty()) notesStorage.saveNotes(restored.notes)
-        backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.vocabularyWordCounts.size} palabras, ${restored.alphabetCounts.size} letras del abecedario, ${restored.customWords.size} añadidas, ${restored.notes.size} notas)"
+        backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.vocabularyWordCounts.size} palabras, ${restored.alphabetCounts.size} letras del abecedario, ${restored.numberCounts.size} números, ${restored.customWords.size} añadidas, ${restored.notes.size} notas)"
       }
     }
   }
@@ -375,6 +375,10 @@ fun VocabularyScreen(
           std.letter to (alphabetCounts[std.letter] ?: 0)
         }
 
+        val completeNumbersCounts = com.example.data.backup.standardNumbersCatalog.associate { std ->
+          std.number to (numberCounts[std.number] ?: 0)
+        }
+
         val rootJson = JSONObject().apply {
           put("appName", "VocabFlow")
           put("version", 2)
@@ -383,7 +387,7 @@ fun VocabularyScreen(
           put("usedWordsCount", usedWordsCount)
           put("totalVocabularyUses", vocabCounts.values.sum())
           put("totalAlphabetUses", alphabetCounts.values.sum())
-          put("totalNumberUses", numberCounts.values.sum())
+          put("totalNumberUses", completeNumbersCounts.values.sum())
           put("totalPhraseUses", phraseCounts.values.sum())
 
           // 1. Array completo de todas las palabras (2809 base + personalizadas) con sus contadores reales
@@ -440,9 +444,27 @@ fun VocabularyScreen(
           completeAlphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
           put("alphabetCounts", alphabetObj)
 
-          // 5. Contadores de números
+          // 5. Detalle completo de los 100 números (1 al 100) con sus contadores reales
+          val numbersArray = JSONArray()
+          com.example.data.backup.standardNumbersCatalog.forEach { std ->
+            val count = completeNumbersCounts[std.number] ?: 0
+            numbersArray.put(JSONObject().apply {
+              put("number", std.number)
+              put("word", std.word)
+              put("ipa", std.ipa)
+              put("phoneticSp", std.phoneticSp)
+              put("isDecade", std.isDecade)
+              put("useCount", count)
+            })
+          }
+          put("allNumbers", numbersArray)
+
+          put("totalNumbers", completeNumbersCounts.size)
+          put("usedNumbersCount", completeNumbersCounts.values.count { it > 0 })
+          put("totalNumberUses", completeNumbersCounts.values.sum())
+
           val numbersObj = JSONObject()
-          numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+          completeNumbersCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
           put("numberCounts", numbersObj)
 
           // 6. Contadores de frases cotidianas
@@ -466,7 +488,7 @@ fun VocabularyScreen(
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
           outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
         }
-        backupStatusMessage = "¡Copia exportada con éxito! (${allWords.size} palabras, ${completeAlphabetCounts.size} letras del abecedario, ${customWords.size} añadidas, ${currentNotes.size} notas)"
+        backupStatusMessage = "¡Copia exportada con éxito! (${allWords.size} palabras, ${completeAlphabetCounts.size} letras del abecedario, ${completeNumbersCounts.size} números, ${customWords.size} añadidas, ${currentNotes.size} notas)"
       } catch (e: Exception) {
         backupStatusMessage = "Error al exportar: ${e.message}"
       }
@@ -501,7 +523,7 @@ fun VocabularyScreen(
             if (parsed.notes.isNotEmpty()) {
               LocalNotesStorage(context).saveNotes(parsed.notes)
             }
-            backupStatusMessage = "¡Progreso y contadores restaurados con éxito! (${parsed.vocabularyWordCounts.size} palabras, ${parsed.alphabetCounts.size} letras del abecedario, ${parsed.customWords.size} añadidas, ${parsed.notes.size} notas)"
+            backupStatusMessage = "¡Progreso y contadores restaurados con éxito! (${parsed.vocabularyWordCounts.size} palabras, ${parsed.alphabetCounts.size} letras del abecedario, ${parsed.numberCounts.size} números, ${parsed.customWords.size} añadidas, ${parsed.notes.size} notas)"
           } else {
             backupStatusMessage = "Error: formato de archivo .json incompatible."
           }
@@ -1303,7 +1325,7 @@ fun VocabularyScreen(
             if (data.phraseCounts.isNotEmpty()) {
               viewModel.restorePhraseCounts(data.phraseCounts)
             }
-            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.vocabularyWordCounts.size} palabras, ${data.alphabetCounts.size} letras del abecedario, ${data.customWords.size} añadidas, ${data.notes.size} notas)"
+            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.vocabularyWordCounts.size} palabras, ${data.alphabetCounts.size} letras del abecedario, ${data.numberCounts.size} números, ${data.customWords.size} añadidas, ${data.notes.size} notas)"
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
           }
