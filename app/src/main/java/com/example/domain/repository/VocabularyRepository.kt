@@ -10,6 +10,7 @@ interface VocabularyRepository {
   suspend fun incrementWordUseCount(word: String)
   suspend fun incrementWordUseCount(id: Long, word: String = "")
   suspend fun setWordUseCounts(counts: Map<String, Int>)
+  suspend fun restoreCustomWords(customWords: List<com.example.data.local.CustomWordRecord>)
   suspend fun addCustomWord(
     word: String,
     partOfSpeech: String,

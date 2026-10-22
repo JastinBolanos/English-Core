@@ -1104,6 +1104,107 @@ class ExampleRobolectricTest {
     assertEquals(1, parsed.notes.size)
     assertEquals("Regla de fonética", parsed.notes[0].text)
   }
+
+  @Test
+  fun `test AutoBackupManager preserves 2809 words with counts custom words 2810 and full note texts`() {
+    val sampleWordList = listOf(
+      com.example.domain.model.Word(rank = 1, lemma = "the", rawPartOfSpeech = "d", useCount = 12),
+      com.example.domain.model.Word(rank = 2, lemma = "be", rawPartOfSpeech = "v", useCount = 5),
+      com.example.domain.model.Word(rank = 14, lemma = "you", rawPartOfSpeech = "p", useCount = 2),
+      com.example.domain.model.Word(rank = 2809, lemma = "zone", rawPartOfSpeech = "n", useCount = 0),
+      com.example.domain.model.Word(rank = 2810, lemma = "cybersecurity", rawPartOfSpeech = "sustantivo", useCount = 7, spanishTranslation = "ciberseguridad", microExample = "She works in cybersecurity.")
+    )
+    val customWords = listOf(
+      com.example.data.local.CustomWordRecord(
+        rank = 2810,
+        word = "cybersecurity",
+        partOfSpeech = "sustantivo",
+        spanishTranslation = "ciberseguridad",
+        microExample = "She works in cybersecurity.",
+        useCount = 7
+      )
+    )
+    val notes = listOf(
+      com.example.presentation.notes.NoteBlock(
+        id = "note-xyz",
+        text = "Recordar repasar los phrasal verbs de get y take cada mañana a las 8am.",
+        isCompleted = true,
+        createdAt = 1700000000000L
+      )
+    )
+
+    val vocabCounts = sampleWordList.associate { it.lemma to it.useCount }
+
+    val jsonString = org.json.JSONObject().apply {
+      put("appName", "VocabFlow")
+      put("version", 2)
+      put("exportedAt", System.currentTimeMillis())
+      put("totalWords", sampleWordList.size)
+      put("usedWordsCount", 4)
+
+      val wordsArray = org.json.JSONArray()
+      sampleWordList.forEach { w ->
+        wordsArray.put(org.json.JSONObject().apply {
+          put("rank", w.rank)
+          put("word", w.lemma)
+          put("useCount", w.useCount)
+        })
+      }
+      put("allVocabularyWords", wordsArray)
+
+      val vocabObj = org.json.JSONObject()
+      vocabCounts.forEach { (lemma, count) -> vocabObj.put(lemma, count) }
+      put("vocabularyWordCounts", vocabObj)
+
+      val customArray = org.json.JSONArray()
+      customWords.forEach { cw ->
+        customArray.put(org.json.JSONObject().apply {
+          put("rank", cw.rank)
+          put("word", cw.word)
+          put("partOfSpeech", cw.partOfSpeech)
+          put("spanishTranslation", cw.spanishTranslation)
+          put("microExample", cw.microExample)
+          put("useCount", cw.useCount)
+        })
+      }
+      put("customWords", customArray)
+
+      val notesArray = org.json.JSONArray()
+      notes.forEach { n ->
+        notesArray.put(org.json.JSONObject().apply {
+          put("id", n.id)
+          put("text", n.text)
+          put("isCompleted", n.isCompleted)
+          put("createdAt", n.createdAt)
+        })
+      }
+      put("localNotes", notesArray)
+    }.toString(2)
+
+    val parsed = com.example.data.backup.AutoBackupManager.parseJsonContent(jsonString)
+    assertNotNull(parsed)
+    assertEquals(5, parsed!!.totalWords)
+    assertEquals(12, parsed.vocabularyWordCounts["the"])
+    assertEquals(2, parsed.vocabularyWordCounts["you"])
+    assertEquals(0, parsed.vocabularyWordCounts["zone"])
+    assertEquals(7, parsed.vocabularyWordCounts["cybersecurity"])
+
+    // Verificar que la palabra 2810 está en customWords con todos sus datos
+    assertEquals(1, parsed.customWords.size)
+    val restoredCustom = parsed.customWords[0]
+    assertEquals(2810, restoredCustom.rank)
+    assertEquals("cybersecurity", restoredCustom.word)
+    assertEquals("ciberseguridad", restoredCustom.spanishTranslation)
+    assertEquals("She works in cybersecurity.", restoredCustom.microExample)
+    assertEquals(7, restoredCustom.useCount)
+
+    // Verificar que las notas locales guardaron su texto y contenido íntegro
+    assertEquals(1, parsed.notes.size)
+    assertEquals("note-xyz", parsed.notes[0].id)
+    assertEquals("Recordar repasar los phrasal verbs de get y take cada mañana a las 8am.", parsed.notes[0].text)
+    assertTrue(parsed.notes[0].isCompleted)
+    assertEquals(1700000000000L, parsed.notes[0].createdAt)
+  }
 }
 
 

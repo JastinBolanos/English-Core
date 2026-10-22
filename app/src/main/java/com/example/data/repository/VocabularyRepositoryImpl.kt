@@ -62,9 +62,38 @@ class VocabularyRepositoryImpl @Inject constructor(
 
   override suspend fun setWordUseCounts(counts: Map<String, Int>) {
     withContext(Dispatchers.IO) {
-      counts.forEach { (lemma, count) ->
-        if (lemma.isNotBlank() && count >= 0) {
-          wordDao.setUseCountByWord(lemma.lowercase(java.util.Locale.ROOT).trim(), count)
+      wordDao.updateAllUseCounts(counts)
+    }
+  }
+
+  override suspend fun restoreCustomWords(customWords: List<com.example.data.local.CustomWordRecord>) {
+    withContext(Dispatchers.IO) {
+      for (cw in customWords) {
+        val clean = cw.word.lowercase(java.util.Locale.ROOT).trim()
+        if (clean.isBlank()) continue
+        customWordsStorage?.saveCustomWord(cw)
+        WordGrammarCatalog.injectGrammarTypes(mapOf(clean to cw.partOfSpeech))
+        if (cw.spanishTranslation.isNotBlank()) {
+          WordDictionary.injectTranslations(mapOf(clean to cw.spanishTranslation))
+        }
+        if (cw.microExample.isNotBlank()) {
+          WordDictionary.injectExamples(mapOf(clean to cw.microExample))
+        }
+        val existing = wordDao.getWordByLemma(clean)
+        if (existing == null) {
+          wordDao.insertWord(
+            WordEntity(
+              rank = cw.rank,
+              word = cw.word,
+              partOfSpeech = cw.partOfSpeech,
+              interval = 0,
+              easeFactor = 2.5f,
+              nextReviewDate = 0L,
+              useCount = cw.useCount
+            )
+          )
+        } else {
+          wordDao.setUseCountByWord(clean, cw.useCount)
         }
       }
     }

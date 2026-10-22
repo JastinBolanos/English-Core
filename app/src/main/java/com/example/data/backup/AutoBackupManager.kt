@@ -2,6 +2,8 @@ package com.example.data.backup
 
 import android.content.Context
 import android.os.Environment
+import com.example.data.local.CustomWordRecord
+import com.example.domain.model.Word
 import com.example.presentation.notes.NoteBlock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,7 +16,9 @@ data class RestoredBackupData(
     val version: Int,
     val timestamp: Long,
     val usedWordsCount: Int,
+    val totalWords: Int = 2809,
     val vocabularyWordCounts: Map<String, Int> = emptyMap(),
+    val customWords: List<CustomWordRecord> = emptyList(),
     val alphabetCounts: Map<String, Int> = emptyMap(),
     val numberCounts: Map<Int, Int> = emptyMap(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
@@ -26,12 +30,13 @@ data class RestoredBackupData(
  * Guarda en el directorio público Documentos/VocabFlow/ y en el almacenamiento interno.
  * Los archivos guardados en Documentos/VocabFlow/ NO se borran cuando el usuario desinstala la aplicación.
  *
- * Persiste los contadores de uso de:
- * 1. Vocabulario completo (cada palabra y su contador específico: 0, 20, 32...)
- * 2. Abecedario (26 letras y sus conteos)
- * 3. Números (1 al 100 y sus conteos)
- * 4. Frases cotidianas (50 frases y sus conteos)
- * 5. Notas locales
+ * Persiste los datos completos para evitar cualquier pérdida de progreso:
+ * 1. Lista de las 2809 palabras de frecuencia con el contador exacto de cada una (ej. you=2, the=12, etc.)
+ * 2. Nuevas palabras personalizadas añadidas después de la 2809 (2810, 2811...) con sus datos y contador
+ * 3. Notas locales con su contenido íntegro (texto, estado, id, fecha de creación)
+ * 4. Contadores del Abecedario (26 letras)
+ * 5. Contadores de Números (1 al 100)
+ * 6. Contadores de Frases Cotidianas (50 frases)
  */
 object AutoBackupManager {
 
@@ -45,6 +50,8 @@ object AutoBackupManager {
     fun saveFullBackup(
         context: Context,
         vocabularyWordCounts: Map<String, Int> = emptyMap(),
+        allWordsDetails: List<Word> = emptyList(),
+        customWords: List<CustomWordRecord> = emptyList(),
         usedWordsCount: Int,
         notes: List<NoteBlock>,
         alphabetCounts: Map<String, Int> = emptyMap(),
@@ -56,35 +63,77 @@ object AutoBackupManager {
                 put("appName", "VocabFlow")
                 put("version", 2)
                 put("exportedAt", System.currentTimeMillis())
+                val effectiveTotalWords = if (allWordsDetails.isNotEmpty()) {
+                    allWordsDetails.size
+                } else {
+                    maxOf(2809, vocabularyWordCounts.size)
+                }
+                put("totalWords", effectiveTotalWords)
                 put("usedWordsCount", usedWordsCount)
                 put("totalVocabularyUses", vocabularyWordCounts.values.sum())
                 put("totalAlphabetUses", alphabetCounts.values.sum())
                 put("totalNumberUses", numberCounts.values.sum())
                 put("totalPhraseUses", phraseCounts.values.sum())
 
-                // 1. Contadores completos de todas las palabras del vocabulario (palabra -> conteo: 0, 20, 32...)
+                // 1. Array con todas las 2809+ palabras del vocabulario y sus contadores exactos
+                val wordsArray = JSONArray()
+                if (allWordsDetails.isNotEmpty()) {
+                    allWordsDetails.forEach { w ->
+                        val obj = JSONObject().apply {
+                            put("rank", w.rank)
+                            put("word", w.lemma)
+                            put("useCount", w.useCount)
+                        }
+                        wordsArray.put(obj)
+                    }
+                } else {
+                    vocabularyWordCounts.forEach { (lemma, count) ->
+                        val obj = JSONObject().apply {
+                            put("word", lemma)
+                            put("useCount", count)
+                        }
+                        wordsArray.put(obj)
+                    }
+                }
+                put("allVocabularyWords", wordsArray)
+
+                // 2. Diccionario directo palabra -> contador
                 val vocabObj = JSONObject()
                 vocabularyWordCounts.forEach { (lemma, count) ->
                     vocabObj.put(lemma, count)
                 }
                 put("vocabularyWordCounts", vocabObj)
 
-                // 2. Contadores del abecedario
-                val alphabetObj = JSONObject()
-                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
-                put("alphabetCounts", alphabetObj)
+                // 3. Palabras personalizadas añadidas después de la 2809 (2810, 2811...)
+                val customArray = JSONArray()
+                val effectiveCustomWords = if (customWords.isNotEmpty()) {
+                    customWords
+                } else {
+                    allWordsDetails.filter { it.rank > 2809 }.map { w ->
+                        CustomWordRecord(
+                            rank = w.rank,
+                            word = w.lemma,
+                            partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+                            spanishTranslation = w.spanishTranslation,
+                            microExample = w.microExample,
+                            useCount = w.useCount
+                        )
+                    }
+                }
+                effectiveCustomWords.forEach { cw ->
+                    val obj = JSONObject().apply {
+                        put("rank", cw.rank)
+                        put("word", cw.word)
+                        put("partOfSpeech", cw.partOfSpeech)
+                        put("spanishTranslation", cw.spanishTranslation)
+                        put("microExample", cw.microExample)
+                        put("useCount", cw.useCount)
+                    }
+                    customArray.put(obj)
+                }
+                put("customWords", customArray)
 
-                // 3. Contadores de números
-                val numbersObj = JSONObject()
-                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
-                put("numberCounts", numbersObj)
-
-                // 4. Contadores de frases cotidianas
-                val phrasesObj = JSONObject()
-                phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
-                put("phraseCounts", phrasesObj)
-
-                // 5. Notas locales
+                // 4. Notas locales completas (guardando su texto y contenido íntegro)
                 val notesArray = JSONArray()
                 notes.forEach { n ->
                     notesArray.put(JSONObject().apply {
@@ -95,16 +144,31 @@ object AutoBackupManager {
                     })
                 }
                 put("localNotes", notesArray)
+
+                // 5. Contadores del abecedario
+                val alphabetObj = JSONObject()
+                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+                put("alphabetCounts", alphabetObj)
+
+                // 6. Contadores de números
+                val numbersObj = JSONObject()
+                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+                put("numberCounts", numbersObj)
+
+                // 7. Contadores de frases cotidianas
+                val phrasesObj = JSONObject()
+                phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
+                put("phraseCounts", phrasesObj)
             }
 
             val jsonString = rootJson.toString(2)
             val jsonBytes = jsonString.toByteArray(StandardCharsets.UTF_8)
 
-            // 1. Guardar en almacenamiento interno
+            // Guardar en almacenamiento interno
             val internalFile = File(context.filesDir, BACKUP_FILENAME)
             internalFile.writeText(jsonString, StandardCharsets.UTF_8)
 
-            // 2. Guardar en Directorio Público de Documentos (Persiste tras desinstalar la app)
+            // Guardar en Directorio Público de Documentos (Persiste tras desinstalar la app)
             saveToPublicDocuments(context, jsonBytes)
 
             true
@@ -129,7 +193,6 @@ object AutoBackupManager {
                 fos.flush()
             }
         } catch (_: Exception) {
-            // Intento alternativo en Downloads si Documents tuviera restricción de acceso
             try {
                 val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 val targetFile = File(File(dlDir, FOLDER_NAME).apply { mkdirs() }, BACKUP_FILENAME)
@@ -191,6 +254,7 @@ object AutoBackupManager {
             val version = root.optInt("version", 2)
             val timestamp = root.optLong("exportedAt", System.currentTimeMillis())
             val usedWordsCount = root.optInt("usedWordsCount", 0)
+            val totalWords = root.optInt("totalWords", 2809)
 
             // Contadores de palabras del vocabulario
             val vocabCountsMap = mutableMapOf<String, Int>()
@@ -199,7 +263,43 @@ object AutoBackupManager {
                 val keys = vocabObj.keys()
                 while (keys.hasNext()) {
                     val k = keys.next()
-                    vocabCountsMap[k] = vocabObj.optInt(k, 0)
+                    vocabCountsMap[k.lowercase().trim()] = vocabObj.optInt(k, 0)
+                }
+            }
+            if (root.has("allVocabularyWords")) {
+                val array = root.getJSONArray("allVocabularyWords")
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val w = obj.optString("word", "").lowercase().trim()
+                    val c = obj.optInt("useCount", 0)
+                    if (w.isNotBlank()) {
+                        vocabCountsMap[w] = c
+                    }
+                }
+            }
+
+            // Palabras personalizadas añadidas después de la 2809 (2810, 2811...)
+            val customWordsList = mutableListOf<CustomWordRecord>()
+            if (root.has("customWords")) {
+                val array = root.getJSONArray("customWords")
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val word = obj.optString("word", "").trim()
+                    if (word.isNotBlank()) {
+                        val wordLower = word.lowercase().trim()
+                        val count = obj.optInt("useCount", vocabCountsMap[wordLower] ?: 0)
+                        customWordsList.add(
+                            CustomWordRecord(
+                                rank = obj.optInt("rank", 2810 + i),
+                                word = word,
+                                partOfSpeech = obj.optString("partOfSpeech", "sustantivo"),
+                                spanishTranslation = obj.optString("spanishTranslation", ""),
+                                microExample = obj.optString("microExample", ""),
+                                useCount = count
+                            )
+                        )
+                        vocabCountsMap[wordLower] = count
+                    }
                 }
             }
 
@@ -210,7 +310,7 @@ object AutoBackupManager {
                 val keys = alphabetObj.keys()
                 while (keys.hasNext()) {
                     val k = keys.next()
-                    alphabetMap[k] = alphabetObj.optInt(k, 0)
+                    alphabetMap[k.uppercase().trim()] = alphabetObj.optInt(k, 0)
                 }
             }
 
@@ -242,7 +342,7 @@ object AutoBackupManager {
                 }
             }
 
-            // Notas locales
+            // Notas locales con su contenido íntegro y verificado
             val notesList = mutableListOf<NoteBlock>()
             if (root.has("localNotes")) {
                 val array = root.getJSONArray("localNotes")
@@ -264,7 +364,9 @@ object AutoBackupManager {
                 version = version,
                 timestamp = timestamp,
                 usedWordsCount = usedWordsCount,
+                totalWords = totalWords,
                 vocabularyWordCounts = vocabCountsMap,
+                customWords = customWordsList,
                 alphabetCounts = alphabetMap,
                 numberCounts = numbersMap,
                 phraseCounts = phrasesMap,

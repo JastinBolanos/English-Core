@@ -225,6 +225,14 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
+  fun restoreCustomWords(customWords: List<com.example.data.local.CustomWordRecord>) {
+    if (customWords.isNotEmpty()) {
+      viewModelScope.launch {
+        repository.restoreCustomWords(customWords)
+      }
+    }
+  }
+
   // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
   private val spanishToEnglishTranslator = com.example.data.translation.SpanishToEnglishTranslationManager(geminiChatService)
   val spanishTranslationState: StateFlow<com.example.domain.translation.TranslationState> = spanishToEnglishTranslator.translationState

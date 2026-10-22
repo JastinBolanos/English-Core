@@ -48,6 +48,15 @@ interface WordDao {
   @Query("UPDATE words SET useCount = :count WHERE id = :id")
   suspend fun setUseCount(id: Long, count: Int): Int
 
+  @androidx.room.Transaction
+  suspend fun updateAllUseCounts(counts: Map<String, Int>) {
+    for ((word, count) in counts) {
+      if (word.isNotBlank()) {
+        setUseCountByWord(word.lowercase().trim(), count)
+      }
+    }
+  }
+
   @Query("SELECT * FROM words WHERE LOWER(TRIM(word)) = LOWER(TRIM(:word)) LIMIT 1")
   suspend fun getWordByLemma(word: String): WordEntity?
 
