@@ -67,7 +67,9 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       EnglishAppTheme {
-        EnglishApp()
+        com.example.presentation.zoom.PhantomZoomContainer {
+          EnglishApp()
+        }
       }
     }
   }
