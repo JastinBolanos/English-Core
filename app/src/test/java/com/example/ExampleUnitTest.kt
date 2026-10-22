@@ -381,6 +381,71 @@ class ExampleUnitTest {
     assertTrue(clauseTranslation.contains("ellos"))
     assertTrue(clauseTranslation.contains("puede"))
   }
+
+  @Test
+  fun testEverydayPhrasesCatalog_HasExactly50Phrases() {
+    val phrases = com.example.domain.model.EverydayPhrasesCatalog.phrases
+    assertEquals("El catálogo debe contener exactamente 50 frases cotidianas y de hogar", 50, phrases.size)
+
+    // IDs del 1 al 50
+    for (i in 1..50) {
+      val phrase = phrases.firstOrNull { it.id == i }
+      assertNotNull("Debe existir la frase con id $i", phrase)
+      assertTrue("El texto en español de la frase $i no puede estar vacío", phrase!!.spanishText.isNotBlank())
+      assertTrue("La categoría de la frase $i no puede estar vacía", phrase.category.isNotBlank())
+    }
+
+    // Verificar temáticas cotidianas y de hogar
+    val allText = phrases.joinToString(" ") { it.spanishText.lowercase() }
+    assertTrue(allText.contains("café") || allText.contains("cocina"))
+    assertTrue(allText.contains("platos") || allText.contains("limpiar"))
+    assertTrue(allText.contains("puerta") || allText.contains("llaves"))
+    assertTrue(allText.contains("dormir") || allText.contains("buenas noches"))
+  }
+
+  @Test
+  fun testStudyStopwatch_FormattingAnd1HourGoal() {
+    fun formatStopwatchTime(millis: Long): String {
+      val totalSeconds = millis / 1000
+      val minutes = (totalSeconds / 60) % 60
+      val seconds = totalSeconds % 60
+      val centiseconds = (millis % 1000) / 10
+      val hours = totalSeconds / 3600
+      return if (hours > 0) {
+        String.format(java.util.Locale.US, "%d:%02d:%02d.%02d", hours, minutes, seconds, centiseconds)
+      } else {
+        String.format(java.util.Locale.US, "%02d:%02d.%02d", minutes, seconds, centiseconds)
+      }
+    }
+
+    // 0 milisegundos
+    assertEquals("00:00.00", formatStopwatchTime(0L))
+
+    // 12 minutos, 34 segundos y 56 centisegundos
+    val millis1 = (12 * 60 + 34) * 1000L + 560L
+    assertEquals("12:34.56", formatStopwatchTime(millis1))
+
+    // 1 hora, 5 minutos, 20 segundos y 30 centisegundos
+    val millis2 = (3600 + 5 * 60 + 20) * 1000L + 300L
+    assertEquals("1:05:20.30", formatStopwatchTime(millis2))
+
+    // Meta de 1 hora (3,600,000 ms)
+    val oneHourMillis = 3_600_000L
+    val halfHourMillis = 1_800_000L
+    val halfHourProgress = (halfHourMillis.toFloat() / oneHourMillis)
+    assertEquals(0.5f, halfHourProgress, 0.001f)
+
+    val remainingMinutes = maxOf(0L, (oneHourMillis - halfHourMillis + 59_999L) / 60_000L)
+    assertEquals(30L, remainingMinutes)
+  }
+
+  @Test
+  fun testMainSectionTab_EnumValues() {
+    val tabs = com.example.presentation.vocabulary.MainSectionTab.values()
+    assertEquals(2, tabs.size)
+    assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.VOCABULARY))
+    assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.PHRASES))
+  }
 }
 
 

@@ -767,6 +767,75 @@ class ExampleRobolectricTest {
 
     db.close()
   }
+
+  @Test
+  fun `verify audio playback increments word usage count in ViewModel`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    var spokenText = ""
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) { spokenText = text }
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    dao.insertWord(com.example.data.local.entity.WordEntity(id = 1, rank = 1, word = "hello", partOfSpeech = "interjeccion", useCount = 0))
+    val word = Word(id = 1, rank = 1, lemma = "hello", partOfSpeech = PartOfSpeech.OTHER, useCount = 0)
+
+    viewModel.speakWord(word)
+    kotlinx.coroutines.delay(100)
+    assertEquals("hello", spokenText)
+
+    val updatedWord = dao.getWordById(1)
+    assertNotNull(updatedWord)
+    assertEquals(1, updatedWord?.useCount)
+
+    db.close()
+  }
+
+  @Test
+  fun `verify opening word details tray triggers recordWordUsage and closing does not`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    dao.insertWord(com.example.data.local.entity.WordEntity(id = 10, rank = 10, word = "world", partOfSpeech = "sustantivo", useCount = 0))
+    val word = Word(id = 10, rank = 10, lemma = "world", partOfSpeech = PartOfSpeech.NOUN, useCount = 0)
+
+    // Opening tray triggers usage recording
+    viewModel.recordWordUsage(word)
+    kotlinx.coroutines.delay(100)
+    var updated = dao.getWordById(10)
+    assertEquals(1, updated?.useCount)
+
+    // Closing tray does nothing to usage count (still 1)
+    updated = dao.getWordById(10)
+    assertEquals(1, updated?.useCount)
+
+    db.close()
+  }
 }
 
 

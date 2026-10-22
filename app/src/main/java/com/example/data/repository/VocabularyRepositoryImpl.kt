@@ -43,13 +43,17 @@ class VocabularyRepositoryImpl @Inject constructor(
   }
 
   override suspend fun incrementWordUseCount(word: String) {
-    wordDao.incrementUseCountByWord(word.trim())
+    if (word.isNotBlank()) {
+      wordDao.incrementUseCountByWord(word.trim())
+    }
   }
 
   override suspend fun incrementWordUseCount(id: Long, word: String) {
+    var rowsUpdated = 0
     if (id > 0L) {
-      wordDao.incrementUseCount(id)
-    } else if (word.isNotBlank()) {
+      rowsUpdated = wordDao.incrementUseCount(id)
+    }
+    if (rowsUpdated == 0 && word.isNotBlank()) {
       wordDao.incrementUseCountByWord(word.trim())
     }
   }

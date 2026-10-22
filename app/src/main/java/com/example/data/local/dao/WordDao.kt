@@ -37,10 +37,10 @@ interface WordDao {
   suspend fun updateSrsData(id: Long, interval: Int, easeFactor: Float, nextReviewDate: Long)
 
   @Query("UPDATE words SET useCount = useCount + 1 WHERE LOWER(TRIM(word)) = LOWER(TRIM(:word))")
-  suspend fun incrementUseCountByWord(word: String)
+  suspend fun incrementUseCountByWord(word: String): Int
 
   @Query("UPDATE words SET useCount = useCount + 1 WHERE id = :id")
-  suspend fun incrementUseCount(id: Long)
+  suspend fun incrementUseCount(id: Long): Int
 
   @Query("SELECT * FROM words WHERE LOWER(TRIM(word)) = LOWER(TRIM(:word)) LIMIT 1")
   suspend fun getWordByLemma(word: String): WordEntity?

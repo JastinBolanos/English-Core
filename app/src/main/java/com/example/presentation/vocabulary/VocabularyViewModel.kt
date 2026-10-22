@@ -316,6 +316,70 @@ class VocabularyViewModel @Inject constructor(
       initialValue = 0
     )
 
+  // ==========================================================
+  // CRONÓMETRO NATIVO DE ESTUDIO DE INGLÉS
+  // ==========================================================
+  private val _studyTimerMillis = MutableStateFlow(0L)
+  val studyTimerMillis: StateFlow<Long> = _studyTimerMillis.asStateFlow()
+
+  private val _isStudyTimerRunning = MutableStateFlow(false)
+  val isStudyTimerRunning: StateFlow<Boolean> = _isStudyTimerRunning.asStateFlow()
+
+  private val _showResetTimerDialog = MutableStateFlow(false)
+  val showResetTimerDialog: StateFlow<Boolean> = _showResetTimerDialog.asStateFlow()
+
+  private var timerJob: kotlinx.coroutines.Job? = null
+  private var timerBaseRealtime: Long = 0L
+  private var timerAccumulatedMillis: Long = 0L
+
+  fun toggleStudyTimer() {
+    if (_isStudyTimerRunning.value) {
+      pauseStudyTimer()
+    } else {
+      startStudyTimer()
+    }
+  }
+
+  fun startStudyTimer() {
+    if (_isStudyTimerRunning.value) return
+    _isStudyTimerRunning.value = true
+    timerBaseRealtime = android.os.SystemClock.elapsedRealtime()
+    timerJob?.cancel()
+    timerJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+      while (_isStudyTimerRunning.value) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        _studyTimerMillis.value = timerAccumulatedMillis + (now - timerBaseRealtime)
+        kotlinx.coroutines.delay(35)
+      }
+    }
+  }
+
+  fun pauseStudyTimer() {
+    if (!_isStudyTimerRunning.value) return
+    timerJob?.cancel()
+    val now = android.os.SystemClock.elapsedRealtime()
+    timerAccumulatedMillis += (now - timerBaseRealtime)
+    _studyTimerMillis.value = timerAccumulatedMillis
+    _isStudyTimerRunning.value = false
+  }
+
+  fun requestResetStudyTimer() {
+    _showResetTimerDialog.value = true
+  }
+
+  fun dismissResetStudyTimerDialog() {
+    _showResetTimerDialog.value = false
+  }
+
+  fun confirmResetStudyTimer() {
+    timerJob?.cancel()
+    _isStudyTimerRunning.value = false
+    timerAccumulatedMillis = 0L
+    timerBaseRealtime = 0L
+    _studyTimerMillis.value = 0L
+    _showResetTimerDialog.value = false
+  }
+
   /**
    * Flujo filtrado por búsqueda y categoría seleccionada en el Guiador Educativo Superior.
    * Si el usuario escribe en español (ej. "estar"), el sistema traduce internamente y busca la palabra
@@ -579,11 +643,46 @@ class VocabularyViewModel @Inject constructor(
     if (phrase.isNotBlank()) {
       ttsManager.speak(phrase)
       _isPhraseUpdated.value = false
+      _draftWords.value.forEach { recordWordUsage(it) }
     }
+  }
+
+  fun speakWord(word: Word) {
+    ttsManager.speak(word.lemma)
+    recordWordUsage(word)
   }
 
   fun speakWord(word: String) {
     ttsManager.speak(word)
+    val tokens = word.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
+    if (tokens.size <= 1) {
+      recordWordUsage(word)
+    } else {
+      tokens.forEach { recordWordUsage(it) }
+    }
+  }
+
+  fun speakExample(word: Word, example: String) {
+    ttsManager.speak(example)
+    recordWordUsage(word)
+  }
+
+  fun recordWordUsage(word: Word) {
+    viewModelScope.launch {
+      try {
+        repository.incrementWordUseCount(word.id, word.lemma)
+      } catch (_: Exception) {}
+    }
+  }
+
+  fun recordWordUsage(wordLemma: String) {
+    val clean = wordLemma.trim()
+    if (clean.isBlank()) return
+    viewModelScope.launch {
+      try {
+        repository.incrementWordUseCount(clean)
+      } catch (_: Exception) {}
+    }
   }
 
   fun reloadFromCsv() {
@@ -616,6 +715,7 @@ class VocabularyViewModel @Inject constructor(
 
   override fun onCleared() {
     super.onCleared()
+    timerJob?.cancel()
     ttsManager.stop()
     speechToTextManager?.destroy()
     translationManager?.close()
