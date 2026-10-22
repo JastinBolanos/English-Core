@@ -442,9 +442,21 @@ class ExampleUnitTest {
   @Test
   fun testMainSectionTab_EnumValues() {
     val tabs = com.example.presentation.vocabulary.MainSectionTab.values()
-    assertEquals(2, tabs.size)
+    assertEquals(4, tabs.size)
     assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.VOCABULARY))
+    assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.ALPHABET))
+    assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.NUMBERS))
     assertTrue(tabs.contains(com.example.presentation.vocabulary.MainSectionTab.PHRASES))
+  }
+
+  @Test
+  fun testNumbersCatalog_Has100Entries() {
+    val numbers = com.example.presentation.numbers.NumbersCatalog.allNumbers
+    assertEquals(100, numbers.size)
+    assertEquals("One", numbers.first().word)
+    assertEquals(1, numbers.first().number)
+    assertEquals("One hundred", numbers.last().word)
+    assertEquals(100, numbers.last().number)
   }
 }
 

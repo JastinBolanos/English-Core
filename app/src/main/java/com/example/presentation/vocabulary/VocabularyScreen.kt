@@ -97,6 +97,27 @@ import com.example.presentation.youtube.RawYouTubeTray
 import com.example.presentation.youtube.FloatingYouTubeTray
 import com.example.presentation.gemini.FloatingGeminiWebTray
 import com.example.presentation.translate.FloatingGoogleTranslateWebTray
+import com.example.presentation.roadmap.FloatingRoadmap8MonthsTray
+import com.example.presentation.roadmap.MinimalistDrawing
+import com.example.presentation.schedule.FloatingDailyScheduleTray
+import com.example.presentation.notes.FloatingLocalNotesTray
+import com.example.presentation.alphabet.AlphabetListSection
+import com.example.presentation.numbers.NumbersSection
+import com.example.presentation.settings.FloatingSettingsBackupTray
+import com.example.presentation.notes.LocalNotesStorage
+import com.example.presentation.notes.NoteBlock
+import com.example.data.backup.AutoBackupManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudSync
+import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
@@ -129,6 +150,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -206,6 +228,8 @@ fun getWordSyntaxColor(word: Word): Color {
  */
 enum class MainSectionTab {
   VOCABULARY,
+  ALPHABET,
+  NUMBERS,
   PHRASES
 }
 
@@ -216,7 +240,12 @@ fun VocabularyScreen(
   onBack: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
-  BackHandler(onBack = onBack)
+  var selectedSectionTab by rememberSaveable { mutableStateOf(MainSectionTab.VOCABULARY) }
+
+  BackHandler(enabled = (selectedSectionTab != MainSectionTab.VOCABULARY)) {
+    selectedSectionTab = MainSectionTab.VOCABULARY
+  }
+  BackHandler(enabled = (selectedSectionTab == MainSectionTab.VOCABULARY), onBack = onBack)
 
   val words by viewModel.words.collectAsStateWithLifecycle()
   val filteredWords by viewModel.filteredWords.collectAsStateWithLifecycle()
@@ -239,10 +268,41 @@ fun VocabularyScreen(
   val isStudyTimerRunning by viewModel.isStudyTimerRunning.collectAsStateWithLifecycle()
   val showResetTimerDialog by viewModel.showResetTimerDialog.collectAsStateWithLifecycle()
 
-  // Selector entre Vocabulario y Frases cotidianas
-  var selectedSectionTab by rememberSaveable { mutableStateOf(MainSectionTab.VOCABULARY) }
-
   val context = LocalContext.current
+  val haptic = LocalHapticFeedback.current
+  var isCloudSaving by remember { mutableStateOf(false) }
+  var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
+
+  // Auto-backup reactivo al detectar cambios en palabras usadas o lienzo de borrador
+  LaunchedEffect(usedWordsCount, draftWords.size) {
+    if (usedWordsCount > 0 || draftWords.isNotEmpty()) {
+      delay(1200)
+      isCloudSaving = true
+      delay(350)
+      AutoBackupManager.saveFullBackup(
+        context = context,
+        usedWordsCount = usedWordsCount,
+        studyTimerMillis = studyTimerMillis,
+        draftWords = draftWords,
+        notes = LocalNotesStorage(context).loadNotes()
+      )
+      isCloudSaving = false
+    }
+  }
+
+  // Auto-recuperación si la app fue reinstalada pero el archivo persiste en Documentos/VocabFlow/
+  LaunchedEffect(Unit) {
+    val notesStorage = LocalNotesStorage(context)
+    val existingNotes = notesStorage.loadNotes()
+    if (existingNotes.isEmpty() && usedWordsCount == 0 && AutoBackupManager.hasSurvivingBackup(context)) {
+      val restored = AutoBackupManager.loadLatestBackup(context)
+      if (restored != null && (restored.notes.isNotEmpty() || restored.draftWords.isNotEmpty())) {
+        notesStorage.saveNotes(restored.notes)
+        restored.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
+        backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.notes.size} notas)"
+      }
+    }
+  }
   var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
   var explainedFilter by rememberSaveable { mutableStateOf<SyntaxFilter?>(null) }
   var currentVideoId by rememberSaveable { mutableStateOf<String?>("84kLpP7j9iQ") }
@@ -260,6 +320,105 @@ fun VocabularyScreen(
   var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGeminiWebTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGoogleTranslateWebTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isRoadmap8MonthsTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isDailyScheduleTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isLocalNotesTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isSettingsTrayOpen by rememberSaveable { mutableStateOf(false) }
+
+  // SAF Launcher para exportar copia .json
+  val exportBackupLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/json")
+  ) { uri ->
+    if (uri != null) {
+      try {
+        val notesStorage = LocalNotesStorage(context)
+        val currentNotes = notesStorage.loadNotes()
+        val rootJson = JSONObject().apply {
+          put("appName", "VocabFlow")
+          put("version", 1)
+          put("exportedAt", System.currentTimeMillis())
+          put("usedWordsCount", usedWordsCount)
+          put("studyTimerMillis", studyTimerMillis)
+
+          val draftArray = JSONArray()
+          draftWords.forEach { w ->
+            draftArray.put(JSONObject().apply {
+              put("lemma", w.lemma)
+              put("partOfSpeech", w.partOfSpeech)
+              put("spanishTranslation", w.spanishTranslation)
+              put("microExample", w.microExample)
+            })
+          }
+          put("draftWords", draftArray)
+
+          val notesArray = JSONArray()
+          currentNotes.forEach { n ->
+            notesArray.put(JSONObject().apply {
+              put("id", n.id)
+              put("text", n.text)
+              put("isCompleted", n.isCompleted)
+              put("createdAt", n.createdAt)
+            })
+          }
+          put("localNotes", notesArray)
+        }
+
+        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+          outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
+        }
+        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount palabras, ${currentNotes.size} notas)"
+      } catch (e: Exception) {
+        backupStatusMessage = "Error al exportar: ${e.message}"
+      }
+    }
+  }
+
+  // SAF Launcher para importar y restaurar copia .json
+  val importBackupLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument()
+  ) { uri ->
+    if (uri != null) {
+      try {
+        val fileContent = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+        if (fileContent.isNotBlank()) {
+          val rootJson = JSONObject(fileContent)
+          var restoredNotesCount = 0
+          if (rootJson.has("localNotes")) {
+            val notesArray = rootJson.getJSONArray("localNotes")
+            val restoredNotes = mutableListOf<NoteBlock>()
+            for (i in 0 until notesArray.length()) {
+              val item = notesArray.getJSONObject(i)
+              restoredNotes.add(
+                NoteBlock(
+                  id = item.optString("id", UUID.randomUUID().toString()),
+                  text = item.optString("text", ""),
+                  isCompleted = item.optBoolean("isCompleted", false),
+                  createdAt = item.optLong("createdAt", System.currentTimeMillis())
+                )
+              )
+            }
+            LocalNotesStorage(context).saveNotes(restoredNotes)
+            restoredNotesCount = restoredNotes.size
+          }
+
+          if (rootJson.has("draftWords")) {
+            val draftArray = rootJson.getJSONArray("draftWords")
+            for (i in 0 until draftArray.length()) {
+              val item = draftArray.getJSONObject(i)
+              val lemma = item.optString("lemma", "")
+              if (lemma.isNotBlank()) {
+                viewModel.recordWordUsage(lemma)
+              }
+            }
+          }
+
+          backupStatusMessage = "¡Progreso restaurado con éxito! ($restoredNotesCount notas recuperadas)"
+        }
+      } catch (e: Exception) {
+        backupStatusMessage = "Error al restaurar archivo: formato incompatible."
+      }
+    }
+  }
 
   // Diálogo de confirmación antes de eliminar el cronómetro y volver a 0
   if (showResetTimerDialog) {
@@ -432,12 +591,15 @@ fun VocabularyScreen(
           modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
-            .padding(top = 2.dp, bottom = 1.dp),
-          verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(top = 8.dp, bottom = 2.dp),
+          verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
           // Espacio superior encima de todo: "English" centrado con contador de palabras usadas
           AnimatedEnglishHeader(
-            usedWordsCount = usedWordsCount
+            usedWordsCount = usedWordsCount,
+            onOpenRoadmap8Months = { isRoadmap8MonthsTrayOpen = true },
+            onOpenDailySchedule = { isDailyScheduleTrayOpen = true },
+            onOpenLocalNotes = { isLocalNotesTrayOpen = true }
           )
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - JAMÁS SE OCULTA
@@ -486,76 +648,216 @@ fun VocabularyScreen(
           )
 
           // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
-          // Dos botones de solo texto con su rayita baja que lo señala (Vocabulario y Frases)
-          Row(
+          // Botones de solo texto con su rayita baja que lo señala (Vocabulario, Abecedario en el medio, Frases)
+          // Y engranaje flotante minimalista pegado a la pared derecha
+          // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
+          // 1. Icono de nube flotante reactivo SIN CAJA a la izquierda (CenterStart)
+          // 2. Pestañas de solo texto con rayita baja (Vocabulario, Abecedario, Números, Frases)
+          // 3. Engranaje flotante minimalista pegado a la pared derecha (CenterEnd)
+          Box(
             modifier = Modifier
               .fillMaxWidth()
               .padding(horizontal = 16.dp, vertical = 1.dp)
-              .testTag("tab_selector_vocabulario_frases"),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+              .testTag("tab_selector_vocabulario_abecedario_frases_container"),
+            contentAlignment = Alignment.Center
           ) {
-            // 1. Botón de solo texto "Vocabulario" con su rayita baja
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.VOCABULARY }
-                .padding(horizontal = 12.dp, vertical = 1.dp)
-                .testTag("tab_vocabulario_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-              Text(
-                text = "Vocabulario",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
-                  color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+            // Icono de nube SIN CAJA: reactivo al guardar y presionable para asegurar guardado local
+            IconButton(
+              onClick = {
+                val success = AutoBackupManager.saveFullBackup(
+                  context = context,
+                  usedWordsCount = usedWordsCount,
+                  studyTimerMillis = studyTimerMillis,
+                  draftWords = draftWords,
+                  notes = LocalNotesStorage(context).loadNotes()
                 )
-              )
-              Spacer(modifier = Modifier.height(2.dp))
-              Box(
-                modifier = Modifier
-                  .width(36.dp)
-                  .height(2.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
-                  )
-              )
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                isCloudSaving = false
+                if (success) {
+                  Toast.makeText(
+                    context,
+                    "✓ Copia local guardada en Documentos/VocabFlow/ (Persiste tras desinstalar)",
+                    Toast.LENGTH_SHORT
+                  ).show()
+                } else {
+                  Toast.makeText(
+                    context,
+                    "Error al guardar copia local",
+                    Toast.LENGTH_SHORT
+                  ).show()
+                }
+              },
+              modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(32.dp)
+                .testTag("btn_cloud_sync_reactive")
+            ) {
+              if (isCloudSaving) {
+                CircularProgressIndicator(
+                  modifier = Modifier.size(16.dp),
+                  color = Color(0xFF38BDF8),
+                  strokeWidth = 1.8.dp
+                )
+              } else {
+                Icon(
+                  imageVector = Icons.Outlined.CloudDone,
+                  contentDescription = "Copia guardada en el dispositivo (Persiste tras desinstalar)",
+                  tint = Color(0xFF38BDF8),
+                  modifier = Modifier.size(20.dp)
+                )
+              }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // 2. Botón de solo texto "Frases" con su rayita baja
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.PHRASES }
-                .padding(horizontal = 12.dp, vertical = 1.dp)
-                .testTag("tab_frases_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
+            // Pestañas centrales: Vocabulario, Abecedario, Números, Frases
+            Row(
+              modifier = Modifier.testTag("tab_selector_vocabulario_abecedario_frases"),
+              horizontalArrangement = Arrangement.Center,
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Text(
-                text = "Frases",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
-                  color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
-                )
-              )
-              Spacer(modifier = Modifier.height(2.dp))
-              Box(
+              // 1. Botón de solo texto "Vocabulario" con su rayita baja
+              Column(
                 modifier = Modifier
-                  .width(28.dp)
-                  .height(2.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.VOCABULARY }
+                  .padding(horizontal = 6.dp, vertical = 1.dp)
+                  .testTag("tab_vocabulario_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Vocabulario",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 11.5.sp,
+                    color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                   )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                  modifier = Modifier
+                    .width(34.dp)
+                    .height(2.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(1.dp)
+                    )
+                )
+              }
+
+              Spacer(modifier = Modifier.width(4.dp))
+
+              // 2. Botón de solo texto "Abecedario" con su rayita baja
+              Column(
+                modifier = Modifier
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.ALPHABET }
+                  .padding(horizontal = 6.dp, vertical = 1.dp)
+                  .testTag("tab_abecedario_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Abecedario",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.ALPHABET) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 11.5.sp,
+                    color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                  )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                  modifier = Modifier
+                    .width(34.dp)
+                    .height(2.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(1.dp)
+                    )
+                )
+              }
+
+              Spacer(modifier = Modifier.width(4.dp))
+
+              // 3. Botón de solo texto "Números" con su rayita baja (1 al 100)
+              Column(
+                modifier = Modifier
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.NUMBERS }
+                  .padding(horizontal = 6.dp, vertical = 1.dp)
+                  .testTag("tab_numeros_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Números",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.NUMBERS) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 11.5.sp,
+                    color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                  )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                  modifier = Modifier
+                    .width(34.dp)
+                    .height(2.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(1.dp)
+                    )
+                )
+              }
+
+              Spacer(modifier = Modifier.width(4.dp))
+
+              // 4. Botón de solo texto "Frases" con su rayita baja
+              Column(
+                modifier = Modifier
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.PHRASES }
+                  .padding(horizontal = 6.dp, vertical = 1.dp)
+                  .testTag("tab_frases_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Frases",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.Medium,
+                    fontSize = 11.5.sp,
+                    color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                  )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Box(
+                  modifier = Modifier
+                    .width(28.dp)
+                    .height(2.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(1.dp)
+                    )
+                )
+              }
+            }
+
+            // Engranaje flotante minimalista empujado a la pared derecha
+            IconButton(
+              onClick = { isSettingsTrayOpen = true },
+              modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(32.dp)
+                .testTag("btn_settings_gear")
+            ) {
+              Icon(
+                imageVector = Icons.Outlined.Settings,
+                contentDescription = "Ajustes de la app",
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(19.dp)
               )
             }
           }
@@ -760,6 +1062,22 @@ fun VocabularyScreen(
               }
             }
           }
+        } else if (selectedSectionTab == MainSectionTab.ALPHABET) {
+          // SECCIÓN DEL ABECEDARIO EN INGLÉS (26 LETRAS, FONÉTICA Y BOTÓN ESCUCHAR)
+          AlphabetListSection(
+            onSpeakLetter = { letter -> viewModel.speakWord(letter) },
+            modifier = Modifier
+              .fillMaxWidth()
+              .weight(1f)
+          )
+        } else if (selectedSectionTab == MainSectionTab.NUMBERS) {
+          // SECCIÓN DE NÚMEROS DEL 1 AL 100 EN INGLÉS (ESCRITURA, FONÉTICA Y AUDIO)
+          NumbersSection(
+            onSpeakNumber = { numberWord -> viewModel.speakWord(numberWord) },
+            modifier = Modifier
+              .fillMaxWidth()
+              .weight(1f)
+          )
         } else {
           // BANDEJA DE FRASES COTIDIANAS Y DE HOGAR (50 FRASES)
           // Al tocar cualquier frase, se envía al traductor nativo para modificarla o llevarla al lienzo
@@ -793,6 +1111,52 @@ fun VocabularyScreen(
       FloatingGoogleTranslateWebTray(
         isOpen = isGoogleTranslateWebTrayOpen,
         onClose = { isGoogleTranslateWebTrayOpen = false }
+      )
+      FloatingRoadmap8MonthsTray(
+        isOpen = isRoadmap8MonthsTrayOpen,
+        onClose = { isRoadmap8MonthsTrayOpen = false }
+      )
+      FloatingDailyScheduleTray(
+        isOpen = isDailyScheduleTrayOpen,
+        onClose = { isDailyScheduleTrayOpen = false }
+      )
+      FloatingLocalNotesTray(
+        isOpen = isLocalNotesTrayOpen,
+        onClose = { isLocalNotesTrayOpen = false }
+      )
+      val currentNotesCount = remember(isSettingsTrayOpen, isLocalNotesTrayOpen) {
+        if (isSettingsTrayOpen) LocalNotesStorage(context).loadNotes().size else 0
+      }
+      val timerMinutes = (studyTimerMillis / 1000) / 60
+      val timerSeconds = (studyTimerMillis / 1000) % 60
+      val formattedStudyTime = String.format(java.util.Locale.US, "%02d:%02d", timerMinutes, timerSeconds)
+
+      FloatingSettingsBackupTray(
+        isOpen = isSettingsTrayOpen,
+        onClose = { isSettingsTrayOpen = false },
+        usedWordsCount = usedWordsCount,
+        localNotesCount = currentNotesCount,
+        studyTimerFormatted = formattedStudyTime,
+        draftWordsCount = draftWords.size,
+        statusMessage = backupStatusMessage,
+        onClearStatusMessage = { backupStatusMessage = null },
+        onExportBackup = {
+          exportBackupLauncher.launch("vocabflow_progreso_backup.json")
+        },
+        onImportBackup = {
+          importBackupLauncher.launch(arrayOf("application/json", "*/*"))
+        },
+        hasDirectBackup = AutoBackupManager.hasSurvivingBackup(context),
+        onDirectRestore = {
+          val data = AutoBackupManager.loadLatestBackup(context)
+          if (data != null) {
+            LocalNotesStorage(context).saveNotes(data.notes)
+            data.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
+            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.notes.size} notas recuperadas)"
+          } else {
+            backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
+          }
+        }
       )
     }
   }
@@ -1003,6 +1367,9 @@ fun GoogleTranslateFloatingActionButton(
 @Composable
 fun AnimatedEnglishHeader(
   usedWordsCount: Int = 0,
+  onOpenRoadmap8Months: () -> Unit = {},
+  onOpenDailySchedule: () -> Unit = {},
+  onOpenLocalNotes: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -1047,10 +1414,58 @@ fun AnimatedEnglishHeader(
   Box(
     modifier = modifier
       .fillMaxWidth()
-      .padding(top = 1.dp, bottom = 1.dp)
+      .padding(top = 2.dp, bottom = 2.dp)
       .testTag("header_english_space"),
     contentAlignment = Alignment.Center
   ) {
+    // 0. Esquina izquierda: Botón Meta y Botón Notas Locales flotantes (sin caja)
+    Row(
+      modifier = Modifier
+        .align(Alignment.CenterStart)
+        .padding(start = 12.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+      // Botón flotante para la Meta de 8 meses
+      Box(
+        modifier = Modifier
+          .clickable {
+            onOpenRoadmap8Months()
+          }
+          .padding(horizontal = 2.dp, vertical = 4.dp)
+          .testTag("btn_open_roadmap_8months"),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          text = "Meta",
+          style = MaterialTheme.typography.titleMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = Color(0xFFF8FAFC)
+          ),
+          modifier = Modifier.testTag("text_roadmap_8months_btn")
+        )
+      }
+
+      // Botón Notas Locales flotante: solo el icono de la hoja
+      Box(
+        modifier = Modifier
+          .clickable {
+            onOpenLocalNotes()
+          }
+          .padding(horizontal = 2.dp, vertical = 4.dp)
+          .testTag("btn_open_local_notes"),
+        contentAlignment = Alignment.Center
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Description,
+          contentDescription = "Notas locales",
+          tint = Color(0xFF38BDF8),
+          modifier = Modifier.size(17.dp)
+        )
+      }
+    }
+
     // 1. Halo ambiental de fondo suave y difuso
     Box(
       modifier = Modifier
@@ -1114,49 +1529,73 @@ fun AnimatedEnglishHeader(
       modifier = Modifier.testTag("text_english_title")
     )
 
-    // 4. Contador de palabras usadas mínimo una vez con trofeo (Esquina superior derecha)
+    // 4. Esquina superior derecha: Horario y Contador flotantes (sin caja que los cubra)
     Row(
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .padding(end = 8.dp)
-        .background(
-          color = Color(0xFF101923).copy(alpha = 0.88f),
-          shape = RoundedCornerShape(10.dp)
-        )
-        .border(
-          width = 1.dp,
-          color = Color(0xFFFACC15).copy(alpha = 0.45f),
-          shape = RoundedCornerShape(10.dp)
-        )
-        .clickable {
-          Toast.makeText(
-            context,
-            "$usedWordsCount palabras usadas al menos una vez",
-            Toast.LENGTH_SHORT
-          ).show()
-        }
-        .padding(horizontal = 6.dp, vertical = 2.dp)
-        .testTag("counter_used_words_badge"),
+        .padding(end = 12.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(3.dp)
+      horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-      Text(
-        text = "$usedWordsCount",
-        style = MaterialTheme.typography.titleMedium.copy(
-          fontWeight = FontWeight.Bold,
-          fontSize = 11.5.sp,
-          color = Color(0xFFF8FAFC)
-        ),
-        modifier = Modifier.testTag("text_used_words_count")
-      )
-      Icon(
-        imageVector = Icons.Default.EmojiEvents,
-        contentDescription = "Trofeo de palabras usadas",
-        tint = Color(0xFFFACC15),
+      // Botón flotante de Horario de Aprendizaje Diario
+      Row(
         modifier = Modifier
-          .size(13.dp)
-          .testTag("icon_trophy")
-      )
+          .clickable { onOpenDailySchedule() }
+          .padding(horizontal = 2.dp, vertical = 4.dp)
+          .testTag("btn_open_schedule_tray"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.5.dp)
+      ) {
+        Icon(
+          imageVector = Icons.Default.Schedule,
+          contentDescription = "Horario de aprendizaje",
+          tint = Color(0xFF38BDF8),
+          modifier = Modifier.size(14.dp)
+        )
+        Text(
+          text = "Horario",
+          style = MaterialTheme.typography.titleMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.5.sp,
+            color = Color(0xFFE2E8F0)
+          ),
+          modifier = Modifier.testTag("text_schedule_btn")
+        )
+      }
+
+      // Contador flotante de palabras usadas con trofeo (ej. 1 🏆)
+      Row(
+        modifier = Modifier
+          .clickable {
+            Toast.makeText(
+              context,
+              "$usedWordsCount palabras usadas al menos una vez",
+              Toast.LENGTH_SHORT
+            ).show()
+          }
+          .padding(horizontal = 2.dp, vertical = 4.dp)
+          .testTag("counter_used_words_badge"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+      ) {
+        Text(
+          text = "$usedWordsCount",
+          style = MaterialTheme.typography.titleMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = Color(0xFFF8FAFC)
+          ),
+          modifier = Modifier.testTag("text_used_words_count")
+        )
+        Icon(
+          imageVector = Icons.Default.EmojiEvents,
+          contentDescription = "Trofeo de palabras usadas",
+          tint = Color(0xFFFACC15),
+          modifier = Modifier
+            .size(14.dp)
+            .testTag("icon_trophy")
+        )
+      }
     }
   }
 }
@@ -1302,11 +1741,13 @@ fun StudyStopwatchWidget(
         )
       }
 
-      // 4. En el otro costado: Medidor de meta 1h : 0% en chip semitransparente independiente
-      Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isGoalCompleted) Color(0xFF064E3B).copy(alpha = 0.5f) else Color(0xFF1E293B).copy(alpha = 0.45f),
-        border = BorderStroke(0.5.dp, if (isGoalCompleted) Color(0xFF10B981).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.15f)),
+      // 4. En el otro costado: Medidor de meta 1h : 0% libre sin caja y con tamaño incrementado
+      Text(
+        text = if (isGoalCompleted) "1h ✓" else "1h: ${(goalProgress * 100).toInt()}%",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.2.sp,
+        color = if (isGoalCompleted) Color(0xFF34D399) else Color(0xFFCBD5E1),
         modifier = Modifier
           .clickable {
             val msg = if (isGoalCompleted) {
@@ -1316,16 +1757,9 @@ fun StudyStopwatchWidget(
             }
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
           }
+          .padding(horizontal = 4.dp, vertical = 2.dp)
           .testTag("stopwatch_goal_badge")
-      ) {
-        Text(
-          text = if (isGoalCompleted) "1h ✓" else "1h: ${(goalProgress * 100).toInt()}%",
-          fontSize = 9.5.sp,
-          fontWeight = FontWeight.Bold,
-          color = if (isGoalCompleted) Color(0xFF34D399) else Color(0xFF94A3B8),
-          modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-        )
-      }
+      )
     }
   }
 }
