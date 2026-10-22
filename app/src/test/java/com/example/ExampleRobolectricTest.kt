@@ -1018,6 +1018,92 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     assertEquals(1, canvasNumber)
   }
+
+  @Test
+  fun `test AutoBackupManager JSON serialization excludes timer and draft and includes all module counters`() {
+    val sampleWordCounts = mapOf("the" to 15, "be" to 20, "abandon" to 0, "house" to 32)
+    val sampleAlphabetCounts = mapOf("A" to 5, "B" to 0, "C" to 8)
+    val sampleNumberCounts = mapOf(1 to 10, 2 to 0, 100 to 3)
+    val samplePhraseCounts = mapOf(1 to 7, 2 to 0, 50 to 12)
+    val sampleNotes = listOf(
+      com.example.presentation.notes.NoteBlock(id = "note-1", text = "Regla de fonética", isCompleted = false)
+    )
+
+    val jsonString = org.json.JSONObject().apply {
+      put("appName", "VocabFlow")
+      put("version", 2)
+      put("exportedAt", System.currentTimeMillis())
+      put("usedWordsCount", 3)
+      put("totalVocabularyUses", sampleWordCounts.values.sum())
+      put("totalAlphabetUses", sampleAlphabetCounts.values.sum())
+      put("totalNumberUses", sampleNumberCounts.values.sum())
+      put("totalPhraseUses", samplePhraseCounts.values.sum())
+
+      val vocabObj = org.json.JSONObject()
+      sampleWordCounts.forEach { (lemma, count) -> vocabObj.put(lemma, count) }
+      put("vocabularyWordCounts", vocabObj)
+
+      val alphabetObj = org.json.JSONObject()
+      sampleAlphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+      put("alphabetCounts", alphabetObj)
+
+      val numbersObj = org.json.JSONObject()
+      sampleNumberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+      put("numberCounts", numbersObj)
+
+      val phrasesObj = org.json.JSONObject()
+      samplePhraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
+      put("phraseCounts", phrasesObj)
+
+      val notesArray = org.json.JSONArray()
+      sampleNotes.forEach { n ->
+        notesArray.put(org.json.JSONObject().apply {
+          put("id", n.id)
+          put("text", n.text)
+          put("isCompleted", n.isCompleted)
+          put("createdAt", n.createdAt)
+        })
+      }
+      put("localNotes", notesArray)
+    }.toString(2)
+
+    assertFalse("JSON no debe contener draftWords", jsonString.contains("draftWords"))
+    assertFalse("JSON no debe contener studyTimerMillis", jsonString.contains("studyTimerMillis"))
+
+    val parsed = com.example.data.backup.AutoBackupManager.parseJsonContent(jsonString)
+    assertNotNull(parsed)
+    assertEquals(2, parsed!!.version)
+    assertEquals(3, parsed.usedWordsCount)
+
+    // Contadores de palabras
+    assertEquals(4, parsed.vocabularyWordCounts.size)
+    assertEquals(15, parsed.vocabularyWordCounts["the"])
+    assertEquals(20, parsed.vocabularyWordCounts["be"])
+    assertEquals(0, parsed.vocabularyWordCounts["abandon"])
+    assertEquals(32, parsed.vocabularyWordCounts["house"])
+
+    // Contadores de abecedario
+    assertEquals(3, parsed.alphabetCounts.size)
+    assertEquals(5, parsed.alphabetCounts["A"])
+    assertEquals(0, parsed.alphabetCounts["B"])
+    assertEquals(8, parsed.alphabetCounts["C"])
+
+    // Contadores de números
+    assertEquals(3, parsed.numberCounts.size)
+    assertEquals(10, parsed.numberCounts[1])
+    assertEquals(0, parsed.numberCounts[2])
+    assertEquals(3, parsed.numberCounts[100])
+
+    // Contadores de frases
+    assertEquals(3, parsed.phraseCounts.size)
+    assertEquals(7, parsed.phraseCounts[1])
+    assertEquals(0, parsed.phraseCounts[2])
+    assertEquals(12, parsed.phraseCounts[50])
+
+    // Notas
+    assertEquals(1, parsed.notes.size)
+    assertEquals("Regla de fonética", parsed.notes[0].text)
+  }
 }
 
 

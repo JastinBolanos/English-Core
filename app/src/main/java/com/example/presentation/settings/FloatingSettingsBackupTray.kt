@@ -65,10 +65,15 @@ import androidx.compose.ui.unit.sp
 fun FloatingSettingsBackupTray(
     isOpen: Boolean,
     onClose: () -> Unit,
-    usedWordsCount: Int,
+    vocabularyActiveWords: Int,
+    vocabularyTotalUses: Int,
+    alphabetActiveCount: Int,
+    alphabetTotalUses: Int,
+    numbersActiveCount: Int,
+    numbersTotalUses: Int,
+    phrasesActiveCount: Int,
+    phrasesTotalUses: Int,
     localNotesCount: Int,
-    studyTimerFormatted: String,
-    draftWordsCount: Int,
     statusMessage: String?,
     onClearStatusMessage: () -> Unit,
     onExportBackup: () -> Unit,
@@ -257,9 +262,11 @@ fun FloatingSettingsBackupTray(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Tarjeta 1: Palabras / Trofeos
+                        // Tarjeta 1: Palabras Vocabulario
                         Card(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("card_progress_vocabulary"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFF131D33)
@@ -275,14 +282,26 @@ fun FloatingSettingsBackupTray(
                                     .padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(text = "🏆 $usedWordsCount", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFFACC15))
-                                Text(text = "Palabras activas", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                Text(
+                                    text = "🏆 $vocabularyTotalUses",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFFACC15)
+                                )
+                                Text(
+                                    text = "Vocabulario ($vocabularyActiveWords act.)",
+                                    fontSize = 9.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
 
-                        // Tarjeta 2: Notas guardadas
+                        // Tarjeta 2: Notas locales
                         Card(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("card_progress_notes"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFF131D33)
@@ -298,21 +317,33 @@ fun FloatingSettingsBackupTray(
                                     .padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(text = "📝 $localNotesCount", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF38BDF8))
-                                Text(text = "Notas locales", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                Text(
+                                    text = "📝 $localNotesCount",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF38BDF8)
+                                )
+                                Text(
+                                    text = "Notas locales",
+                                    fontSize = 9.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Tarjeta 3: Tiempo de estudio y borrador
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Tarjeta 3: Abecedario
                         Card(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("card_progress_alphabet"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFF131D33)
@@ -328,13 +359,26 @@ fun FloatingSettingsBackupTray(
                                     .padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(text = "⏱️ $studyTimerFormatted", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF34D399))
-                                Text(text = "Tiempo estudio", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                Text(
+                                    text = "🔤 $alphabetTotalUses",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF38BDF8)
+                                )
+                                Text(
+                                    text = "Abecedario ($alphabetActiveCount/26)",
+                                    fontSize = 9.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
 
+                        // Tarjeta 4: Números
                         Card(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("card_progress_numbers"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = Color(0xFF131D33)
@@ -350,9 +394,67 @@ fun FloatingSettingsBackupTray(
                                     .padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(text = "🧩 $draftWordsCount", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFFA855F7))
-                                Text(text = "En borrador", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                Text(
+                                    text = "🔢 $numbersTotalUses",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF34D399)
+                                )
+                                Text(
+                                    text = "Números ($numbersActiveCount/100)",
+                                    fontSize = 9.5.sp,
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = TextAlign.Center
+                                )
                             }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Tarjeta 5: Frases Cotidianas
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("card_progress_phrases"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF131D33)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            0.8.dp,
+                            Color(0xFF38BDF8).copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "💬 $phrasesTotalUses",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFA855F7)
+                                )
+                                Text(
+                                    text = "Frases cotidianas ($phrasesActiveCount/50 practicadas)",
+                                    fontSize = 10.5.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                            Text(
+                                text = "Nube local",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF38BDF8)
+                            )
                         }
                     }
 

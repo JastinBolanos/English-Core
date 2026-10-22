@@ -217,6 +217,14 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
+  fun restoreWordCounts(counts: Map<String, Int>) {
+    if (counts.isNotEmpty()) {
+      viewModelScope.launch {
+        repository.setWordUseCounts(counts)
+      }
+    }
+  }
+
   // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
   private val spanishToEnglishTranslator = com.example.data.translation.SpanishToEnglishTranslationManager(geminiChatService)
   val spanishTranslationState: StateFlow<com.example.domain.translation.TranslationState> = spanishToEnglishTranslator.translationState

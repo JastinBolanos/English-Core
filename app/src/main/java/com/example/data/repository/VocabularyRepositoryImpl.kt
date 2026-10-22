@@ -9,8 +9,10 @@ import com.example.domain.repository.VocabularyRepository
 import com.example.domain.util.ConnectorRulesCatalog
 import com.example.domain.util.WordDictionary
 import com.example.domain.util.WordGrammarCatalog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,6 +57,16 @@ class VocabularyRepositoryImpl @Inject constructor(
     }
     if (rowsUpdated == 0 && word.isNotBlank()) {
       wordDao.incrementUseCountByWord(word.trim())
+    }
+  }
+
+  override suspend fun setWordUseCounts(counts: Map<String, Int>) {
+    withContext(Dispatchers.IO) {
+      counts.forEach { (lemma, count) ->
+        if (lemma.isNotBlank() && count >= 0) {
+          wordDao.setUseCountByWord(lemma.lowercase(java.util.Locale.ROOT).trim(), count)
+        }
+      }
     }
   }
 

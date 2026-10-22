@@ -1,11 +1,7 @@
 package com.example.data.backup
 
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
 import android.os.Environment
-import android.provider.MediaStore
-import com.example.domain.model.Word
 import com.example.presentation.notes.NoteBlock
 import org.json.JSONArray
 import org.json.JSONObject
@@ -18,18 +14,24 @@ data class RestoredBackupData(
     val version: Int,
     val timestamp: Long,
     val usedWordsCount: Int,
-    val studyTimerMillis: Long,
-    val draftWords: List<Word>,
-    val notes: List<NoteBlock>,
+    val vocabularyWordCounts: Map<String, Int> = emptyMap(),
     val alphabetCounts: Map<String, Int> = emptyMap(),
     val numberCounts: Map<Int, Int> = emptyMap(),
-    val phraseCounts: Map<Int, Int> = emptyMap()
+    val phraseCounts: Map<Int, Int> = emptyMap(),
+    val notes: List<NoteBlock> = emptyList()
 )
 
 /**
  * Gestor robusto de Copia de Seguridad Local y Automática anti-desinstalación.
  * Guarda en el directorio público Documentos/VocabFlow/ y en el almacenamiento interno.
  * Los archivos guardados en Documentos/VocabFlow/ NO se borran cuando el usuario desinstala la aplicación.
+ *
+ * Persiste los contadores de uso de:
+ * 1. Vocabulario completo (cada palabra y su contador específico: 0, 20, 32...)
+ * 2. Abecedario (26 letras y sus conteos)
+ * 3. Números (1 al 100 y sus conteos)
+ * 4. Frases cotidianas (50 frases y sus conteos)
+ * 5. Notas locales
  */
 object AutoBackupManager {
 
@@ -42,9 +44,8 @@ object AutoBackupManager {
      */
     fun saveFullBackup(
         context: Context,
+        vocabularyWordCounts: Map<String, Int> = emptyMap(),
         usedWordsCount: Int,
-        studyTimerMillis: Long,
-        draftWords: List<Word>,
         notes: List<NoteBlock>,
         alphabetCounts: Map<String, Int> = emptyMap(),
         numberCounts: Map<Int, Int> = emptyMap(),
@@ -53,22 +54,37 @@ object AutoBackupManager {
         return try {
             val rootJson = JSONObject().apply {
                 put("appName", "VocabFlow")
-                put("version", 1)
+                put("version", 2)
                 put("exportedAt", System.currentTimeMillis())
                 put("usedWordsCount", usedWordsCount)
-                put("studyTimerMillis", studyTimerMillis)
+                put("totalVocabularyUses", vocabularyWordCounts.values.sum())
+                put("totalAlphabetUses", alphabetCounts.values.sum())
+                put("totalNumberUses", numberCounts.values.sum())
+                put("totalPhraseUses", phraseCounts.values.sum())
 
-                val draftArray = JSONArray()
-                draftWords.forEach { w ->
-                    draftArray.put(JSONObject().apply {
-                        put("lemma", w.lemma)
-                        put("partOfSpeech", w.partOfSpeech)
-                        put("spanishTranslation", w.spanishTranslation)
-                        put("microExample", w.microExample)
-                    })
+                // 1. Contadores completos de todas las palabras del vocabulario (palabra -> conteo: 0, 20, 32...)
+                val vocabObj = JSONObject()
+                vocabularyWordCounts.forEach { (lemma, count) ->
+                    vocabObj.put(lemma, count)
                 }
-                put("draftWords", draftArray)
+                put("vocabularyWordCounts", vocabObj)
 
+                // 2. Contadores del abecedario
+                val alphabetObj = JSONObject()
+                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+                put("alphabetCounts", alphabetObj)
+
+                // 3. Contadores de números
+                val numbersObj = JSONObject()
+                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+                put("numberCounts", numbersObj)
+
+                // 4. Contadores de frases cotidianas
+                val phrasesObj = JSONObject()
+                phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
+                put("phraseCounts", phrasesObj)
+
+                // 5. Notas locales
                 val notesArray = JSONArray()
                 notes.forEach { n ->
                     notesArray.put(JSONObject().apply {
@@ -79,18 +95,6 @@ object AutoBackupManager {
                     })
                 }
                 put("localNotes", notesArray)
-
-                val alphabetObj = JSONObject()
-                alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
-                put("alphabetCounts", alphabetObj)
-
-                val numbersObj = JSONObject()
-                numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
-                put("numberCounts", numbersObj)
-
-                val phrasesObj = JSONObject()
-                phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
-                put("phraseCounts", phrasesObj)
             }
 
             val jsonString = rootJson.toString(2)
@@ -184,35 +188,61 @@ object AutoBackupManager {
         return try {
             val root = JSONObject(jsonString)
             val appName = root.optString("appName", "VocabFlow")
-            val version = root.optInt("version", 1)
+            val version = root.optInt("version", 2)
             val timestamp = root.optLong("exportedAt", System.currentTimeMillis())
             val usedWordsCount = root.optInt("usedWordsCount", 0)
-            val studyTimerMillis = root.optLong("studyTimerMillis", 0L)
 
-            val draftList = mutableListOf<Word>()
-            if (root.has("draftWords")) {
-                val array = root.getJSONArray("draftWords")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val posRaw = obj.optString("partOfSpeech", "")
-                    val pos = try {
-                        com.example.domain.model.PartOfSpeech.valueOf(posRaw)
-                    } catch (_: Exception) {
-                        com.example.domain.model.PartOfSpeech.OTHER
-                    }
-                    draftList.add(
-                        Word(
-                            lemma = obj.optString("lemma", ""),
-                            partOfSpeech = pos,
-                            rank = i + 1,
-                            rawPartOfSpeech = posRaw,
-                            spanishTranslation = obj.optString("spanishTranslation", ""),
-                            microExample = obj.optString("microExample", "")
-                        )
-                    )
+            // Contadores de palabras del vocabulario
+            val vocabCountsMap = mutableMapOf<String, Int>()
+            if (root.has("vocabularyWordCounts")) {
+                val vocabObj = root.getJSONObject("vocabularyWordCounts")
+                val keys = vocabObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    vocabCountsMap[k] = vocabObj.optInt(k, 0)
                 }
             }
 
+            // Contadores del abecedario
+            val alphabetMap = mutableMapOf<String, Int>()
+            if (root.has("alphabetCounts")) {
+                val alphabetObj = root.getJSONObject("alphabetCounts")
+                val keys = alphabetObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    alphabetMap[k] = alphabetObj.optInt(k, 0)
+                }
+            }
+
+            // Contadores de números
+            val numbersMap = mutableMapOf<Int, Int>()
+            if (root.has("numberCounts")) {
+                val numbersObj = root.getJSONObject("numberCounts")
+                val keys = numbersObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val num = k.toIntOrNull()
+                    if (num != null) {
+                        numbersMap[num] = numbersObj.optInt(k, 0)
+                    }
+                }
+            }
+
+            // Contadores de frases cotidianas
+            val phrasesMap = mutableMapOf<Int, Int>()
+            if (root.has("phraseCounts")) {
+                val phrasesObj = root.getJSONObject("phraseCounts")
+                val keys = phrasesObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val id = k.toIntOrNull()
+                    if (id != null) {
+                        phrasesMap[id] = phrasesObj.optInt(k, 0)
+                    }
+                }
+            }
+
+            // Notas locales
             val notesList = mutableListOf<NoteBlock>()
             if (root.has("localNotes")) {
                 val array = root.getJSONArray("localNotes")
@@ -229,53 +259,16 @@ object AutoBackupManager {
                 }
             }
 
-            val alphabetMap = mutableMapOf<String, Int>()
-            if (root.has("alphabetCounts")) {
-                val alphabetObj = root.getJSONObject("alphabetCounts")
-                val keys = alphabetObj.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    alphabetMap[k] = alphabetObj.optInt(k, 0)
-                }
-            }
-
-            val numbersMap = mutableMapOf<Int, Int>()
-            if (root.has("numberCounts")) {
-                val numbersObj = root.getJSONObject("numberCounts")
-                val keys = numbersObj.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    val num = k.toIntOrNull()
-                    if (num != null) {
-                        numbersMap[num] = numbersObj.optInt(k, 0)
-                    }
-                }
-            }
-
-            val phrasesMap = mutableMapOf<Int, Int>()
-            if (root.has("phraseCounts")) {
-                val phrasesObj = root.getJSONObject("phraseCounts")
-                val keys = phrasesObj.keys()
-                while (keys.hasNext()) {
-                    val k = keys.next()
-                    val id = k.toIntOrNull()
-                    if (id != null) {
-                        phrasesMap[id] = phrasesObj.optInt(k, 0)
-                    }
-                }
-            }
-
             RestoredBackupData(
                 appName = appName,
                 version = version,
                 timestamp = timestamp,
                 usedWordsCount = usedWordsCount,
-                studyTimerMillis = studyTimerMillis,
-                draftWords = draftList,
-                notes = notesList,
+                vocabularyWordCounts = vocabCountsMap,
                 alphabetCounts = alphabetMap,
                 numberCounts = numbersMap,
-                phraseCounts = phrasesMap
+                phraseCounts = phrasesMap,
+                notes = notesList
             )
         } catch (_: Exception) {
             null

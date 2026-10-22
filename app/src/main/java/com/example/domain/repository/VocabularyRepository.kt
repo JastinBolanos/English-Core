@@ -9,6 +9,7 @@ interface VocabularyRepository {
   suspend fun reloadDatabaseFromCsv()
   suspend fun incrementWordUseCount(word: String)
   suspend fun incrementWordUseCount(id: Long, word: String = "")
+  suspend fun setWordUseCounts(counts: Map<String, Int>)
   suspend fun addCustomWord(
     word: String,
     partOfSpeech: String,

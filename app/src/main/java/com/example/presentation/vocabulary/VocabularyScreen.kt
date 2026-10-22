@@ -265,6 +265,7 @@ fun VocabularyScreen(
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
   val alphabetCounts by viewModel.alphabetCounts.collectAsStateWithLifecycle()
   val numberCounts by viewModel.numberCounts.collectAsStateWithLifecycle()
+  val phraseCounts by viewModel.phraseCounts.collectAsStateWithLifecycle()
 
   // Cronómetro nativo de estudio y diálogo de confirmación de borrado
   val studyTimerMillis by viewModel.studyTimerMillis.collectAsStateWithLifecycle()
@@ -276,20 +277,22 @@ fun VocabularyScreen(
   var isCloudSaving by remember { mutableStateOf(false) }
   var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
-  // Auto-backup reactivo al detectar cambios en palabras usadas o lienzo de borrador
-  LaunchedEffect(usedWordsCount, draftWords.size, alphabetCounts.size, numberCounts.size) {
-    if (usedWordsCount > 0 || draftWords.isNotEmpty() || alphabetCounts.isNotEmpty() || numberCounts.isNotEmpty()) {
+  // Auto-backup reactivo al detectar cambios en vocabulario, abecedario, números o frases
+  LaunchedEffect(usedWordsCount, alphabetCounts, numberCounts, phraseCounts) {
+    if (usedWordsCount > 0 || alphabetCounts.isNotEmpty() || numberCounts.isNotEmpty() || phraseCounts.isNotEmpty()) {
       delay(1200)
       isCloudSaving = true
       delay(350)
+      val allWords = viewModel.words.value
+      val vocabCounts = allWords.associate { it.lemma to it.useCount }
       AutoBackupManager.saveFullBackup(
         context = context,
+        vocabularyWordCounts = vocabCounts,
         usedWordsCount = usedWordsCount,
-        studyTimerMillis = studyTimerMillis,
-        draftWords = draftWords,
         notes = LocalNotesStorage(context).loadNotes(),
         alphabetCounts = alphabetCounts,
-        numberCounts = numberCounts
+        numberCounts = numberCounts,
+        phraseCounts = phraseCounts
       )
       isCloudSaving = false
     }
@@ -301,15 +304,12 @@ fun VocabularyScreen(
     val existingNotes = notesStorage.loadNotes()
     if (existingNotes.isEmpty() && usedWordsCount == 0 && AutoBackupManager.hasSurvivingBackup(context)) {
       val restored = AutoBackupManager.loadLatestBackup(context)
-      if (restored != null && (restored.notes.isNotEmpty() || restored.draftWords.isNotEmpty() || restored.alphabetCounts.isNotEmpty() || restored.numberCounts.isNotEmpty())) {
-        notesStorage.saveNotes(restored.notes)
-        restored.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
-        if (restored.alphabetCounts.isNotEmpty()) {
-          viewModel.restoreAlphabetCounts(restored.alphabetCounts)
-        }
-        if (restored.numberCounts.isNotEmpty()) {
-          viewModel.restoreNumberCounts(restored.numberCounts)
-        }
+      if (restored != null) {
+        if (restored.notes.isNotEmpty()) notesStorage.saveNotes(restored.notes)
+        if (restored.vocabularyWordCounts.isNotEmpty()) viewModel.restoreWordCounts(restored.vocabularyWordCounts)
+        if (restored.alphabetCounts.isNotEmpty()) viewModel.restoreAlphabetCounts(restored.alphabetCounts)
+        if (restored.numberCounts.isNotEmpty()) viewModel.restoreNumberCounts(restored.numberCounts)
+        if (restored.phraseCounts.isNotEmpty()) viewModel.restorePhraseCounts(restored.phraseCounts)
         backupStatusMessage = "Se recuperó tu copia guardada en Documentos (${restored.notes.size} notas)"
       }
     }
@@ -344,24 +344,40 @@ fun VocabularyScreen(
       try {
         val notesStorage = LocalNotesStorage(context)
         val currentNotes = notesStorage.loadNotes()
+        val allWords = viewModel.words.value
+        val vocabCounts = allWords.associate { it.lemma to it.useCount }
+
         val rootJson = JSONObject().apply {
           put("appName", "VocabFlow")
-          put("version", 1)
+          put("version", 2)
           put("exportedAt", System.currentTimeMillis())
           put("usedWordsCount", usedWordsCount)
-          put("studyTimerMillis", studyTimerMillis)
+          put("totalVocabularyUses", vocabCounts.values.sum())
+          put("totalAlphabetUses", alphabetCounts.values.sum())
+          put("totalNumberUses", numberCounts.values.sum())
+          put("totalPhraseUses", phraseCounts.values.sum())
 
-          val draftArray = JSONArray()
-          draftWords.forEach { w ->
-            draftArray.put(JSONObject().apply {
-              put("lemma", w.lemma)
-              put("partOfSpeech", w.partOfSpeech)
-              put("spanishTranslation", w.spanishTranslation)
-              put("microExample", w.microExample)
-            })
-          }
-          put("draftWords", draftArray)
+          // 1. Contadores completos de todas las palabras del vocabulario (palabra -> conteo)
+          val vocabObj = JSONObject()
+          vocabCounts.forEach { (lemma, count) -> vocabObj.put(lemma, count) }
+          put("vocabularyWordCounts", vocabObj)
 
+          // 2. Contadores del abecedario
+          val alphabetObj = JSONObject()
+          alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
+          put("alphabetCounts", alphabetObj)
+
+          // 3. Contadores de números
+          val numbersObj = JSONObject()
+          numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
+          put("numberCounts", numbersObj)
+
+          // 4. Contadores de frases cotidianas
+          val phrasesObj = JSONObject()
+          phraseCounts.forEach { (k, v) -> phrasesObj.put(k.toString(), v) }
+          put("phraseCounts", phrasesObj)
+
+          // 5. Notas locales
           val notesArray = JSONArray()
           currentNotes.forEach { n ->
             notesArray.put(JSONObject().apply {
@@ -372,20 +388,12 @@ fun VocabularyScreen(
             })
           }
           put("localNotes", notesArray)
-
-          val alphabetObj = JSONObject()
-          alphabetCounts.forEach { (k, v) -> alphabetObj.put(k, v) }
-          put("alphabetCounts", alphabetObj)
-
-          val numbersObj = JSONObject()
-          numberCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
-          put("numberCounts", numbersObj)
         }
 
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
           outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
         }
-        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount palabras, ${currentNotes.size} notas)"
+        backupStatusMessage = "¡Copia exportada con éxito! (${vocabCounts.size} palabras con contadores, ${currentNotes.size} notas)"
       } catch (e: Exception) {
         backupStatusMessage = "Error al exportar: ${e.message}"
       }
@@ -400,63 +408,27 @@ fun VocabularyScreen(
       try {
         val fileContent = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
         if (fileContent.isNotBlank()) {
-          val rootJson = JSONObject(fileContent)
-          var restoredNotesCount = 0
-          if (rootJson.has("localNotes")) {
-            val notesArray = rootJson.getJSONArray("localNotes")
-            val restoredNotes = mutableListOf<NoteBlock>()
-            for (i in 0 until notesArray.length()) {
-              val item = notesArray.getJSONObject(i)
-              restoredNotes.add(
-                NoteBlock(
-                  id = item.optString("id", UUID.randomUUID().toString()),
-                  text = item.optString("text", ""),
-                  isCompleted = item.optBoolean("isCompleted", false),
-                  createdAt = item.optLong("createdAt", System.currentTimeMillis())
-                )
-              )
+          val parsed = AutoBackupManager.parseJsonContent(fileContent)
+          if (parsed != null) {
+            if (parsed.vocabularyWordCounts.isNotEmpty()) {
+              viewModel.restoreWordCounts(parsed.vocabularyWordCounts)
             }
-            LocalNotesStorage(context).saveNotes(restoredNotes)
-            restoredNotesCount = restoredNotes.size
-          }
-
-          if (rootJson.has("draftWords")) {
-            val draftArray = rootJson.getJSONArray("draftWords")
-            for (i in 0 until draftArray.length()) {
-              val item = draftArray.getJSONObject(i)
-              val lemma = item.optString("lemma", "")
-              if (lemma.isNotBlank()) {
-                viewModel.recordWordUsage(lemma)
-              }
+            if (parsed.alphabetCounts.isNotEmpty()) {
+              viewModel.restoreAlphabetCounts(parsed.alphabetCounts)
             }
-          }
-
-          if (rootJson.has("alphabetCounts")) {
-            val alphabetObj = rootJson.getJSONObject("alphabetCounts")
-            val countsMap = mutableMapOf<String, Int>()
-            val keys = alphabetObj.keys()
-            while (keys.hasNext()) {
-              val k = keys.next()
-              countsMap[k] = alphabetObj.optInt(k, 0)
+            if (parsed.numberCounts.isNotEmpty()) {
+              viewModel.restoreNumberCounts(parsed.numberCounts)
             }
-            viewModel.restoreAlphabetCounts(countsMap)
-          }
-
-          if (rootJson.has("numberCounts")) {
-            val numbersObj = rootJson.getJSONObject("numberCounts")
-            val countsMap = mutableMapOf<Int, Int>()
-            val keys = numbersObj.keys()
-            while (keys.hasNext()) {
-              val k = keys.next()
-              val num = k.toIntOrNull()
-              if (num != null) {
-                countsMap[num] = numbersObj.optInt(k, 0)
-              }
+            if (parsed.phraseCounts.isNotEmpty()) {
+              viewModel.restorePhraseCounts(parsed.phraseCounts)
             }
-            viewModel.restoreNumberCounts(countsMap)
+            if (parsed.notes.isNotEmpty()) {
+              LocalNotesStorage(context).saveNotes(parsed.notes)
+            }
+            backupStatusMessage = "¡Progreso y contadores restaurados con éxito! (${parsed.vocabularyWordCounts.size} palabras, ${parsed.notes.size} notas)"
+          } else {
+            backupStatusMessage = "Error: formato de archivo .json incompatible."
           }
-
-          backupStatusMessage = "¡Progreso restaurado con éxito! ($restoredNotesCount notas recuperadas)"
         }
       } catch (e: Exception) {
         backupStatusMessage = "Error al restaurar archivo: formato incompatible."
@@ -708,12 +680,16 @@ fun VocabularyScreen(
             // Icono de nube SIN CAJA: reactivo al guardar y presionable para asegurar guardado local
             IconButton(
               onClick = {
+                val allWords = viewModel.words.value
+                val vocabCounts = allWords.associate { it.lemma to it.useCount }
                 val success = AutoBackupManager.saveFullBackup(
                   context = context,
+                  vocabularyWordCounts = vocabCounts,
                   usedWordsCount = usedWordsCount,
-                  studyTimerMillis = studyTimerMillis,
-                  draftWords = draftWords,
-                  notes = LocalNotesStorage(context).loadNotes()
+                  notes = LocalNotesStorage(context).loadNotes(),
+                  alphabetCounts = alphabetCounts,
+                  numberCounts = numberCounts,
+                  phraseCounts = phraseCounts
                 )
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 isCloudSaving = false
@@ -1128,11 +1104,13 @@ fun VocabularyScreen(
           )
         } else {
           // BANDEJA DE FRASES COTIDIANAS Y DE HOGAR (50 FRASES)
-          // Al tocar cualquier frase, se envía al traductor nativo para modificarla o llevarla al lienzo
+          // Diseño libre sin cajas con reproductor de audio, contador y sincronización local
           EverydayPhrasesSection(
-            onPhraseClick = { phrase ->
-              viewModel.updateSpanishInputText(phrase.spanishText)
-              viewModel.translateSpanishNow()
+            phraseCounts = phraseCounts,
+            onSpeakPhrase = { phrase -> viewModel.speakPhrase(phrase) },
+            onAddPhraseToCanvas = { phrase -> viewModel.addPhraseToDraft(phrase) },
+            onSendToTranslator = { phrase ->
+              viewModel.sendPhraseToTranslator(phrase)
               Toast.makeText(
                 context,
                 "Frase enviada al traductor: modifícala o pásala al lienzo (+ Lienzo)",
@@ -1175,17 +1153,40 @@ fun VocabularyScreen(
       val currentNotesCount = remember(isSettingsTrayOpen, isLocalNotesTrayOpen) {
         if (isSettingsTrayOpen) LocalNotesStorage(context).loadNotes().size else 0
       }
-      val timerMinutes = (studyTimerMillis / 1000) / 60
-      val timerSeconds = (studyTimerMillis / 1000) % 60
-      val formattedStudyTime = String.format(java.util.Locale.US, "%02d:%02d", timerMinutes, timerSeconds)
+      val vocabularyTotalUses = remember(words) {
+        words.sumOf { it.useCount }
+      }
+      val alphabetTotalUses = remember(alphabetCounts) {
+        alphabetCounts.values.sum()
+      }
+      val alphabetActiveCount = remember(alphabetCounts) {
+        alphabetCounts.count { it.value > 0 }
+      }
+      val numbersTotalUses = remember(numberCounts) {
+        numberCounts.values.sum()
+      }
+      val numbersActiveCount = remember(numberCounts) {
+        numberCounts.count { it.value > 0 }
+      }
+      val phrasesTotalUses = remember(phraseCounts) {
+        phraseCounts.values.sum()
+      }
+      val phrasesActiveCount = remember(phraseCounts) {
+        phraseCounts.count { it.value > 0 }
+      }
 
       FloatingSettingsBackupTray(
         isOpen = isSettingsTrayOpen,
         onClose = { isSettingsTrayOpen = false },
-        usedWordsCount = usedWordsCount,
+        vocabularyActiveWords = usedWordsCount,
+        vocabularyTotalUses = vocabularyTotalUses,
+        alphabetActiveCount = alphabetActiveCount,
+        alphabetTotalUses = alphabetTotalUses,
+        numbersActiveCount = numbersActiveCount,
+        numbersTotalUses = numbersTotalUses,
+        phrasesActiveCount = phrasesActiveCount,
+        phrasesTotalUses = phrasesTotalUses,
         localNotesCount = currentNotesCount,
-        studyTimerFormatted = formattedStudyTime,
-        draftWordsCount = draftWords.size,
         statusMessage = backupStatusMessage,
         onClearStatusMessage = { backupStatusMessage = null },
         onExportBackup = {
@@ -1199,14 +1200,19 @@ fun VocabularyScreen(
           val data = AutoBackupManager.loadLatestBackup(context)
           if (data != null) {
             LocalNotesStorage(context).saveNotes(data.notes)
-            data.draftWords.forEach { viewModel.recordWordUsage(it.lemma) }
+            if (data.vocabularyWordCounts.isNotEmpty()) {
+              viewModel.restoreWordCounts(data.vocabularyWordCounts)
+            }
             if (data.alphabetCounts.isNotEmpty()) {
               viewModel.restoreAlphabetCounts(data.alphabetCounts)
             }
             if (data.numberCounts.isNotEmpty()) {
               viewModel.restoreNumberCounts(data.numberCounts)
             }
-            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow! (${data.notes.size} notas recuperadas)"
+            if (data.phraseCounts.isNotEmpty()) {
+              viewModel.restorePhraseCounts(data.phraseCounts)
+            }
+            backupStatusMessage = "¡Copia restaurada desde Documentos/VocabFlow!"
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
           }
@@ -1825,7 +1831,10 @@ fun StudyStopwatchWidget(
  */
 @Composable
 fun EverydayPhrasesSection(
-  onPhraseClick: (EverydayPhrase) -> Unit,
+  phraseCounts: Map<Int, Int> = emptyMap(),
+  onSpeakPhrase: (EverydayPhrase) -> Unit,
+  onAddPhraseToCanvas: (EverydayPhrase) -> Unit,
+  onSendToTranslator: (EverydayPhrase) -> Unit,
   modifier: Modifier = Modifier
 ) {
   var phraseSearchQuery by rememberSaveable { mutableStateOf("") }
@@ -1844,6 +1853,10 @@ fun EverydayPhrasesSection(
         phrase.englishHint.contains(phraseSearchQuery, ignoreCase = true)
       matchesCategory && matchesQuery
     }
+  }
+
+  val totalPhrasePractices = remember(phraseCounts) {
+    phraseCounts.values.sum()
   }
 
   Column(
@@ -1919,149 +1932,255 @@ fun EverydayPhrasesSection(
       )
     }
 
-    // 2. Chips de categorías (deslizables horizontalmente)
-    LazyRow(
+    // 2. Chips de categorías y Contador Total de Frases
+    Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 1.dp),
-      horizontalArrangement = Arrangement.spacedBy(4.dp)
+        .padding(horizontal = 12.dp, vertical = 2.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
     ) {
-      items(categories.size) { index ->
-        val cat = categories[index]
-        val isSelected = (cat == "Todas" && selectedCategory == null) || selectedCategory == cat
-        Surface(
-          onClick = { selectedCategory = if (cat == "Todas") null else cat },
-          shape = RoundedCornerShape(12.dp),
-          color = if (isSelected) Color(0xFF0284C7) else Color(0xFF1E293B),
-          border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
-          modifier = Modifier.testTag("phrase_category_chip_$cat")
-        ) {
-          Text(
-            text = cat,
-            color = if (isSelected) Color.White else Color(0xFF94A3B8),
-            fontSize = 10.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-          )
+      LazyRow(
+        modifier = Modifier.weight(1f),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        items(categories.size) { index ->
+          val cat = categories[index]
+          val isSelected = (cat == "Todas" && selectedCategory == null) || selectedCategory == cat
+          Surface(
+            onClick = { selectedCategory = if (cat == "Todas") null else cat },
+            shape = RoundedCornerShape(12.dp),
+            color = if (isSelected) Color(0xFF0284C7) else Color(0xFF1E293B),
+            border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
+            modifier = Modifier.testTag("phrase_category_chip_$cat")
+          ) {
+            Text(
+              text = cat,
+              color = if (isSelected) Color.White else Color(0xFF94A3B8),
+              fontSize = 10.sp,
+              fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+          }
         }
+      }
+
+      Spacer(modifier = Modifier.width(6.dp))
+
+      // Contador global de prácticas de frases
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.testTag("phrases_total_practices_badge")
+      ) {
+        Text(
+          text = "Usos:",
+          style = MaterialTheme.typography.labelSmall,
+          fontSize = 10.sp,
+          color = Color(0xFF64748B)
+        )
+        Text(
+          text = "$totalPhrasePractices",
+          style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            color = if (totalPhrasePractices > 0) Color(0xFF38BDF8) else Color(0xFF64748B)
+          )
+        )
       }
     }
 
-    // 3. Lista de las 50 frases armadas
+    // 3. Lista de las 50 frases sin caja, textos libres (idéntico al abecedario y números)
     LazyColumn(
       modifier = Modifier
         .fillMaxWidth()
         .weight(1f)
         .testTag("everyday_phrases_list"),
-      contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 115.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp)
+      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 115.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-      itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { _, phrase ->
-        Card(
-          onClick = { onPhraseClick(phrase) },
-          colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF0F172A).copy(alpha = 0.95f)
-          ),
-          border = BorderStroke(1.dp, Color(0xFF334155)),
-          shape = RoundedCornerShape(10.dp),
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("phrase_card_${phrase.id}")
-        ) {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Número ordinal (#1, #2...)
-            Box(
-              modifier = Modifier
-                .size(24.dp)
-                .background(Color(0xFF1E293B), shape = CircleShape)
-                .border(1.dp, Color(0xFF0284C7).copy(alpha = 0.6f), shape = CircleShape),
-              contentAlignment = Alignment.Center
-            ) {
-              Text(
-                text = "${phrase.id}",
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = Color(0xFF38BDF8),
-                  fontSize = 10.sp
-                )
-              )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(
-              modifier = Modifier.weight(1f),
-              verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-              // Categoría pill
-              Text(
-                text = phrase.category.uppercase(),
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 8.5.sp,
-                  color = Color(0xFFFACC15),
-                  letterSpacing = 0.6.sp
-                )
-              )
-              // Texto en español (la frase)
-              Text(
-                text = phrase.spanishText,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                  fontWeight = FontWeight.SemiBold,
-                  fontSize = 12.5.sp,
-                  color = Color(0xFFF8FAFC)
-                )
-              )
-              // Sugerencia / significado en inglés
-              if (phrase.englishHint.isNotBlank()) {
-                Text(
-                  text = phrase.englishHint,
-                  style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 10.sp,
-                    color = Color(0xFF94A3B8)
-                  )
-                )
-              }
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Botón indicador para enviar al traductor nativo
-            Surface(
-              onClick = { onPhraseClick(phrase) },
-              shape = RoundedCornerShape(6.dp),
-              color = Color(0xFF0284C7).copy(alpha = 0.25f),
-              border = BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.6f)),
-              modifier = Modifier.testTag("phrase_send_to_translator_${phrase.id}")
-            ) {
-              Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-              ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Filled.Send,
-                  contentDescription = "Enviar al traductor",
-                  tint = Color(0xFF38BDF8),
-                  modifier = Modifier.size(12.dp)
-                )
-                Text(
-                  text = "Traducir",
-                  color = Color(0xFF38BDF8),
-                  fontSize = 10.sp,
-                  fontWeight = FontWeight.Bold
-                )
-              }
-            }
-          }
-        }
+      itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { index, phrase ->
+        val count = phraseCounts[phrase.id] ?: 0
+        EverydayPhraseRowItem(
+          index = phrase.id,
+          phrase = phrase,
+          count = count,
+          onSpeak = { onSpeakPhrase(phrase) },
+          onAddToCanvas = { onAddPhraseToCanvas(phrase) },
+          onSendToTranslator = { onSendToTranslator(phrase) }
+        )
       }
     }
+  }
+}
+
+/**
+ * Fila individual para una frase cotidiana:
+ * - Sin caja exterior ni fondo pesado (idéntico a AlphabetLetterRowItem y NumberRowItem).
+ * - Separado por una línea fina horizontal al final.
+ * - Muestra el número índice (#1 .. #50), categoría, frase en español, frase en inglés, contador crudo.
+ * - Botón para subir al lienzo de pruebas ("+ Lienzo").
+ * - Botón de sonido de la frase en inglés con TTS ("🔊").
+ * - Botón para enviar la frase al traductor nativo ("✈").
+ * - Al tocar la fila también reproduce la frase en inglés e incrementa su contador.
+ */
+@Composable
+private fun EverydayPhraseRowItem(
+  index: Int,
+  phrase: EverydayPhrase,
+  count: Int,
+  onSpeak: () -> Unit,
+  onAddToCanvas: () -> Unit,
+  onSendToTranslator: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .testTag("phrase_row_${phrase.id}")
+      .clickable { onSpeak() }
+      .padding(vertical = 2.dp)
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      // 1. Número de índice (#1 .. #50) flotando sin caja
+      Text(
+        text = "#$index",
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFF64748B),
+        fontSize = 9.5.sp,
+        modifier = Modifier.width(28.dp)
+      )
+
+      Spacer(modifier = Modifier.width(6.dp))
+
+      // 2. Textos libres: categoría, contador crudo, español e inglés flotando sin caja
+      Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.Center
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+          // Categoría pill / texto en amarillo/dorado
+          Text(
+            text = phrase.category.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 8.5.sp,
+              color = Color(0xFFFACC15),
+              letterSpacing = 0.5.sp
+            )
+          )
+
+          // Contador crudo de uso de la frase (idéntico a vocabulario, abecedario y números)
+          Text(
+            text = "$count",
+            fontSize = 10.5.sp,
+            fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Normal,
+            color = if (count > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
+            modifier = Modifier.testTag("phrase_count_${phrase.id}")
+          )
+        }
+
+        // Frase en español (texto libre y destacado)
+        Text(
+          text = phrase.spanishText,
+          style = MaterialTheme.typography.bodyMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.5.sp,
+            color = Color(0xFFF8FAFC)
+          )
+        )
+
+        // Frase en inglés con reproductor sonoro
+        if (phrase.englishHint.isNotBlank()) {
+          Text(
+            text = phrase.englishHint,
+            style = MaterialTheme.typography.bodySmall.copy(
+              fontSize = 11.sp,
+              color = Color(0xFF38BDF8).copy(alpha = 0.95f),
+              fontWeight = FontWeight.Normal
+            )
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.width(6.dp))
+
+      // 3. Botón para subir al lienzo de pruebas ("+ Lienzo")
+      Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = Color(0xFF0284C7).copy(alpha = 0.15f),
+        border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
+        modifier = Modifier
+          .clickable { onAddToCanvas() }
+          .testTag("btn_add_phrase_to_canvas_${phrase.id}")
+      ) {
+        Row(
+          modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+          Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Subir frase al lienzo",
+            tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(11.dp)
+          )
+          Text(
+            text = "Lienzo",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF38BDF8),
+            fontWeight = FontWeight.Bold,
+            fontSize = 9.sp
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.width(3.dp))
+
+      // 4. Reproductor de sonido de la frase en inglés (Audio TTS)
+      IconButton(
+        onClick = onSpeak,
+        modifier = Modifier
+          .size(28.dp)
+          .testTag("btn_listen_phrase_${phrase.id}")
+      ) {
+        Icon(
+          imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+          contentDescription = "Reproducir sonido de la frase en inglés",
+          tint = Color(0xFF38BDF8),
+          modifier = Modifier.size(16.dp)
+        )
+      }
+
+      // 5. Botón para enviar la frase al traductor nativo
+      IconButton(
+        onClick = onSendToTranslator,
+        modifier = Modifier
+          .size(28.dp)
+          .testTag("btn_translate_phrase_${phrase.id}")
+      ) {
+        Icon(
+          imageVector = Icons.AutoMirrored.Filled.Send,
+          contentDescription = "Enviar al traductor",
+          tint = Color(0xFF94A3B8),
+          modifier = Modifier.size(14.dp)
+        )
+      }
+    }
+
+    // 6. Fina línea divisoria horizontal entre frases (idéntico a abecedario y números)
+    HorizontalDivider(
+      color = Color(0xFF334155).copy(alpha = 0.4f),
+      thickness = 0.5.dp,
+      modifier = Modifier.padding(top = 4.dp)
+    )
   }
 }
 
