@@ -1,5 +1,10 @@
 package com.example.presentation.numbers
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -25,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -40,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -351,11 +359,12 @@ fun NumbersSection(
 
 /**
  * Fila individual para un número (1 al 100):
- * - Sin caja exterior ni bordes pesados (idéntico a WordHudCard y AlphabetLetterRowItem).
+ * - Pronunciación oculta bajo una flechita desplegable (igual para los 100 números).
+ * - Al tocar la flechita, se expande la bandejita mostrando la pronunciación (sin caja cuando baje).
+ * - Sin caja exterior ni bordes pesados (diseño minimalista).
  * - Separado por una línea fina horizontal al final.
- * - Muestra el número índice (#1 .. #100), la palabra en inglés, contador crudo, fonética IPA y en español.
- * - Botón para subir al lienzo de pruebas ("+ Lienzo") y botón de sonido ("🔊").
- * - Al tocar la fila también se sube al lienzo e incrementa su contador.
+ * - Muestra el número índice (#1 .. #100), la palabra en inglés, contador crudo y categoría.
+ * - Botón para subir al lienzo de pruebas ("+ Lienzo"), botón de sonido ("🔊") y flechita ("⌄").
  */
 @Composable
 private fun NumberRowItem(
@@ -365,6 +374,8 @@ private fun NumberRowItem(
     onAddToCanvas: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isExpanded by rememberSaveable(entry.number) { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -388,7 +399,7 @@ private fun NumberRowItem(
 
             Spacer(modifier = Modifier.width(6.dp))
 
-            // 2. Palabra, contador crudo, fonética y guía en español flotando sin caja
+            // 2. Palabra, contador crudo y categoría flotando sin caja
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
@@ -414,27 +425,6 @@ private fun NumberRowItem(
                         fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Normal,
                         color = if (count > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
                         modifier = Modifier.testTag("number_count_${entry.number}")
-                    )
-
-                    // Pronunciación fonética en español
-                    Text(
-                        text = "(${entry.phoneticSp})",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp,
-                            color = Color(0xFFF8FAFC)
-                        )
-                    )
-
-                    // Transcripción Fonética IPA
-                    Text(
-                        text = entry.ipa,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 11.sp,
-                            color = Color(0xFF94A3B8)
-                        )
                     )
                 }
 
@@ -499,9 +489,70 @@ private fun NumberRowItem(
                     modifier = Modifier.size(15.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.width(2.dp))
+
+            // 5. Flechita para desplegar pronunciación (bandejita expandible sin caja)
+            IconButton(
+                onClick = { isExpanded = !isExpanded },
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag("btn_toggle_pronunciation_${entry.number}")
+            ) {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Ocultar pronunciación de ${entry.word}" else "Mostrar pronunciación de ${entry.word}",
+                    tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
 
-        // 5. Simple y fina línea divisoria entre números (exactamente como en vocabulario y abecedario)
+        // Bandejita expandible de pronunciación (sin caja, animación fluida)
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 36.dp, top = 2.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "PRONUNCIACIÓN:",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    fontSize = 9.sp
+                )
+
+                // Pronunciación fonética en español destacada
+                Text(
+                    text = "(${entry.phoneticSp})",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        color = Color(0xFFF8FAFC)
+                    )
+                )
+
+                // Transcripción Fonética IPA
+                Text(
+                    text = entry.ipa,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 11.sp,
+                        color = Color(0xFF38BDF8)
+                    )
+                )
+            }
+        }
+
+        // 6. Simple y fina línea divisoria entre números (exactamente como en vocabulario y abecedario)
         HorizontalDivider(
             color = Color(0xFF334155).copy(alpha = 0.4f),
             thickness = 0.5.dp,

@@ -928,6 +928,11 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_add_letter_to_canvas_A").assertExists()
     composeTestRule.onNodeWithTag("btn_listen_letter_A").assertExists()
 
+    // Verify toggle pronunciation button exists and expands tray
+    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_A").assertExists()
+    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_A").performClick()
+    composeTestRule.waitForIdle()
+
     // Click listen button for A
     composeTestRule.onNodeWithTag("btn_listen_letter_A").performClick()
     composeTestRule.waitForIdle()
@@ -1009,6 +1014,11 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("number_count_1", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("btn_add_number_to_canvas_1").assertExists()
     composeTestRule.onNodeWithTag("btn_speak_number_1").assertExists()
+
+    // Verify toggle pronunciation button exists and expands tray
+    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_1").assertExists()
+    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_1").performClick()
+    composeTestRule.waitForIdle()
 
     // Click listen button for 1
     composeTestRule.onNodeWithTag("btn_speak_number_1").performClick()

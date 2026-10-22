@@ -1,8 +1,10 @@
 package com.example.presentation.alphabet
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -228,11 +233,12 @@ fun AlphabetListSection(
 
 /**
  * Fila individual de una letra del abecedario:
- * - Sin caja envolvente ni bordes pesados (exactamente igual que WordHudCard en el vocabulario).
+ * - Pronunciación oculta bajo una flechita desplegable (igual para las 26 letras).
+ * - Al tocar la flechita, se expande la bandejita mostrando la pronunciación (sin caja cuando baje).
+ * - Sin caja envolvente ni bordes pesados (diseño minimalista).
  * - Separada por una línea fina horizontal al final.
- * - Muestra el número de rank, letra, contador de uso crudo, fonética IPA y español.
- * - Botón para subir al lienzo de pruebas ("+ Lienzo") y botón de sonido ("🔊").
- * - Al tocar la fila también se sube al lienzo e incrementa su contador.
+ * - Muestra el número de rank, letra, contador de uso crudo y categoría.
+ * - Botón para subir al lienzo de pruebas ("+ Lienzo"), botón de sonido ("🔊") y flechita ("⌄").
  */
 @Composable
 private fun AlphabetLetterRowItem(
@@ -243,6 +249,8 @@ private fun AlphabetLetterRowItem(
     onAddToCanvas: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isExpanded by rememberSaveable(letterItem.letter) { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -266,7 +274,7 @@ private fun AlphabetLetterRowItem(
 
             Spacer(modifier = Modifier.width(6.dp))
 
-            // 2. Letra, contador crudo, pronunciación y categoría flotando sin caja
+            // 2. Letra, contador crudo y categoría flotando sin caja
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
@@ -293,27 +301,6 @@ private fun AlphabetLetterRowItem(
                         color = if (count > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
                         modifier = Modifier.testTag("alphabet_count_${letterItem.letter}")
                     )
-
-                    // Pronunciación en español destacada
-                    Text(
-                        text = "(${letterItem.phoneticSp})",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp,
-                            color = Color(0xFFF8FAFC)
-                        )
-                    )
-
-                    // Transcripción Fonética IPA
-                    Text(
-                        text = letterItem.ipa,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 11.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-                    )
                 }
 
                 Row(
@@ -326,15 +313,6 @@ private fun AlphabetLetterRowItem(
                         color = if (letterItem.isVowel) Color(0xFFF59E0B) else Color(0xFF64748B),
                         fontSize = 8.5.sp
                     )
-
-                    if (letterItem.note.isNotBlank()) {
-                        Text(
-                            text = "• ${letterItem.note}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF38BDF8).copy(alpha = 0.85f),
-                            fontSize = 8.5.sp
-                        )
-                    }
                 }
             }
 
@@ -386,9 +364,83 @@ private fun AlphabetLetterRowItem(
                     modifier = Modifier.size(15.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.width(2.dp))
+
+            // 5. Flechita para desplegar pronunciación (bandejita expandible sin caja)
+            IconButton(
+                onClick = { isExpanded = !isExpanded },
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag("btn_toggle_pronunciation_${letterItem.letter}")
+            ) {
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Ocultar pronunciación de ${letterItem.letter}" else "Mostrar pronunciación de ${letterItem.letter}",
+                    tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
 
-        // 5. Simple y fina línea divisoria entre letras (exactamente como en el vocabulario)
+        // Bandejita expandible de pronunciación (sin caja, animación fluida)
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 32.dp, top = 2.dp, bottom = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "PRONUNCIACIÓN:",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        fontSize = 9.sp
+                    )
+
+                    // Pronunciación fonética en español destacada
+                    Text(
+                        text = "(${letterItem.phoneticSp})",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = Color(0xFFF8FAFC)
+                        )
+                    )
+
+                    // Transcripción Fonética IPA
+                    Text(
+                        text = letterItem.ipa,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 11.sp,
+                            color = Color(0xFF38BDF8)
+                        )
+                    )
+                }
+
+                if (letterItem.note.isNotBlank()) {
+                    Text(
+                        text = "• ${letterItem.note}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF94A3B8),
+                        fontSize = 8.5.sp
+                    )
+                }
+            }
+        }
+
+        // 6. Simple y fina línea divisoria entre letras (exactamente como en el vocabulario)
         HorizontalDivider(
             color = Color(0xFF334155).copy(alpha = 0.4f),
             thickness = 0.5.dp,
