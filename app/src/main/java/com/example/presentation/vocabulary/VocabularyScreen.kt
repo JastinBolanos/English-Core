@@ -2040,7 +2040,7 @@ fun EverydayPhrasesSection(
             ) {
               if (phraseSearchQuery.isEmpty()) {
                 Text(
-                  text = "Buscar en las 50 frases de hogar y vida diaria...",
+                  text = "Buscar entre las ${allPhrases.size} frases de uso diario...",
                   style = MaterialTheme.typography.bodySmall,
                   color = Color(0xFF64748B),
                   fontSize = 11.sp
@@ -2088,8 +2088,9 @@ fun EverydayPhrasesSection(
             border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
             modifier = Modifier.testTag("phrase_category_chip_$cat")
           ) {
+            val chipLabel = if (cat == "Todas") "Todas (${allPhrases.size})" else "$cat (${allPhrases.count { it.category == cat }})"
             Text(
-              text = cat,
+              text = chipLabel,
               color = if (isSelected) Color.White else Color(0xFF94A3B8),
               fontSize = 10.sp,
               fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,

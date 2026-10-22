@@ -110,7 +110,7 @@ data class RestoredBackupData(
     val usedNumbersCount: Int = 0,
     val allNumbers: List<NumberRecord> = emptyList(),
     val numberCounts: Map<Int, Int> = emptyMap(),
-    val totalPhrases: Int = 50,
+    val totalPhrases: Int = 400,
     val usedPhrasesCount: Int = 0,
     val allPhrases: List<PhraseRecord> = emptyList(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
@@ -128,7 +128,7 @@ data class RestoredBackupData(
  * 3. Catálogo completo de las 26 letras del abecedario (A a la Z) con fonética IPA y su contador individual exacto
  * 4. Notas locales con su contenido íntegro (texto, estado, id, fecha de creación)
  * 5. Contadores de Números (1 al 100)
- * 6. Contadores de Frases Cotidianas (50 frases)
+ * 6. Contadores de Frases Cotidianas (400 frases en 8 módulos de 50)
  */
 object AutoBackupManager {
 
@@ -144,8 +144,8 @@ object AutoBackupManager {
         vocabularyWordCounts: Map<String, Int> = emptyMap(),
         allWordsDetails: List<Word> = emptyList(),
         customWords: List<CustomWordRecord> = emptyList(),
-        usedWordsCount: Int,
-        notes: List<NoteBlock>,
+        usedWordsCount: Int = 0,
+        notes: List<NoteBlock> = emptyList(),
         alphabetCounts: Map<String, Int> = emptyMap(),
         allAlphabetLettersDetails: List<AlphabetLetterRecord> = emptyList(),
         numberCounts: Map<Int, Int> = emptyMap(),
@@ -349,7 +349,7 @@ object AutoBackupManager {
                 completeNumbersCounts.forEach { (k, v) -> numbersObj.put(k.toString(), v) }
                 put("numberCounts", numbersObj)
 
-                // 7. Array detallado con las 50 frases cotidianas (1 al 50) y sus contadores exactos
+                // 7. Array detallado con las 400 frases cotidianas (1 al 400) y sus contadores exactos
                 val phrasesArray = JSONArray()
                 val completePhrasesCounts = mutableMapOf<Int, Int>()
 
@@ -414,6 +414,32 @@ object AutoBackupManager {
         } catch (_: Exception) {
             false
         }
+    }
+
+    /**
+     * Sincroniza y actualiza la escucha y uso de frases en el archivo .json persistido.
+     */
+    fun updatePhraseCountsInBackup(context: Context, updatedPhraseCounts: Map<Int, Int>) {
+        try {
+            val existing = loadLatestBackup(context)
+            if (existing != null) {
+                saveFullBackup(
+                    context = context,
+                    vocabularyWordCounts = existing.vocabularyWordCounts,
+                    customWords = existing.customWords,
+                    usedWordsCount = existing.usedWordsCount,
+                    notes = existing.notes,
+                    alphabetCounts = existing.alphabetCounts,
+                    numberCounts = existing.numberCounts,
+                    phraseCounts = updatedPhraseCounts
+                )
+            } else {
+                saveFullBackup(
+                    context = context,
+                    phraseCounts = updatedPhraseCounts
+                )
+            }
+        } catch (_: Exception) {}
     }
 
     /**
@@ -685,7 +711,7 @@ object AutoBackupManager {
                 }
             }
 
-            // Asegurar que todas las 50 frases estándar existen en phrasesMap (con 0 si no se practicaron aún)
+            // Asegurar que todas las 400 frases estándar existen en phrasesMap (con 0 si no se practicaron aún)
             standardPhrasesCatalog.forEach { std ->
                 if (!phrasesMap.containsKey(std.id)) {
                     phrasesMap[std.id] = 0
@@ -696,7 +722,7 @@ object AutoBackupManager {
             }
             phrasesList.sortBy { it.id }
 
-            val totalPhrases = root.optInt("totalPhrases", maxOf(50, phrasesMap.size))
+            val totalPhrases = root.optInt("totalPhrases", maxOf(400, phrasesMap.size))
             val usedPhrasesCount = root.optInt("usedPhrasesCount", phrasesMap.values.count { it > 0 })
 
             // Notas locales con su contenido íntegro y verificado

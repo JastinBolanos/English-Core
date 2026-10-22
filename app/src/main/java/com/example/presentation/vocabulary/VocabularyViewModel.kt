@@ -170,10 +170,18 @@ class VocabularyViewModel @Inject constructor(
   private val _phraseCounts = MutableStateFlow<Map<Int, Int>>(phrasesStorage.loadCounts())
   val phraseCounts: StateFlow<Map<Int, Int>> = _phraseCounts.asStateFlow()
 
+  private fun persistPhrasesToAutoBackup() {
+    val ctx = context ?: return
+    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+      com.example.data.backup.AutoBackupManager.updatePhraseCountsInBackup(ctx, _phraseCounts.value)
+    }
+  }
+
   fun speakPhrase(phrase: EverydayPhrase) {
     val newCount = phrasesStorage.incrementCount(phrase.id)
     _phraseCounts.value = _phraseCounts.value + (phrase.id to newCount)
     ttsManager.speak(phrase.englishHint)
+    persistPhrasesToAutoBackup()
   }
 
   fun addPhraseToDraft(phrase: EverydayPhrase) {
@@ -201,6 +209,7 @@ class VocabularyViewModel @Inject constructor(
         translateCurrentDraft()
       }
     }
+    persistPhrasesToAutoBackup()
   }
 
   fun sendPhraseToTranslator(phrase: EverydayPhrase) {
@@ -208,12 +217,14 @@ class VocabularyViewModel @Inject constructor(
     _phraseCounts.value = _phraseCounts.value + (phrase.id to newCount)
     updateSpanishInputText(phrase.spanishText)
     translateSpanishNow()
+    persistPhrasesToAutoBackup()
   }
 
   fun restorePhraseCounts(counts: Map<Int, Int>) {
     if (counts.isNotEmpty()) {
       phrasesStorage.saveCounts(counts)
       _phraseCounts.value = counts
+      persistPhrasesToAutoBackup()
     }
   }
 

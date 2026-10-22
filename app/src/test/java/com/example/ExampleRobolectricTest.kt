@@ -821,17 +821,19 @@ class ExampleRobolectricTest {
     }
     val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
 
-    dao.insertWord(com.example.data.local.entity.WordEntity(id = 10, rank = 10, word = "world", partOfSpeech = "sustantivo", useCount = 0))
-    val word = Word(id = 10, rank = 10, lemma = "world", partOfSpeech = PartOfSpeech.NOUN, useCount = 0)
+    val insertedId = dao.insertWord(com.example.data.local.entity.WordEntity(id = 0, rank = 10, word = "world", partOfSpeech = "sustantivo", useCount = 0))
+    val word = Word(id = insertedId, rank = 10, lemma = "world", partOfSpeech = PartOfSpeech.NOUN, useCount = 0)
 
     // Opening tray triggers usage recording
     viewModel.recordWordUsage(word)
-    kotlinx.coroutines.delay(100)
-    var updated = dao.getWordById(10)
+    testScheduler.advanceUntilIdle()
+    org.robolectric.shadows.ShadowLooper.idleMainLooper()
+    var updated = dao.getWordById(insertedId) ?: dao.getWordByLemma("world")
+    assertNotNull(updated)
     assertEquals(1, updated?.useCount)
 
     // Closing tray does nothing to usage count (still 1)
-    updated = dao.getWordById(10)
+    updated = dao.getWordById(insertedId) ?: dao.getWordByLemma("world")
     assertEquals(1, updated?.useCount)
 
     db.close()
@@ -1095,8 +1097,8 @@ class ExampleRobolectricTest {
     assertEquals(0, parsed.numberCounts[2])
     assertEquals(3, parsed.numberCounts[100])
 
-    // Contadores de frases (Asegura las 50 frases cotidianas y contadores exactos)
-    assertEquals(50, parsed.phraseCounts.size)
+    // Contadores de frases (Asegura las 400 frases cotidianas y contadores exactos)
+    assertEquals(400, parsed.phraseCounts.size)
     assertEquals(7, parsed.phraseCounts[1])
     assertEquals(0, parsed.phraseCounts[2])
     assertEquals(12, parsed.phraseCounts[50])
@@ -1364,12 +1366,13 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify detailed 50 phrases backup retains individual counts and restores to PhrasesStorage without zeroing`() {
+  fun `verify detailed 400 phrases backup retains individual counts and restores to PhrasesStorage without zeroing`() {
     val samplePhraseCounts = mapOf(
       1 to 18,
       2 to 5,
       10 to 2,
-      50 to 9
+      51 to 4,
+      400 to 9
     )
 
     val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -1386,19 +1389,20 @@ class ExampleRobolectricTest {
     // Cargar y parsear archivo de backup
     val restored = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
     assertNotNull(restored)
-    assertEquals(50, restored!!.totalPhrases)
-    assertEquals(4, restored.usedPhrasesCount)
+    assertEquals(400, restored!!.totalPhrases)
+    assertEquals(5, restored.usedPhrasesCount)
 
-    // Verificar que las 50 frases existen en la lista y en el mapa de contadores
-    assertEquals(50, restored.allPhrases.size)
-    assertEquals(50, restored.phraseCounts.size)
+    // Verificar que las 400 frases existen en la lista y en el mapa de contadores
+    assertEquals(400, restored.allPhrases.size)
+    assertEquals(400, restored.phraseCounts.size)
 
     assertEquals(18, restored.phraseCounts[1])
     assertEquals(5, restored.phraseCounts[2])
     assertEquals(0, restored.phraseCounts[3])
     assertEquals(2, restored.phraseCounts[10])
-    assertEquals(0, restored.phraseCounts[49])
-    assertEquals(9, restored.phraseCounts[50])
+    assertEquals(4, restored.phraseCounts[51])
+    assertEquals(0, restored.phraseCounts[399])
+    assertEquals(9, restored.phraseCounts[400])
 
     // Verificar detalles individuales de frases
     val phrase1 = restored.allPhrases.first { it.id == 1 }
@@ -1407,15 +1411,15 @@ class ExampleRobolectricTest {
     assertEquals("Good morning, did you sleep well last night?", phrase1.englishHint)
     assertEquals(18, phrase1.useCount)
 
-    val phrase3 = restored.allPhrases.first { it.id == 3 }
-    assertEquals("Voy a preparar una taza de café caliente.", phrase3.spanishText)
-    assertEquals("Desayuno", phrase3.category)
-    assertEquals(0, phrase3.useCount)
+    val phrase51 = restored.allPhrases.first { it.id == 51 }
+    assertEquals("Voy a preparar una taza de café caliente recién molido.", phrase51.spanishText)
+    assertEquals("Desayuno", phrase51.category)
+    assertEquals(4, phrase51.useCount)
 
-    val phrase50 = restored.allPhrases.first { it.id == 50 }
-    assertEquals("Buenas noches a todos, que tengan un lindo descanso hasta mañana.", phrase50.spanishText)
-    assertEquals("Noche", phrase50.category)
-    assertEquals(9, phrase50.useCount)
+    val phrase400 = restored.allPhrases.first { it.id == 400 }
+    assertEquals("Buenas noches a todos, que tengan un lindo descanso hasta mañana.", phrase400.spanishText)
+    assertEquals("Noche", phrase400.category)
+    assertEquals(9, phrase400.useCount)
 
     // Simular restauración en PhrasesStorage
     val phrasesStorage = com.example.data.local.PhrasesStorage(context)
@@ -1426,8 +1430,9 @@ class ExampleRobolectricTest {
     assertEquals(5, loaded[2])
     assertEquals(0, loaded[3])
     assertEquals(2, loaded[10])
-    assertEquals(0, loaded[49])
-    assertEquals(9, loaded[50])
+    assertEquals(4, loaded[51])
+    assertEquals(0, loaded[399])
+    assertEquals(9, loaded[400])
   }
 }
 

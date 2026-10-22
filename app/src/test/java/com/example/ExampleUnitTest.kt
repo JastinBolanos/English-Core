@@ -383,16 +383,24 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testEverydayPhrasesCatalog_HasExactly50Phrases() {
+  fun testEverydayPhrasesCatalog_HasExactly400PhrasesIn8Modules() {
     val phrases = com.example.domain.model.EverydayPhrasesCatalog.phrases
-    assertEquals("El catálogo debe contener exactamente 50 frases cotidianas y de hogar", 50, phrases.size)
+    assertEquals("El catálogo debe contener exactamente 400 frases cotidianas en 8 módulos de 50", 400, phrases.size)
 
-    // IDs del 1 al 50
-    for (i in 1..50) {
+    // IDs del 1 al 400
+    for (i in 1..400) {
       val phrase = phrases.firstOrNull { it.id == i }
       assertNotNull("Debe existir la frase con id $i", phrase)
       assertTrue("El texto en español de la frase $i no puede estar vacío", phrase!!.spanishText.isNotBlank())
+      assertTrue("La versión en inglés de la frase $i no puede estar vacía", phrase.englishHint.isNotBlank())
       assertTrue("La categoría de la frase $i no puede estar vacía", phrase.category.isNotBlank())
+    }
+
+    // Cada uno de los 8 módulos debe tener exactamente 50 frases
+    val modules = listOf("Mañana", "Desayuno", "Comida", "Cocina", "Hogar", "Limpieza", "Compras", "Noche")
+    for (mod in modules) {
+      val count = phrases.count { it.category == mod }
+      assertEquals("El módulo $mod debe tener exactamente 50 frases", 50, count)
     }
 
     // Verificar temáticas cotidianas y de hogar
