@@ -458,6 +458,25 @@ class ExampleUnitTest {
     assertEquals("One hundred", numbers.last().word)
     assertEquals(100, numbers.last().number)
   }
+
+  @Test
+  fun testTtsSpeedLevels_CycleValues() {
+    val speedLevels = listOf(1.0f, 0.5f, 0.3f)
+    assertEquals(3, speedLevels.size)
+    assertEquals(1.0f, speedLevels[0])
+    assertEquals(0.5f, speedLevels[1])
+    assertEquals(0.3f, speedLevels[2])
+
+    fun getNextSpeed(current: Float): Float {
+      val currentIndex = speedLevels.indexOf(current)
+      val nextIndex = if (currentIndex in speedLevels.indices) (currentIndex + 1) % speedLevels.size else 0
+      return speedLevels[nextIndex]
+    }
+
+    assertEquals(0.5f, getNextSpeed(1.0f))
+    assertEquals(0.3f, getNextSpeed(0.5f))
+    assertEquals(1.0f, getNextSpeed(0.3f))
+  }
 }
 
 

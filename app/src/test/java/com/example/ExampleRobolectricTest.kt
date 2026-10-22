@@ -280,12 +280,12 @@ class ExampleRobolectricTest {
     val fabNode = composeTestRule.onNodeWithTag("fab_speed_control")
     fabNode.assertExists()
 
-    // Click FAB to cycle to 0.8
+    // Click FAB to cycle to 0.5
     fabNode.performClick()
     composeTestRule.waitForIdle()
     fabNode.assertExists()
 
-    // Click FAB to cycle to 0.5
+    // Click FAB to cycle to 0.3
     fabNode.performClick()
     composeTestRule.waitForIdle()
     fabNode.assertExists()

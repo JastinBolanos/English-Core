@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -2456,9 +2457,9 @@ fun AnimatedSpeedometerIcon(
   modifier: Modifier = Modifier
 ) {
   val targetAngle = when {
-    currentSpeed <= 0.55f -> -50f // Lo más bajo: punta a la izquierda
-    currentSpeed <= 0.85f -> 0f   // En medio: aguja centrada verticalmente
-    else -> 50f                   // Alta velocidad: punta hacia la derecha
+    currentSpeed <= 0.35f -> -50f // Lo más bajo (0.3x): punta a la izquierda
+    currentSpeed <= 0.65f -> 0f   // En medio (0.5x): aguja centrada verticalmente
+    else -> 50f                   // Alta velocidad (1.0x): punta hacia la derecha
   }
 
   val animatedAngle by animateFloatAsState(
@@ -2551,7 +2552,7 @@ fun AnimatedSpeedometerIcon(
 /**
  * Botón Flotante Inferior de Velocidad TTS Global.
  * Muestra el velocímetro con aguja interactiva en tiempo real sin números en pantalla.
- * Al tocarlo, cicla inmediatamente: 1.0 -> 0.8 -> 0.5 -> 1.0.
+ * Al tocarlo, cicla inmediatamente: 1.0 -> 0.5 -> 0.3 -> 1.0.
  */
 @Composable
 fun SpeedFloatingActionButton(
@@ -2560,8 +2561,8 @@ fun SpeedFloatingActionButton(
   modifier: Modifier = Modifier
 ) {
   val speedDesc = when {
-    currentSpeed <= 0.55f -> "Velocidad baja: 0.5x"
-    currentSpeed <= 0.85f -> "Velocidad media: 0.8x"
+    currentSpeed <= 0.35f -> "Velocidad baja: 0.3x"
+    currentSpeed <= 0.65f -> "Velocidad media: 0.5x"
     else -> "Velocidad normal: 1.0x"
   }
 
@@ -2599,70 +2600,85 @@ fun TacticalRoadmapDialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(usePlatformDefaultWidth = false)
   ) {
-    Surface(
-      shape = RoundedCornerShape(20.dp),
-      color = Color(0xFF0F172A),
-      border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-      shadowElevation = 8.dp,
+    Box(
       modifier = Modifier
-        .fillMaxWidth(0.94f)
-        .padding(vertical = 16.dp)
-        .testTag("tactical_roadmap_dialog")
+        .fillMaxSize()
+        .clickable(
+          interactionSource = remember { MutableInteractionSource() },
+          indication = null
+        ) { onDismiss() },
+      contentAlignment = Alignment.Center
     ) {
-      Column(
+      Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF0F172A),
+        border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
+        shadowElevation = 10.dp,
         modifier = Modifier
-          .fillMaxWidth()
-          .padding(20.dp)
-          .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+          .fillMaxWidth(0.65f)
+          .fillMaxHeight(0.65f)
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null
+          ) { /* Consumir clic interno */ }
+          .testTag("tactical_roadmap_dialog")
       ) {
-        // Cabecera del Mapa Táctico
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+          modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+          // Cabecera del Mapa Táctico
           Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
           ) {
-            Icon(
-              imageVector = Icons.Default.Explore,
-              contentDescription = null,
-              tint = Color(0xFF38BDF8),
-              modifier = Modifier.size(24.dp)
-            )
-            Column {
-              Text(
-                text = "MAPA TÁCTICO: RUTA",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFFF8FAFC),
-                fontSize = 17.sp
+            Row(
+              modifier = Modifier.weight(1f, fill = false),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Explore,
+                contentDescription = null,
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(19.dp)
               )
-              Text(
-                text = "Estrategia de dominio y fluidez en inglés real",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF94A3B8),
-                fontSize = 11.sp
+              Column {
+                Text(
+                  text = "MAPA TÁCTICO: RUTA",
+                  style = MaterialTheme.typography.titleMedium,
+                  fontWeight = FontWeight.ExtraBold,
+                  color = Color(0xFFF8FAFC),
+                  fontSize = 13.5.sp
+                )
+                Text(
+                  text = "Estrategia de dominio y fluidez",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = Color(0xFF94A3B8),
+                  fontSize = 9.5.sp,
+                  maxLines = 1
+                )
+              }
+            }
+
+            IconButton(
+              onClick = onDismiss,
+              modifier = Modifier
+                .size(26.dp)
+                .testTag("btn_close_roadmap_x")
+            ) {
+              Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Cerrar",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(16.dp)
               )
             }
           }
-
-          IconButton(
-            onClick = onDismiss,
-            modifier = Modifier
-              .size(28.dp)
-              .testTag("btn_close_roadmap_x")
-          ) {
-            Icon(
-              imageVector = Icons.Default.Close,
-              contentDescription = "Cerrar",
-              tint = Color(0xFF94A3B8),
-              modifier = Modifier.size(18.dp)
-            )
-          }
-        }
 
         HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
 
@@ -2813,6 +2829,7 @@ fun TacticalRoadmapDialog(
       }
     }
   }
+}
 }
 
 @Composable
