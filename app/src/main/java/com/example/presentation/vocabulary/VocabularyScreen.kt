@@ -94,6 +94,11 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import com.example.presentation.youtube.RawYouTubeTray
 import com.example.presentation.youtube.FloatingYouTubeTray
 import com.example.presentation.gemini.FloatingGeminiWebTray
@@ -577,47 +582,224 @@ fun VocabularyScreen(
     }
   }
 
-  Scaffold(
-    modifier = modifier
-      .fillMaxSize()
-      .testTag("screen_vocabulario"),
-    bottomBar = {
-      // Bandeja baja integrada que usa toda la parte inferior en una pastilla gigante sin botones flotantes
-      Surface(
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("bottom_actions_tray"),
-        color = Color(0xFF0A0F1D),
-        border = BorderStroke(width = 1.dp, color = Color(0xFF1E293B).copy(alpha = 0.7f))
+  val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+  ModalNavigationDrawer(
+    drawerState = drawerState,
+    gesturesEnabled = true,
+    drawerContent = {
+      ModalDrawerSheet(
+        drawerContainerColor = Color(0xFF0F172A),
+        drawerContentColor = Color(0xFFF8FAFC),
+        modifier = Modifier.width(300.dp)
       ) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 20.dp)
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = null,
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(26.dp)
+              )
+              Text(
+                text = "Herramientas",
+                style = MaterialTheme.typography.titleLarge.copy(
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 20.sp,
+                  color = Color(0xFFF8FAFC)
+                )
+              )
+            }
+
+            // Copa con contador de palabras usadas al lado de Herramientas
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              modifier = Modifier
+                .background(Color(0xFF1E293B), shape = RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .clickable {
+                  Toast.makeText(
+                    context,
+                    "$usedWordsCount palabras usadas al menos una vez",
+                    Toast.LENGTH_SHORT
+                  ).show()
+                }
+                .testTag("drawer_counter_used_words_badge")
+            ) {
+              Text(
+                text = "$usedWordsCount",
+                style = MaterialTheme.typography.titleMedium.copy(
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 14.5.sp,
+                  color = Color(0xFFF8FAFC)
+                ),
+                modifier = Modifier.testTag("drawer_text_used_words_count")
+              )
+              Icon(
+                imageVector = Icons.Default.EmojiEvents,
+                contentDescription = "Trofeo de palabras usadas",
+                tint = Color(0xFFFACC15),
+                modifier = Modifier
+                  .size(19.dp)
+                  .testTag("drawer_icon_trophy")
+              )
+            }
+          }
+          Text(
+            text = "Accesos y funciones de estudio",
+            style = MaterialTheme.typography.bodySmall.copy(
+              color = Color(0xFF94A3B8),
+              fontSize = 12.sp
+            ),
+            modifier = Modifier.padding(top = 4.dp)
+          )
+        }
+
+        HorizontalDivider(
+          color = Color(0xFF334155).copy(alpha = 0.6f),
+          thickness = 1.dp,
+          modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // 1. Ruta de aprendizaje
+        DrawerItemRow(
+          icon = Icons.Default.Explore,
+          iconTint = Color(0xFF38BDF8),
+          title = "Ruta de Aprendizaje",
+          subtitle = "Brújula y fases de estudio",
+          testTag = "drawer_item_roadmap",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            showRoadmapDialog = true
+          }
+        )
+
+        // 2. Añadir palabra (+)
+        DrawerItemRow(
+          icon = Icons.Default.Add,
+          iconTint = Color(0xFF34D399),
+          title = "Añadir Palabra",
+          subtitle = "Crear nueva palabra personalizada",
+          testTag = "drawer_item_add_word",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            viewModel.openAddWordDialog()
+          }
+        )
+
+        // 3. Horario
+        DrawerItemRow(
+          icon = Icons.Default.Schedule,
+          iconTint = Color(0xFFFBBF24),
+          title = "Horario de Estudio",
+          subtitle = "Planificación diaria y recordatorios",
+          testTag = "drawer_item_schedule",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isDailyScheduleTrayOpen = true
+          }
+        )
+
+        // 4. Ajustes
+        DrawerItemRow(
+          icon = Icons.Outlined.Settings,
+          iconTint = Color(0xFF94A3B8),
+          title = "Ajustes y Respaldo",
+          subtitle = "Exportar, importar y configuración",
+          testTag = "drawer_item_settings",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isSettingsTrayOpen = true
+          }
+        )
+
+        // 5. Notas locales
+        DrawerItemRow(
+          icon = Icons.Outlined.Description,
+          iconTint = Color(0xFFFB923C),
+          title = "Notas Locales",
+          subtitle = "Apuntes y notas de aprendizaje",
+          testTag = "drawer_item_notes",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isLocalNotesTrayOpen = true
+          }
+        )
+
+        // 6. Meta de 8 meses
+        DrawerItemRow(
+          icon = Icons.Outlined.Flag,
+          iconTint = Color(0xFF38BDF8),
+          title = "Meta de 8 Meses",
+          subtitle = "Hitos, progreso y dibujos",
+          testTag = "drawer_item_roadmap_8months",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isRoadmap8MonthsTrayOpen = true
+          }
+        )
+
+        // 7. Traductor de español a inglés
+        DrawerItemRow(
+          icon = Icons.Default.Translate,
+          iconTint = Color(0xFF00E5FF),
+          title = "Traductor Español ➔ Inglés",
+          subtitle = if (isSpanishTranslatorCardVisible) "Ocultar panel escritor" else "Mostrar panel escritor",
+          testTag = "drawer_item_spanish_translator",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
+          }
+        )
+      }
+    }
+  ) {
+    Scaffold(
+      modifier = modifier
+        .fillMaxSize()
+        .testTag("screen_vocabulario"),
+      bottomBar = {
+        // Pastilla flotante independiente sin tabla ni barra de fondo
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(bottom = 8.dp),
           contentAlignment = Alignment.Center
         ) {
-          // Pastilla gigante que agrupa armónicamente todos los botones
           Surface(
             modifier = Modifier
-              .fillMaxWidth()
+              .width(175.dp)
               .testTag("giant_bottom_pill"),
             shape = CircleShape,
             color = Color(0xFF101923),
-            border = BorderStroke(1.2.dp, Color(0xFF334155))
+            border = BorderStroke(1.2.dp, Color(0xFF334155)),
+            shadowElevation = 8.dp
           ) {
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-              horizontalArrangement = Arrangement.SpaceEvenly,
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              // 1. Ruta / Brújula
-              RoadmapFloatingActionButton(
-                isOpen = showRoadmapDialog,
-                onClick = { showRoadmapDialog = !showRoadmapDialog }
-              )
-              // 2. Gemini Web
+              // 1. Gemini Web
               GeminiWebFloatingActionButton(
                 isOpen = isGeminiWebTrayOpen,
                 onClick = {
@@ -628,16 +810,7 @@ fun VocabularyScreen(
                   }
                 }
               )
-              // 3. Añadir palabra (+)
-              AddWordFloatingActionButton(
-                onClick = { viewModel.openAddWordDialog() }
-              )
-              // 4. Graduador de velocidad de sonido
-              SpeedFloatingActionButton(
-                currentSpeed = currentSpeechSpeed,
-                onClick = { viewModel.onToggleSpeed() }
-              )
-              // 5. YouTube Web
+              // 2. YouTube Web
               YouTubeFloatingActionButton(
                 isOpen = isYouTubeTrayOpen,
                 onClick = {
@@ -648,7 +821,7 @@ fun VocabularyScreen(
                   }
                 }
               )
-              // 6. Google Translate Web
+              // 3. Google Translate Web
               GoogleTranslateFloatingActionButton(
                 isOpen = isGoogleTranslateWebTrayOpen,
                 onClick = {
@@ -663,36 +836,34 @@ fun VocabularyScreen(
           }
         }
       }
-    }
-  ) { innerPadding ->
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(innerPadding)
-    ) {
-      Column(
-        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+      Box(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(innerPadding)
       ) {
-        // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
         Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(top = 8.dp, bottom = 2.dp),
-          verticalArrangement = Arrangement.spacedBy(5.dp)
+          modifier = Modifier.fillMaxSize()
         ) {
-          // Espacio superior encima de todo: "English" centrado con contador de palabras usadas
-          AnimatedEnglishHeader(
-            usedWordsCount = usedWordsCount,
-            onOpenRoadmap8Months = { isRoadmap8MonthsTrayOpen = true },
-            onOpenDailySchedule = { isDailyScheduleTrayOpen = true },
-            onOpenLocalNotes = { isLocalNotesTrayOpen = true },
-            onOpenSettings = { isSettingsTrayOpen = true },
-            isSpanishTranslatorVisible = isSpanishTranslatorCardVisible,
-            onToggleSpanishTranslator = {
-              isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
-            }
-          )
+          // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .background(MaterialTheme.colorScheme.background)
+              .padding(top = 8.dp, bottom = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+          ) {
+            // Espacio superior encima de todo: "English" centrado con menú de tres rayitas a la izquierda y velocidad de sonido a la derecha
+            AnimatedEnglishHeader(
+              usedWordsCount = usedWordsCount,
+              currentSpeed = currentSpeechSpeed,
+              onToggleSpeed = { viewModel.onToggleSpeed() },
+              onOpenDrawer = {
+                coroutineScope.launch {
+                  drawerState.open()
+                }
+              }
+            )
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
           AnimatedVisibility(
@@ -723,21 +894,27 @@ fun VocabularyScreen(
           }
 
           // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-          // Ubicado debajo del traductor español y antes del selector de vocabulario/frases
-          DraftScratchpadHeader(
-            draftWords = draftWords,
-            isPhraseUpdated = isPhraseUpdated,
-            isTranslationTrayExpanded = isTranslationTrayExpanded,
-            translationState = translationState,
-            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
-            onTranslate = { viewModel.toggleTranslationTray() },
-            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
-            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
-            onMoveRight = { index -> viewModel.moveWordRight(index) },
-            onPlayPhrase = { viewModel.playFullDraftPhrase() },
-            onClearDraft = { viewModel.clearDraft() },
-            onSpeakWord = { word -> viewModel.speakWord(word) }
-          )
+          // Solo se muestra y abre cuando hay palabras añadidas al lienzo
+          AnimatedVisibility(
+            visible = draftWords.isNotEmpty(),
+            enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(220)),
+            exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
+          ) {
+            DraftScratchpadHeader(
+              draftWords = draftWords,
+              isPhraseUpdated = isPhraseUpdated,
+              isTranslationTrayExpanded = isTranslationTrayExpanded,
+              translationState = translationState,
+              onToggleTranslationTray = { viewModel.toggleTranslationTray() },
+              onTranslate = { viewModel.toggleTranslationTray() },
+              onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+              onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+              onMoveRight = { index -> viewModel.moveWordRight(index) },
+              onPlayPhrase = { viewModel.playFullDraftPhrase() },
+              onClearDraft = { viewModel.clearDraft() },
+              onSpeakWord = { word -> viewModel.speakWord(word) }
+            )
+          }
 
           // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
           // Botones de solo texto con su rayita baja que lo señala (Vocabulario, Abecedario en el medio, Frases)
@@ -749,7 +926,7 @@ fun VocabularyScreen(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(horizontal = 16.dp, vertical = 3.dp)
+              .padding(horizontal = 10.dp, vertical = 6.dp)
               .testTag("tab_selector_vocabulario_abecedario_frases"),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -761,26 +938,26 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.VOCABULARY }
-                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
                 .testTag("tab_vocabulario_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
                 text = "Vocabulario",
                 style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
+                  fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.SemiBold,
+                  fontSize = 16.sp,
                   color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(2.dp))
+              Spacer(modifier = Modifier.height(3.dp))
               Box(
                 modifier = Modifier
-                  .width(36.dp)
-                  .height(2.dp)
+                  .width(48.dp)
+                  .height(3.5.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
+                    shape = RoundedCornerShape(2.dp)
                   )
               )
             }
@@ -794,26 +971,26 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.ALPHABET }
-                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
                 .testTag("tab_abecedario_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
                 text = "Abecedario",
                 style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.ALPHABET) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
+                  fontWeight = if (selectedSectionTab == MainSectionTab.ALPHABET) FontWeight.Bold else FontWeight.SemiBold,
+                  fontSize = 16.sp,
                   color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(2.dp))
+              Spacer(modifier = Modifier.height(3.dp))
               Box(
                 modifier = Modifier
-                  .width(36.dp)
-                  .height(2.dp)
+                  .width(46.dp)
+                  .height(3.5.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
+                    shape = RoundedCornerShape(2.dp)
                   )
               )
             }
@@ -827,26 +1004,26 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.NUMBERS }
-                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
                 .testTag("tab_numeros_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
                 text = "Números",
                 style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.NUMBERS) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
+                  fontWeight = if (selectedSectionTab == MainSectionTab.NUMBERS) FontWeight.Bold else FontWeight.SemiBold,
+                  fontSize = 16.sp,
                   color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(2.dp))
+              Spacer(modifier = Modifier.height(3.dp))
               Box(
                 modifier = Modifier
-                  .width(36.dp)
-                  .height(2.dp)
+                  .width(42.dp)
+                  .height(3.5.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
+                    shape = RoundedCornerShape(2.dp)
                   )
               )
             }
@@ -860,26 +1037,26 @@ fun VocabularyScreen(
                   interactionSource = remember { MutableInteractionSource() },
                   indication = null
                 ) { selectedSectionTab = MainSectionTab.PHRASES }
-                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
                 .testTag("tab_frases_btn"),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
                 text = "Frases",
                 style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.Medium,
-                  fontSize = 12.5.sp,
+                  fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.SemiBold,
+                  fontSize = 16.sp,
                   color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
               )
-              Spacer(modifier = Modifier.height(2.dp))
+              Spacer(modifier = Modifier.height(3.dp))
               Box(
                 modifier = Modifier
-                  .width(30.dp)
-                  .height(2.dp)
+                  .width(36.dp)
+                  .height(3.5.dp)
                   .background(
                     color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(1.dp)
+                    shape = RoundedCornerShape(2.dp)
                   )
               )
             }
@@ -992,7 +1169,7 @@ fun VocabularyScreen(
                   ) {
                     if (jumpRankInput.isEmpty()) {
                       Text(
-                        text = "# 1-${words.maxOfOrNull { it.rank } ?: 2809}",
+                        text = "1-${words.maxOfOrNull { it.rank } ?: 2809}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF64748B),
                         fontSize = 10.5.sp,
@@ -1116,7 +1293,7 @@ fun VocabularyScreen(
               viewModel.sendPhraseToTranslator(phrase)
               Toast.makeText(
                 context,
-                "Frase enviada al traductor: modifícala o pásala al lienzo (+ Lienzo)",
+                "Frase enviada al traductor",
                 Toast.LENGTH_SHORT
               ).show()
             },
@@ -1212,6 +1389,7 @@ fun VocabularyScreen(
       )
     }
   }
+}
 
   if (showRoadmapDialog) {
     TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
@@ -1408,14 +1586,219 @@ fun GoogleTranslateFloatingActionButton(
 }
 
 /**
+ * Botón Flotante Inferior del Traductor Español a Inglés.
+ * Abre o pliega la bandeja de traducción interactiva.
+ */
+@Composable
+fun SpanishTranslatorFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_toggle_spanish_translator_header"),
+    shape = CircleShape,
+    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF00E5FF)) else null,
+    shadowElevation = 0.dp
+  ) {
+    Box(
+      modifier = Modifier.size(44.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF0891B2) else Color(0xFF1E293B),
+        modifier = Modifier.size(30.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.Translate,
+            contentDescription = if (isOpen) "Ocultar traductor español a inglés" else "Abrir traductor español a inglés",
+            tint = if (isOpen) Color.White else Color(0xFF00E5FF),
+            modifier = Modifier
+              .size(18.dp)
+              .testTag("icon_spanish_translator_header")
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Horario de Aprendizaje Diario (Reloj).
+ */
+@Composable
+fun DailyScheduleFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_open_schedule_tray"),
+    shape = CircleShape,
+    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
+    shadowElevation = 0.dp
+  ) {
+    Box(
+      modifier = Modifier.size(44.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
+        modifier = Modifier.size(30.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = "Horario de aprendizaje",
+            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
+            modifier = Modifier
+              .size(18.dp)
+              .testTag("icon_schedule_clock")
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Meta de 8 Meses (Bandera).
+ */
+@Composable
+fun Roadmap8MonthsFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_open_roadmap_8months"),
+    shape = CircleShape,
+    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
+    shadowElevation = 0.dp
+  ) {
+    Box(
+      modifier = Modifier.size(44.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
+        modifier = Modifier.size(30.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Outlined.Flag,
+            contentDescription = "Meta de 8 meses",
+            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
+            modifier = Modifier
+              .size(18.dp)
+              .testTag("icon_roadmap_flag")
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Notas Locales (Hoja).
+ */
+@Composable
+fun LocalNotesFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_open_local_notes"),
+    shape = CircleShape,
+    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
+    shadowElevation = 0.dp
+  ) {
+    Box(
+      modifier = Modifier.size(44.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
+        modifier = Modifier.size(30.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Outlined.Description,
+            contentDescription = "Notas locales",
+            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
+            modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Ajustes y Copia de Seguridad (Engranaje).
+ */
+@Composable
+fun SettingsFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.testTag("btn_settings_gear"),
+    shape = CircleShape,
+    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
+    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
+    shadowElevation = 0.dp
+  ) {
+    Box(
+      modifier = Modifier.size(44.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
+        modifier = Modifier.size(30.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = Icons.Outlined.Settings,
+            contentDescription = "Ajustes de la app",
+            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
+            modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
  * Cabecera superior con la palabra "English" centrada, en tipografía Fredericka la Grande,
  * con animaciones y efectos de luz luminosos específicos para esa palabra:
  * - Al centro: Palabra "English" con efecto de resplandor y barrido luminoso.
- * - A la derecha: Contador de palabras usadas con trofeo.
+ * - A la derecha: Contador de palabras usadas con trofeo (copas).
  */
 @Composable
 fun AnimatedEnglishHeader(
   usedWordsCount: Int = 0,
+  currentSpeed: Float = 1.0f,
+  onToggleSpeed: () -> Unit = {},
+  onOpenDrawer: () -> Unit = {},
   onOpenRoadmap8Months: () -> Unit = {},
   onOpenDailySchedule: () -> Unit = {},
   onOpenLocalNotes: () -> Unit = {},
@@ -1470,63 +1853,21 @@ fun AnimatedEnglishHeader(
       .testTag("header_english_space"),
     contentAlignment = Alignment.Center
   ) {
-    // 0. Esquina izquierda: Botón Meta, Botón Notas y Engranaje de Ajustes
-    Row(
+    // 0. Esquina superior izquierda: Botón de tres rayitas para abrir la bandeja lateral
+    IconButton(
+      onClick = onOpenDrawer,
       modifier = Modifier
         .align(Alignment.CenterStart)
-        .padding(start = 6.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
+        .padding(start = 6.dp)
+        .size(36.dp)
+        .testTag("btn_open_side_drawer")
     ) {
-      // Botón flotante para la Meta de 8 meses: icono de bandera sin caja
-      Box(
-        modifier = Modifier
-          .clickable { onOpenRoadmap8Months() }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("btn_open_roadmap_8months"),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.Flag,
-          contentDescription = "Meta de 8 meses",
-          tint = Color(0xFF38BDF8),
-          modifier = Modifier
-            .size(23.dp)
-            .testTag("icon_roadmap_flag")
-        )
-      }
-
-      // Botón Notas Locales flotante: icono de la hoja agrandado
-      Box(
-        modifier = Modifier
-          .clickable { onOpenLocalNotes() }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("btn_open_local_notes"),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.Description,
-          contentDescription = "Notas locales",
-          tint = Color(0xFF38BDF8),
-          modifier = Modifier.size(23.dp)
-        )
-      }
-
-      // Engranaje de Ajustes ubicado al lado de las notas
-      Box(
-        modifier = Modifier
-          .clickable { onOpenSettings() }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("btn_settings_gear"),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = Icons.Outlined.Settings,
-          contentDescription = "Ajustes de la app",
-          tint = Color(0xFF38BDF8),
-          modifier = Modifier.size(23.dp)
-        )
-      }
+      Icon(
+        imageVector = Icons.Default.Menu,
+        contentDescription = "Abrir bandeja lateral",
+        tint = Color(0xFF38BDF8),
+        modifier = Modifier.size(24.dp)
+      )
     }
 
     // 1. Halo ambiental de fondo suave y difuso
@@ -1592,81 +1933,75 @@ fun AnimatedEnglishHeader(
       modifier = Modifier.testTag("text_english_title")
     )
 
-    // 4. Esquina superior derecha: Traductor español->inglés, Horario (solo icono de reloj) y Contador flotantes
-    Row(
+    // 4. Esquina superior derecha: Botón de graduar velocidad TTS (reemplaza a la copa que pasó a la bandeja lateral)
+    SpeedFloatingActionButton(
+      currentSpeed = currentSpeed,
+      onClick = onToggleSpeed,
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .padding(end = 6.dp),
+        .padding(end = 6.dp)
+        .testTag("header_speed_control")
+    )
+  }
+}
+
+/**
+ * Fila individual para un elemento del menú lateral (Drawer).
+ */
+@Composable
+private fun DrawerItemRow(
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  iconTint: Color,
+  title: String,
+  subtitle: String,
+  testTag: String,
+  onClick: () -> Unit
+) {
+  Surface(
+    onClick = onClick,
+    color = Color.Transparent,
+    shape = RoundedCornerShape(12.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 12.dp, vertical = 2.dp)
+      .testTag(testTag)
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 10.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
+      horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-      // Botón para desplegar / ocultar la bandeja de traducción de español a inglés
       Box(
         modifier = Modifier
-          .clickable { onToggleSpanishTranslator() }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("btn_toggle_spanish_translator_header"),
+          .size(38.dp)
+          .background(iconTint.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp))
+          .border(1.dp, iconTint.copy(alpha = 0.25f), shape = RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center
       ) {
         Icon(
-          imageVector = Icons.Default.Translate,
-          contentDescription = if (isSpanishTranslatorVisible) "Ocultar traductor español a inglés" else "Abrir traductor español a inglés",
-          tint = if (isSpanishTranslatorVisible) Color(0xFF00E5FF) else Color(0xFF38BDF8),
-          modifier = Modifier
-            .size(23.dp)
-            .testTag("icon_spanish_translator_header")
+          imageVector = icon,
+          contentDescription = null,
+          tint = iconTint,
+          modifier = Modifier.size(20.dp)
         )
       }
-
-      // Botón flotante de Horario de Aprendizaje Diario: solo reloj sin texto
-      Box(
-        modifier = Modifier
-          .clickable { onOpenDailySchedule() }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("btn_open_schedule_tray"),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = Icons.Default.Schedule,
-          contentDescription = "Horario de aprendizaje",
-          tint = Color(0xFF38BDF8),
-          modifier = Modifier
-            .size(23.dp)
-            .testTag("icon_schedule_clock")
-        )
-      }
-
-      // Contador flotante de palabras usadas con trofeo (ej. 1 🏆)
-      Row(
-        modifier = Modifier
-          .clickable {
-            Toast.makeText(
-              context,
-              "$usedWordsCount palabras usadas al menos una vez",
-              Toast.LENGTH_SHORT
-            ).show()
-          }
-          .padding(horizontal = 4.dp, vertical = 6.dp)
-          .testTag("counter_used_words_badge"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(3.5.dp)
-      ) {
+      Column(modifier = Modifier.weight(1f)) {
         Text(
-          text = "$usedWordsCount",
-          style = MaterialTheme.typography.titleMedium.copy(
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.5.sp,
+          text = title,
+          style = MaterialTheme.typography.bodyMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
             color = Color(0xFFF8FAFC)
-          ),
-          modifier = Modifier.testTag("text_used_words_count")
+          )
         )
-        Icon(
-          imageVector = Icons.Default.EmojiEvents,
-          contentDescription = "Trofeo de palabras usadas",
-          tint = Color(0xFFFACC15),
-          modifier = Modifier
-            .size(19.dp)
-            .testTag("icon_trophy")
+        Text(
+          text = subtitle,
+          style = MaterialTheme.typography.labelSmall.copy(
+            color = Color(0xFF64748B),
+            fontSize = 11.sp
+          )
         )
       }
     }
@@ -1684,7 +2019,7 @@ fun EverydayPhrasesSection(
   phraseCounts: Map<Int, Int> = emptyMap(),
   onSpeakPhrase: (EverydayPhrase) -> Unit,
   onAddPhraseToCanvas: (EverydayPhrase) -> Unit,
-  onSendToTranslator: (EverydayPhrase) -> Unit,
+  onSendToTranslator: ((EverydayPhrase) -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   var phraseSearchQuery by rememberSaveable { mutableStateOf("") }
@@ -1705,16 +2040,12 @@ fun EverydayPhrasesSection(
     }
   }
 
-  val totalPhrasePractices = remember(phraseCounts) {
-    phraseCounts.values.sum()
-  }
-
   Column(
     modifier = modifier
       .fillMaxWidth()
       .testTag("everyday_phrases_section")
   ) {
-    // 1. Buscador rápido de frases cotidianas
+    // 1. Buscador rápido de frases cotidianas agrandado
     Row(
       modifier = Modifier
         .fillMaxWidth()
@@ -1727,7 +2058,7 @@ fun EverydayPhrasesSection(
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(
           color = Color.White,
-          fontSize = 13.sp
+          fontSize = 14.sp
         ),
         cursorBrush = SolidColor(Color.White),
         modifier = Modifier
@@ -1737,29 +2068,29 @@ fun EverydayPhrasesSection(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .height(32.dp)
-              .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-              .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
-              .padding(horizontal = 10.dp),
+              .height(48.dp)
+              .background(Color(0xFF0F172A), shape = RoundedCornerShape(12.dp))
+              .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
+              .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
             Icon(
               imageVector = Icons.Default.Search,
-              contentDescription = null,
-              tint = Color(0xFF94A3B8),
-              modifier = Modifier.size(16.dp)
+              contentDescription = "Buscar",
+              tint = Color(0xFF38BDF8),
+              modifier = Modifier.size(20.dp)
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Box(
               modifier = Modifier.weight(1f),
               contentAlignment = Alignment.CenterStart
             ) {
               if (phraseSearchQuery.isEmpty()) {
                 Text(
-                  text = "Buscar entre las ${allPhrases.size} frases de uso diario...",
-                  style = MaterialTheme.typography.bodySmall,
+                  text = "Buscar",
+                  style = MaterialTheme.typography.bodyMedium,
                   color = Color(0xFF64748B),
-                  fontSize = 11.sp
+                  fontSize = 13.5.sp
                 )
               }
               innerTextField()
@@ -1767,13 +2098,13 @@ fun EverydayPhrasesSection(
             if (phraseSearchQuery.isNotEmpty()) {
               IconButton(
                 onClick = { phraseSearchQuery = "" },
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(28.dp)
               ) {
                 Icon(
                   imageVector = Icons.Default.Close,
                   contentDescription = "Limpiar búsqueda de frases",
                   tint = Color(0xFF94A3B8),
-                  modifier = Modifier.size(14.dp)
+                  modifier = Modifier.size(16.dp)
                 )
               }
             }
@@ -1782,62 +2113,31 @@ fun EverydayPhrasesSection(
       )
     }
 
-    // 2. Chips de categorías y Contador Total de Frases
-    Row(
+    // 2. Chips de categorías (sin contadores y sin etiqueta de usos)
+    LazyRow(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 12.dp, vertical = 2.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
+      horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-      LazyRow(
-        modifier = Modifier.weight(1f),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-      ) {
-        items(categories.size) { index ->
-          val cat = categories[index]
-          val isSelected = (cat == "Todas" && selectedCategory == null) || selectedCategory == cat
-          Surface(
-            onClick = { selectedCategory = if (cat == "Todas") null else cat },
-            shape = RoundedCornerShape(12.dp),
-            color = if (isSelected) Color(0xFF0284C7) else Color(0xFF1E293B),
-            border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
-            modifier = Modifier.testTag("phrase_category_chip_$cat")
-          ) {
-            val chipLabel = if (cat == "Todas") "Todas (${allPhrases.size})" else "$cat (${allPhrases.count { it.category == cat }})"
-            Text(
-              text = chipLabel,
-              color = if (isSelected) Color.White else Color(0xFF94A3B8),
-              fontSize = 10.sp,
-              fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-            )
-          }
-        }
-      }
-
-      Spacer(modifier = Modifier.width(6.dp))
-
-      // Contador global de prácticas de frases
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.testTag("phrases_total_practices_badge")
-      ) {
-        Text(
-          text = "Usos:",
-          style = MaterialTheme.typography.labelSmall,
-          fontSize = 10.sp,
-          color = Color(0xFF64748B)
-        )
-        Text(
-          text = "$totalPhrasePractices",
-          style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Bold,
+      items(categories.size) { index ->
+        val cat = categories[index]
+        val isSelected = (cat == "Todas" && selectedCategory == null) || selectedCategory == cat
+        Surface(
+          onClick = { selectedCategory = if (cat == "Todas") null else cat },
+          shape = RoundedCornerShape(12.dp),
+          color = if (isSelected) Color(0xFF0284C7) else Color(0xFF1E293B),
+          border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
+          modifier = Modifier.testTag("phrase_category_chip_$cat")
+        ) {
+          Text(
+            text = cat,
+            color = if (isSelected) Color.White else Color(0xFF94A3B8),
             fontSize = 11.sp,
-            color = if (totalPhrasePractices > 0) Color(0xFF38BDF8) else Color(0xFF64748B)
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
           )
-        )
+        }
       }
     }
 
@@ -1857,8 +2157,7 @@ fun EverydayPhrasesSection(
           phrase = phrase,
           count = count,
           onSpeak = { onSpeakPhrase(phrase) },
-          onAddToCanvas = { onAddPhraseToCanvas(phrase) },
-          onSendToTranslator = { onSendToTranslator(phrase) }
+          onAddToCanvas = { onAddPhraseToCanvas(phrase) }
         )
       }
     }
@@ -1870,10 +2169,8 @@ fun EverydayPhrasesSection(
  * - Sin caja exterior ni fondo pesado (idéntico a AlphabetLetterRowItem y NumberRowItem).
  * - Separado por una línea fina horizontal al final.
  * - Muestra el número índice (#1 .. #50), categoría, frase en español, frase en inglés, contador crudo.
- * - Botón para subir al lienzo de pruebas ("+ Lienzo").
+ * - Al tocar la fila se sube la frase directamente al lienzo de pruebas (y se pronuncia).
  * - Botón de sonido de la frase en inglés con TTS ("🔊").
- * - Botón para enviar la frase al traductor nativo ("✈").
- * - Al tocar la fila también reproduce la frase en inglés e incrementa su contador.
  */
 @Composable
 private fun EverydayPhraseRowItem(
@@ -1882,23 +2179,22 @@ private fun EverydayPhraseRowItem(
   count: Int,
   onSpeak: () -> Unit,
   onAddToCanvas: () -> Unit,
-  onSendToTranslator: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   Column(
     modifier = modifier
       .fillMaxWidth()
       .testTag("phrase_row_${phrase.id}")
-      .clickable { onSpeak() }
+      .clickable { onAddToCanvas() }
       .padding(vertical = 4.dp)
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically
     ) {
-      // 1. Número de índice (#1 .. #50) flotando sin caja con mayor tamaño
+      // 1. Número de índice (1 .. 50) flotando sin caja con mayor tamaño
       Text(
-        text = "#$index",
+        text = "$index",
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = Color(0xFF64748B),
@@ -1961,38 +2257,6 @@ private fun EverydayPhraseRowItem(
         }
       }
 
-      Spacer(modifier = Modifier.width(6.dp))
-
-      // 3. Botón para subir al lienzo de pruebas ("+ Lienzo") agrandado
-      Surface(
-        shape = RoundedCornerShape(7.dp),
-        color = Color(0xFF0284C7).copy(alpha = 0.15f),
-        border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
-        modifier = Modifier
-          .clickable { onAddToCanvas() }
-          .testTag("btn_add_phrase_to_canvas_${phrase.id}")
-      ) {
-        Row(
-          modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-          Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Subir frase al lienzo",
-            tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(13.dp)
-          )
-          Text(
-            text = "Lienzo",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF38BDF8),
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp
-          )
-        }
-      }
-
       Spacer(modifier = Modifier.width(4.dp))
 
       // 4. Reproductor de sonido de la frase en inglés (Audio TTS) agrandado
@@ -2007,21 +2271,6 @@ private fun EverydayPhraseRowItem(
           contentDescription = "Reproducir sonido de la frase en inglés",
           tint = Color(0xFF38BDF8),
           modifier = Modifier.size(20.dp)
-        )
-      }
-
-      // 5. Botón para enviar la frase al traductor nativo agrandado
-      IconButton(
-        onClick = onSendToTranslator,
-        modifier = Modifier
-          .size(34.dp)
-          .testTag("btn_translate_phrase_${phrase.id}")
-      ) {
-        Icon(
-          imageVector = Icons.AutoMirrored.Filled.Send,
-          contentDescription = "Enviar al traductor",
-          tint = Color(0xFF94A3B8),
-          modifier = Modifier.size(18.dp)
         )
       }
     }
@@ -3541,24 +3790,8 @@ private fun DraftScratchpadHeader(
         }
       }
 
-      // Fila desplazable de bloques (Chips de frase armada) o texto cuando está vacío
-      if (draftWords.isEmpty()) {
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-          contentAlignment = Alignment.CenterStart
-        ) {
-          Text(
-            text = "Toca palabras abajo: sonarán y subirán aquí para armar tu frase.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF94A3B8),
-            fontStyle = FontStyle.Italic,
-            fontSize = 11.5.sp
-          )
-        }
-      } else {
-        LazyRow(
+      // Fila desplazable de bloques (Chips de frase armada)
+      LazyRow(
           modifier = Modifier
             .fillMaxWidth()
             .testTag("draft_chips_row"),
@@ -3697,7 +3930,6 @@ private fun DraftScratchpadHeader(
             }
           }
         }
-      }
     }
   }
 }
@@ -3890,7 +4122,7 @@ fun WordHudCard(
     ) {
       // Número de rank flotando sin caja con mayor tamaño y legibilidad
       Text(
-        text = "#${word.rank}",
+        text = "${word.rank}",
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         color = Color(0xFF64748B),

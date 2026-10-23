@@ -110,19 +110,7 @@ fun AlphabetListSection(
     onAddLetterToCanvas: (AlphabetLetter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedFilter by remember { mutableStateOf(AlphabetFilter.ALL) }
-
-    val displayedLetters = remember(selectedFilter) {
-        when (selectedFilter) {
-            AlphabetFilter.ALL -> englishAlphabetCatalog
-            AlphabetFilter.VOWELS -> englishAlphabetCatalog.filter { it.isVowel }
-            AlphabetFilter.CONSONANTS -> englishAlphabetCatalog.filter { !it.isVowel }
-        }
-    }
-
-    val totalPractices = remember(letterCounts) {
-        letterCounts.values.sum()
-    }
+    val displayedLetters = remember { englishAlphabetCatalog }
 
     LazyColumn(
         modifier = modifier
@@ -132,87 +120,6 @@ fun AlphabetListSection(
         contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Encabezado con chips de filtro y contador acumulado del abecedario
-        item(key = "alphabet_header") {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                // Fila de Filtros (Todas 26, Vocales 5, Consonantes 21) y Contador Total
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilterChip(
-                            selected = selectedFilter == AlphabetFilter.ALL,
-                            onClick = { selectedFilter = AlphabetFilter.ALL },
-                            label = { Text("Todas (26)", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF0284C7),
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF1E293B),
-                                labelColor = Color(0xFF94A3B8)
-                            ),
-                            border = null
-                        )
-
-                        FilterChip(
-                            selected = selectedFilter == AlphabetFilter.VOWELS,
-                            onClick = { selectedFilter = AlphabetFilter.VOWELS },
-                            label = { Text("Vocales (5)", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFFF59E0B),
-                                selectedLabelColor = Color.White,
-                                containerColor = Color(0xFF1E293B),
-                                labelColor = Color(0xFF94A3B8)
-                            ),
-                            border = null
-                        )
-
-                        FilterChip(
-                            selected = selectedFilter == AlphabetFilter.CONSONANTS,
-                            onClick = { selectedFilter = AlphabetFilter.CONSONANTS },
-                            label = { Text("Consonantes (21)", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF38BDF8),
-                                selectedLabelColor = Color(0xFF0F172A),
-                                containerColor = Color(0xFF1E293B),
-                                labelColor = Color(0xFF94A3B8)
-                            ),
-                            border = null
-                        )
-                    }
-
-                    // Contador global del abecedario
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.testTag("alphabet_total_practices_badge")
-                    ) {
-                        Text(
-                            text = "Usos:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = Color(0xFF64748B)
-                        )
-                        Text(
-                            text = "$totalPractices",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = if (totalPractices > 0) Color(0xFF38BDF8) else Color(0xFF64748B)
-                            )
-                        )
-                    }
-                }
-            }
-        }
 
         // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)
         itemsIndexed(
@@ -238,7 +145,7 @@ fun AlphabetListSection(
  * - Sin caja envolvente ni bordes pesados (diseño minimalista).
  * - Separada por una línea fina horizontal al final.
  * - Muestra el número de rank, letra, contador de uso crudo y categoría.
- * - Botón para subir al lienzo de pruebas ("+ Lienzo"), botón de sonido ("🔊") y flechita ("⌄").
+ * - Al tocar la fila se sube al lienzo de pruebas; incluye botón de sonido ("🔊") y flechita ("⌄").
  */
 @Composable
 private fun AlphabetLetterRowItem(
@@ -262,9 +169,9 @@ private fun AlphabetLetterRowItem(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Número de índice (#1 .. #26) flotando sin caja con mayor tamaño
+            // 1. Número de índice (1 .. 26) flotando sin caja con mayor tamaño
             Text(
-                text = "#$index",
+                text = "$index",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF64748B),
@@ -313,38 +220,6 @@ private fun AlphabetLetterRowItem(
                         color = if (letterItem.isVowel) Color(0xFFF59E0B) else Color(0xFF64748B),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo") agrandado
-            Surface(
-                shape = RoundedCornerShape(7.dp),
-                color = Color(0xFF0284C7).copy(alpha = 0.15f),
-                border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .clickable { onAddToCanvas() }
-                    .testTag("btn_add_letter_to_canvas_${letterItem.letter}")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Subir letra ${letterItem.letter} al lienzo",
-                        tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = "Lienzo",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF38BDF8),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
                     )
                 }
             }

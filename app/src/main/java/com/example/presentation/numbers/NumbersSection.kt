@@ -174,33 +174,19 @@ fun NumbersSection(
     onAddNumberToCanvas: (NumberEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedFilter by remember { mutableStateOf(NumbersFilterCategory.ALL) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredList = remember(selectedFilter, searchQuery) {
+    val filteredList = remember(searchQuery) {
         val query = searchQuery.trim().lowercase()
-        NumbersCatalog.allNumbers.filter { entry ->
-            val matchesFilter = when (selectedFilter) {
-                NumbersFilterCategory.ALL -> true
-                NumbersFilterCategory.ONE_TO_TWENTY -> entry.number in 1..20
-                NumbersFilterCategory.TWENTY_ONE_TO_FIFTY -> entry.number in 21..50
-                NumbersFilterCategory.FIFTY_ONE_TO_HUNDRED -> entry.number in 51..100
-            }
-
-            val matchesSearch = if (query.isBlank()) {
-                true
-            } else {
+        if (query.isBlank()) {
+            NumbersCatalog.allNumbers
+        } else {
+            NumbersCatalog.allNumbers.filter { entry ->
                 entry.number.toString().contains(query) ||
                     entry.word.lowercase().contains(query) ||
                     entry.phoneticSp.lowercase().contains(query)
             }
-
-            matchesFilter && matchesSearch
         }
-    }
-
-    val totalNumberPractices = remember(numberCounts) {
-        numberCounts.values.sum()
     }
 
     LazyColumn(
@@ -211,15 +197,13 @@ fun NumbersSection(
         contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Buscador, Filtros y Contador Total
+        // Buscador rápido sin texto fantasma
         item(key = "numbers_controls") {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(vertical = 4.dp)
             ) {
-                // Buscador rápido de número o palabra
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -227,21 +211,21 @@ fun NumbersSection(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("input_search_numbers"),
-                    placeholder = {
-                        Text(
-                            text = "Buscar número (ej. 7, 21, fifty)...",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
-                                color = Color(0xFF64748B)
-                            )
-                        )
-                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Buscar",
                             tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(21.dp)
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            text = "Buscar",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 13.5.sp,
+                                color = Color(0xFF64748B)
+                            )
                         )
                     },
                     trailingIcon = {
@@ -274,73 +258,6 @@ fun NumbersSection(
                         unfocusedTextColor = Color(0xFFF8FAFC)
                     )
                 )
-
-                // Chips de rango y Contador total de prácticas
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        NumbersFilterCategory.values().forEach { category ->
-                            FilterChip(
-                                selected = selectedFilter == category,
-                                onClick = { selectedFilter = category },
-                                label = {
-                                    Text(
-                                        text = category.label,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = if (selectedFilter == category) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = Color(0xFF0F172A),
-                                    labelColor = Color(0xFF94A3B8),
-                                    selectedContainerColor = Color(0xFF38BDF8).copy(alpha = 0.20f),
-                                    selectedLabelColor = Color(0xFF38BDF8)
-                                ),
-                                border = FilterChipDefaults.filterChipBorder(
-                                    enabled = true,
-                                    selected = selectedFilter == category,
-                                    borderColor = Color(0xFF334155),
-                                    selectedBorderColor = Color(0xFF38BDF8)
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.testTag("chip_filter_${category.name.lowercase()}")
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Contador global de prácticas de números
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.testTag("numbers_total_practices_badge")
-                    ) {
-                        Text(
-                            text = "Usos:",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = Color(0xFF64748B)
-                        )
-                        Text(
-                            text = "$totalNumberPractices",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                color = if (totalNumberPractices > 0) Color(0xFF38BDF8) else Color(0xFF64748B)
-                            )
-                        )
-                    }
-                }
             }
         }
 
@@ -364,7 +281,7 @@ fun NumbersSection(
  * - Sin caja exterior ni bordes pesados (diseño minimalista).
  * - Separado por una línea fina horizontal al final.
  * - Muestra el número índice (#1 .. #100), la palabra en inglés, contador crudo y categoría.
- * - Botón para subir al lienzo de pruebas ("+ Lienzo"), botón de sonido ("🔊") y flechita ("⌄").
+ * - Al tocar la fila se sube al lienzo de pruebas; incluye botón de sonido ("🔊") y flechita ("⌄").
  */
 @Composable
 private fun NumberRowItem(
@@ -387,9 +304,9 @@ private fun NumberRowItem(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Número de índice (#1 .. #100) flotando sin caja con mayor tamaño
+            // 1. Número de índice (1 .. 100) flotando sin caja con mayor tamaño
             Text(
-                text = "#${entry.number}",
+                text = "${entry.number}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF64748B),
@@ -438,38 +355,6 @@ private fun NumberRowItem(
                         color = if (entry.isDecade) Color(0xFFF59E0B) else Color(0xFF64748B),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo") agrandado
-            Surface(
-                shape = RoundedCornerShape(7.dp),
-                color = Color(0xFF0284C7).copy(alpha = 0.15f),
-                border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
-                modifier = Modifier
-                    .clickable { onAddToCanvas() }
-                    .testTag("btn_add_number_to_canvas_${entry.number}")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Subir ${entry.word} al lienzo",
-                        tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = "Lienzo",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF38BDF8),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
                     )
                 }
             }
