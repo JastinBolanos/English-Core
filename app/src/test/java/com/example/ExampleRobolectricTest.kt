@@ -451,7 +451,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify spanish to english writer card exists right below canvas`() {
+  fun `verify spanish to english writer card is hidden by default and toggles via header translate button`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -459,8 +459,20 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
+    // Initially hidden
+    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").assertExists()
+
+    // Tap header translate button to open writer card
+    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").performClick()
+    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("spanish_english_writer_card").assertExists()
     composeTestRule.onNodeWithTag("input_spanish_text").assertExists()
+
+    // Tap header translate button again to hide writer card
+    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
   }
 
   @Test
@@ -840,7 +852,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify study stopwatch is positioned above fab controls and accessible`() {
+  fun `verify bottom action tray and giant pill contain all bottom controls and study stopwatch is removed`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -848,13 +860,15 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("study_stopwatch_container").assertExists()
-    composeTestRule.onNodeWithTag("stopwatch_toggle_button").assertExists()
-    composeTestRule.onNodeWithTag("stopwatch_time_display", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("stopwatch_trash_button").assertExists()
-    composeTestRule.onNodeWithTag("stopwatch_goal_badge").assertExists()
+    composeTestRule.onNodeWithTag("study_stopwatch_container").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("bottom_actions_tray").assertExists()
+    composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
     composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
     composeTestRule.onNodeWithTag("fab_speed_control").assertExists()
+    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
+    composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
+    composeTestRule.onNodeWithTag("fab_google_translate_web").assertExists()
   }
 
   @Test

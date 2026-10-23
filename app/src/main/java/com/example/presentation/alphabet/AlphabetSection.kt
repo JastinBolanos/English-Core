@@ -129,7 +129,7 @@ fun AlphabetListSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("alphabet_list_view"),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Encabezado con chips de filtro y contador acumulado del abecedario
