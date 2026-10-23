@@ -256,20 +256,20 @@ private fun AlphabetLetterRowItem(
             .fillMaxWidth()
             .testTag("alphabet_item_${letterItem.letter}")
             .clickable { onAddToCanvas() }
-            .padding(vertical = 2.dp)
+            .padding(vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Número de índice (#1 .. #26) flotando sin caja
+            // 1. Número de índice (#1 .. #26) flotando sin caja con mayor tamaño
             Text(
                 text = "#$index",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF64748B),
-                fontSize = 9.5.sp,
-                modifier = Modifier.width(26.dp)
+                fontSize = 13.sp,
+                modifier = Modifier.width(34.dp)
             )
 
             Spacer(modifier = Modifier.width(6.dp))
@@ -281,14 +281,14 @@ private fun AlphabetLetterRowItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Letra grande y destacada sin caja
                     Text(
                         text = letterItem.letter,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 20.sp
                         ),
                         color = if (letterItem.isVowel) Color(0xFFFBBF24) else Color(0xFF38BDF8)
                     )
@@ -296,8 +296,8 @@ private fun AlphabetLetterRowItem(
                     // Contador crudo de uso del abecedario: sin fondo, sin bordes, sin cajas
                     Text(
                         text = "$count",
-                        fontSize = 10.5.sp,
-                        fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 13.5.sp,
+                        fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Medium,
                         color = if (count > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
                         modifier = Modifier.testTag("alphabet_count_${letterItem.letter}")
                     )
@@ -311,16 +311,17 @@ private fun AlphabetLetterRowItem(
                         text = if (letterItem.isVowel) "Vocal" else "Consonante",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (letterItem.isVowel) Color(0xFFF59E0B) else Color(0xFF64748B),
-                        fontSize = 8.5.sp
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(6.dp))
 
-            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo")
+            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo") agrandado
             Surface(
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(7.dp),
                 color = Color(0xFF0284C7).copy(alpha = 0.15f),
                 border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
                 modifier = Modifier
@@ -328,7 +329,7 @@ private fun AlphabetLetterRowItem(
                     .testTag("btn_add_letter_to_canvas_${letterItem.letter}")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
@@ -336,49 +337,49 @@ private fun AlphabetLetterRowItem(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Subir letra ${letterItem.letter} al lienzo",
                         tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Text(
                         text = "Lienzo",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 9.5.sp
+                        fontSize = 11.sp
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // 4. Icono de audio flotando sin caja
+            // 4. Icono de audio flotando sin caja agrandado
             IconButton(
                 onClick = onListen,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .testTag("btn_listen_letter_${letterItem.letter}")
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Pronunciar letra ${letterItem.letter}",
                     tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(2.dp))
 
-            // 5. Flechita para desplegar pronunciación (bandejita expandible sin caja)
+            // 5. Flechita para desplegar pronunciación agrandada
             IconButton(
                 onClick = { isExpanded = !isExpanded },
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .testTag("btn_toggle_pronunciation_${letterItem.letter}")
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (isExpanded) "Ocultar pronunciación de ${letterItem.letter}" else "Mostrar pronunciación de ${letterItem.letter}",
                     tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -392,8 +393,8 @@ private fun AlphabetLetterRowItem(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 32.dp, top = 2.dp, bottom = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                    .padding(start = 36.dp, top = 4.dp, bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -404,7 +405,7 @@ private fun AlphabetLetterRowItem(
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF64748B),
-                        fontSize = 9.sp
+                        fontSize = 11.sp
                     )
 
                     // Pronunciación fonética en español destacada
@@ -412,7 +413,7 @@ private fun AlphabetLetterRowItem(
                         text = "(${letterItem.phoneticSp})",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp,
+                            fontSize = 14.5.sp,
                             color = Color(0xFFF8FAFC)
                         )
                     )
@@ -423,7 +424,7 @@ private fun AlphabetLetterRowItem(
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Normal,
-                            fontSize = 11.sp,
+                            fontSize = 13.sp,
                             color = Color(0xFF38BDF8)
                         )
                     )
@@ -434,7 +435,7 @@ private fun AlphabetLetterRowItem(
                         text = "• ${letterItem.note}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF94A3B8),
-                        fontSize = 8.5.sp
+                        fontSize = 11.sp
                     )
                 }
             }
@@ -444,7 +445,7 @@ private fun AlphabetLetterRowItem(
         HorizontalDivider(
             color = Color(0xFF334155).copy(alpha = 0.4f),
             thickness = 0.5.dp,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = 5.dp)
         )
     }
 }

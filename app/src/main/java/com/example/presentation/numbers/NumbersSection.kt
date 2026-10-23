@@ -381,20 +381,20 @@ private fun NumberRowItem(
             .fillMaxWidth()
             .testTag("number_card_${entry.number}")
             .clickable { onAddToCanvas() }
-            .padding(vertical = 2.dp)
+            .padding(vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Número de índice (#1 .. #100) flotando sin caja
+            // 1. Número de índice (#1 .. #100) flotando sin caja con mayor tamaño
             Text(
                 text = "#${entry.number}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF64748B),
-                fontSize = 9.5.sp,
-                modifier = Modifier.width(30.dp)
+                fontSize = 13.sp,
+                modifier = Modifier.width(36.dp)
             )
 
             Spacer(modifier = Modifier.width(6.dp))
@@ -406,14 +406,14 @@ private fun NumberRowItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Palabra del número en inglés destacada
                     Text(
                         text = entry.word,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.5.sp
+                            fontSize = 18.sp
                         ),
                         color = if (entry.isDecade) Color(0xFFFBBF24) else Color(0xFF38BDF8)
                     )
@@ -421,8 +421,8 @@ private fun NumberRowItem(
                     // Contador crudo de uso del número (como en vocabulario y abecedario)
                     Text(
                         text = "$count",
-                        fontSize = 10.5.sp,
-                        fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 13.5.sp,
+                        fontWeight = if (count > 0) FontWeight.Bold else FontWeight.Medium,
                         color = if (count > 0) Color(0xFF38BDF8) else Color(0xFF64748B),
                         modifier = Modifier.testTag("number_count_${entry.number}")
                     )
@@ -436,16 +436,17 @@ private fun NumberRowItem(
                         text = if (entry.isDecade) "Decena" else "Número",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (entry.isDecade) Color(0xFFF59E0B) else Color(0xFF64748B),
-                        fontSize = 8.5.sp
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(6.dp))
 
-            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo")
+            // 3. Botón para subir al lienzo de pruebas ("+ Lienzo") agrandado
             Surface(
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(7.dp),
                 color = Color(0xFF0284C7).copy(alpha = 0.15f),
                 border = BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.6f)),
                 modifier = Modifier
@@ -453,7 +454,7 @@ private fun NumberRowItem(
                     .testTag("btn_add_number_to_canvas_${entry.number}")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
@@ -461,49 +462,49 @@ private fun NumberRowItem(
                         imageVector = Icons.Default.Add,
                         contentDescription = "Subir ${entry.word} al lienzo",
                         tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Text(
                         text = "Lienzo",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 9.5.sp
+                        fontSize = 11.sp
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
 
-            // 4. Icono de audio flotando sin caja
+            // 4. Icono de audio flotando sin caja agrandado
             IconButton(
                 onClick = onPlay,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .testTag("btn_speak_number_${entry.number}")
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Pronunciar ${entry.word}",
                     tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(2.dp))
 
-            // 5. Flechita para desplegar pronunciación (bandejita expandible sin caja)
+            // 5. Flechita para desplegar pronunciación agrandada
             IconButton(
                 onClick = { isExpanded = !isExpanded },
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(36.dp)
                     .testTag("btn_toggle_pronunciation_${entry.number}")
             ) {
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (isExpanded) "Ocultar pronunciación de ${entry.word}" else "Mostrar pronunciación de ${entry.word}",
                     tint = if (isExpanded) Color(0xFF38BDF8) else Color(0xFF64748B),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -517,7 +518,7 @@ private fun NumberRowItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 36.dp, top = 2.dp, bottom = 4.dp),
+                    .padding(start = 38.dp, top = 4.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -526,7 +527,7 @@ private fun NumberRowItem(
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF64748B),
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
 
                 // Pronunciación fonética en español destacada
@@ -534,7 +535,7 @@ private fun NumberRowItem(
                     text = "(${entry.phoneticSp})",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp,
+                        fontSize = 14.5.sp,
                         color = Color(0xFFF8FAFC)
                     )
                 )
@@ -545,7 +546,7 @@ private fun NumberRowItem(
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Normal,
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         color = Color(0xFF38BDF8)
                     )
                 )
@@ -556,7 +557,7 @@ private fun NumberRowItem(
         HorizontalDivider(
             color = Color(0xFF334155).copy(alpha = 0.4f),
             thickness = 0.5.dp,
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = 5.dp)
         )
     }
 }
