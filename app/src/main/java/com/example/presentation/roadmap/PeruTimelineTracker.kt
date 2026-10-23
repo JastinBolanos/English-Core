@@ -221,6 +221,11 @@ object PeruTimelineTracker {
                 else -> null
             }
 
+            val isPast = dayNumber < currentDayNumber
+            val isToday = dayNumber == currentDayNumber
+            val isFuture = dayNumber > currentDayNumber
+            val isCompleted = isPast
+
             items.add(
                 DayTimelineItem(
                     dayNumber = dayNumber,
@@ -229,10 +234,10 @@ object PeruTimelineTracker {
                     dayOfWeek = dow,
                     monthNumber = monthNumber,
                     monthLabel = monthLabel,
-                    isToday = dayNumber == currentDayNumber,
-                    isPast = dayNumber < currentDayNumber,
-                    isFuture = dayNumber > currentDayNumber,
-                    isCompleted = completedDays.contains(dayNumber),
+                    isToday = isToday,
+                    isPast = isPast,
+                    isFuture = isFuture,
+                    isCompleted = isCompleted,
                     isMonthEndMilestone = isMonthEnd,
                     isStartMilestone = isStart,
                     milestoneItem = milestoneItem

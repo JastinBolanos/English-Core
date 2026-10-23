@@ -81,6 +81,7 @@ fun FloatingSettingsBackupTray(
     onImportBackup: () -> Unit,
     onDirectRestore: (() -> Unit)? = null,
     hasDirectBackup: Boolean = false,
+    onOpenProficiencyLevels: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (!isOpen) return
@@ -222,6 +223,9 @@ fun FloatingSettingsBackupTray(
                         Card(
                             modifier = Modifier
                                 .weight(1f)
+                                .clickable(enabled = onOpenProficiencyLevels != null) {
+                                    onOpenProficiencyLevels?.invoke()
+                                }
                                 .testTag("card_progress_trophies"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(

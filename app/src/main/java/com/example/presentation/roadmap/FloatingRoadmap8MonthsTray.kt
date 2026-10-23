@@ -378,9 +378,6 @@ private fun RoadmapViewContent(
     config: RoadmapConfig,
     onToggleMilestone: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val storage = remember(context) { RoadmapStorage(context) }
-    var completedDays by remember { mutableStateOf(storage.getCompletedDays()) }
     val scrollState = rememberScrollState()
     val peruStatus = remember(config.milestones) { PeruTimelineTracker.calculateStatus(config.milestones) }
     Column(
@@ -429,12 +426,7 @@ private fun RoadmapViewContent(
         // LÍNEA DE TIEMPO CON TODOS LOS DÍAS EN FILA Y LOS HITOS FINALES DE CADA MES
         TimelineSection(
             milestones = config.milestones,
-            peruStatus = peruStatus,
-            completedDays = completedDays,
-            onToggleDay = { dayNumber ->
-                completedDays = storage.toggleCompletedDay(dayNumber)
-            },
-            onToggleMilestone = onToggleMilestone
+            peruStatus = peruStatus
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -448,14 +440,11 @@ private fun RoadmapViewContent(
 @Composable
 private fun TimelineSection(
     milestones: List<MilestoneItem>,
-    peruStatus: PeruTimelineStatus,
-    completedDays: Set<Int>,
-    onToggleDay: (Int) -> Unit,
-    onToggleMilestone: (String) -> Unit
+    peruStatus: PeruTimelineStatus
 ) {
     var selectedMonthFilter by remember { mutableStateOf<Int?>(null) } // null = Todos los 244 días en fila
-    val allDays = remember(milestones, completedDays, peruStatus.dayNumber) {
-        PeruTimelineTracker.generateAllDays(milestones, completedDays, peruStatus.dayNumber)
+    val allDays = remember(milestones, peruStatus.dayNumber) {
+        PeruTimelineTracker.generateAllDays(milestones, emptySet(), peruStatus.dayNumber)
     }
 
     val displayedDays = remember(allDays, selectedMonthFilter) {
@@ -515,20 +504,21 @@ private fun TimelineSection(
             }
         }
 
-        // Resumen de días completados
+        // Resumen de días completados automáticamente por avance de fecha
+        val autoCompletedDaysCount = (peruStatus.dayNumber - 1).coerceIn(0, 244)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Días practicados: ${completedDays.size} de 244",
+                text = "Días practicados: $autoCompletedDaysCount de 244",
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFFCBD5E1)
             )
             Text(
-                text = "${completedDays.size * 3}h acumuladas",
+                text = "${autoCompletedDaysCount * 3}h acumuladas",
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF38BDF8)
@@ -543,8 +533,7 @@ private fun TimelineSection(
                 lastSeenMonth = dayItem.monthNumber
                 MonthSectionHeader(
                     monthLabel = dayItem.monthLabel,
-                    monthDays = displayedDays.filter { it.monthNumber == dayItem.monthNumber },
-                    completedDays = completedDays
+                    monthDays = displayedDays.filter { it.monthNumber == dayItem.monthNumber }
                 )
             }
 
@@ -556,16 +545,14 @@ private fun TimelineSection(
                     dayItem = dayItem,
                     milestone = dayItem.milestoneItem,
                     isLast = isLastInView,
-                    pulseGlow = pulseGlow,
-                    onToggleMilestone = { onToggleMilestone(dayItem.milestoneItem.id) }
+                    pulseGlow = pulseGlow
                 )
             } else {
-                // DÍA REGULAR EN FILA (Sin hitos, limpio y conectado)
+                // DÍA REGULAR EN FILA (Sin hitos, limpio y conectado - Automático y no editable)
                 RegularDayTimelineRow(
                     dayItem = dayItem,
                     isLast = isLastInView,
-                    pulseGlow = pulseGlow,
-                    onToggle = { onToggleDay(dayItem.dayNumber) }
+                    pulseGlow = pulseGlow
                 )
             }
         }
@@ -578,10 +565,9 @@ private fun TimelineSection(
 @Composable
 private fun MonthSectionHeader(
     monthLabel: String,
-    monthDays: List<DayTimelineItem>,
-    completedDays: Set<Int>
+    monthDays: List<DayTimelineItem>
 ) {
-    val completedInMonth = monthDays.count { completedDays.contains(it.dayNumber) }
+    val completedInMonth = monthDays.count { it.isPast }
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = Color(0xFF1E293B).copy(alpha = 0.8f),
@@ -614,19 +600,22 @@ private fun MonthSectionHeader(
 }
 
 /**
- * Fila de un día regular en fila (sin hitos intermedios)
+ * Fila de un día regular en fila (sin hitos intermedios).
+ * Automático:
+ * - Días pasados: check verde automático.
+ * - Día presente: azul sólido, no vacío.
+ * - Días futuros: vacíos (anillo gris oscuro sin rellenar).
+ * - No editable por el usuario.
  */
 @Composable
 private fun RegularDayTimelineRow(
     dayItem: DayTimelineItem,
     isLast: Boolean,
-    pulseGlow: Float,
-    onToggle: () -> Unit
+    pulseGlow: Float
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle() }
             .then(
                 if (dayItem.isToday) {
                     Modifier
@@ -651,37 +640,39 @@ private fun RegularDayTimelineRow(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(32.dp)
         ) {
-            // Nodo pequeño del día
+            // Nodo del día
             Box(
                 modifier = Modifier
                     .size(if (dayItem.isToday) 20.dp else 16.dp)
                     .background(
                         color = when {
-                            dayItem.isCompleted -> Color(0xFF10B981)
-                            dayItem.isToday -> Color(0xFF38BDF8)
-                            else -> Color(0xFF1E293B)
+                            dayItem.isPast -> Color(0xFF10B981) // Verde para días pasados
+                            dayItem.isToday -> Color(0xFF38BDF8) // Azul sólido no vacío para día presente
+                            else -> Color(0xFF0F172A) // Vacío para días futuros
                         },
                         shape = CircleShape
                     )
                     .border(
-                        width = 1.2.dp,
+                        width = if (dayItem.isToday) 1.5.dp else 1.2.dp,
                         color = when {
-                            dayItem.isCompleted -> Color(0xFF10B981)
+                            dayItem.isPast -> Color(0xFF10B981)
                             dayItem.isToday -> Color(0xFF38BDF8)
-                            else -> Color(0xFF475569)
+                            else -> Color(0xFF475569) // Anillo gris para días futuros
                         },
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (dayItem.isCompleted) {
+                if (dayItem.isPast) {
+                    // Check verde en días pasados
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = null,
+                        contentDescription = "Día pasado completado",
                         tint = Color.White,
                         modifier = Modifier.size(11.dp)
                     )
                 }
+                // Si es hoy: queda en azul sólido no vacío sin icono
             }
 
             if (!isLast) {
@@ -691,7 +682,7 @@ private fun RegularDayTimelineRow(
                         .height(18.dp)
                 ) {
                     drawLine(
-                        color = if (dayItem.isCompleted) Color(0xFF10B981) else Color(0xFF334155),
+                        color = if (dayItem.isPast) Color(0xFF10B981) else Color(0xFF334155),
                         start = Offset(x = size.width / 2f, y = 0f),
                         end = Offset(x = size.width / 2f, y = size.height),
                         strokeWidth = 1.5.dp.toPx()
@@ -707,7 +698,11 @@ private fun RegularDayTimelineRow(
             text = "Día ${dayItem.dayNumber}",
             fontWeight = FontWeight.Bold,
             fontSize = 12.sp,
-            color = if (dayItem.isToday) Color(0xFFF8FAFC) else if (dayItem.isCompleted) Color(0xFFE2E8F0) else Color(0xFF94A3B8),
+            color = when {
+                dayItem.isToday -> Color(0xFFF8FAFC)
+                dayItem.isPast -> Color(0xFFE2E8F0)
+                else -> Color(0xFF64748B)
+            },
             modifier = Modifier.width(54.dp)
         )
 
@@ -715,7 +710,11 @@ private fun RegularDayTimelineRow(
         Text(
             text = "${dayItem.shortDateFormatted} (${dayItem.dayOfWeek})",
             fontSize = 11.5.sp,
-            color = if (dayItem.isToday) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+            color = when {
+                dayItem.isToday -> Color(0xFF38BDF8)
+                dayItem.isPast -> Color(0xFFCBD5E1)
+                else -> Color(0xFF64748B)
+            },
             modifier = Modifier.weight(1f)
         )
 
@@ -724,7 +723,11 @@ private fun RegularDayTimelineRow(
             text = "+3h",
             fontSize = 10.5.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF64748B),
+            color = when {
+                dayItem.isPast -> Color(0xFF10B981).copy(alpha = 0.8f)
+                dayItem.isToday -> Color(0xFF38BDF8)
+                else -> Color(0xFF475569)
+            },
             modifier = Modifier.padding(end = 6.dp)
         )
 
@@ -739,13 +742,12 @@ private fun RegularDayTimelineRow(
                     fontWeight = FontWeight.Black,
                     fontSize = 9.sp,
                     color = Color(0xFF38BDF8),
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                 )
             }
         }
     }
 }
-
 
 /**
  * Tarjeta destacada para el Hito Final de cada Mes
@@ -755,8 +757,7 @@ private fun MonthEndMilestoneCard(
     dayItem: DayTimelineItem,
     milestone: MilestoneItem,
     isLast: Boolean,
-    pulseGlow: Float,
-    onToggleMilestone: () -> Unit
+    pulseGlow: Float
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -765,7 +766,6 @@ private fun MonthEndMilestoneCard(
         shadowElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggleMilestone() }
             .padding(vertical = 4.dp)
     ) {
         Row(

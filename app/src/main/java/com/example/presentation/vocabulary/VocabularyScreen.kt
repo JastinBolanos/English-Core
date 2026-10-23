@@ -352,6 +352,7 @@ fun VocabularyScreen(
   var isDailyScheduleTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isLocalNotesTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isSettingsTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isProficiencyLevelsTrayOpen by rememberSaveable { mutableStateOf(false) }
 
   // SAF Launcher para exportar copia .json
   val exportBackupLauncher = rememberLauncherForActivityResult(
@@ -620,11 +621,8 @@ fun VocabularyScreen(
               horizontalArrangement = Arrangement.spacedBy(4.dp),
               modifier = Modifier
                 .clickable {
-                  Toast.makeText(
-                    context,
-                    "$usedWordsCount palabras usadas al menos una vez",
-                    Toast.LENGTH_SHORT
-                  ).show()
+                  coroutineScope.launch { drawerState.close() }
+                  isProficiencyLevelsTrayOpen = true
                 }
                 .padding(horizontal = 4.dp, vertical = 4.dp)
                 .testTag("drawer_counter_used_words_badge")
@@ -1321,7 +1319,17 @@ fun VocabularyScreen(
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
           }
+        },
+        onOpenProficiencyLevels = {
+          isSettingsTrayOpen = false
+          isProficiencyLevelsTrayOpen = true
         }
+      )
+
+      ProficiencyLevelsTray(
+        isOpen = isProficiencyLevelsTrayOpen,
+        onClose = { isProficiencyLevelsTrayOpen = false },
+        masteredWordsCount = usedWordsCount
       )
 
       // BANDEJA EN PASTILLA FLOTANTE (Solo la pastilla flotante y sus 3 botones: Gemini, YouTube, Traductor)
