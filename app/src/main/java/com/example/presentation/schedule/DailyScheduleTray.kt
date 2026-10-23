@@ -426,39 +426,7 @@ fun FloatingDailyScheduleTray(
                             )
                         }
 
-                        // Tarjeta explicativa / Recordatorio de guía
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = Color(0xFF0F172A).copy(alpha = 0.8f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = Color(0xFF334155).copy(alpha = 0.6f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "💡",
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = "Este horario es nuestra guía diaria para cumplir las 3 horas de aprendizaje (1h por la mañana, 1h por la tarde y 1h por la noche) de forma constante y disciplinada.",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF94A3B8),
-                                        lineHeight = 15.sp
-                                    )
-                                )
-                            }
-                        }
+
                     }
                 }
             }

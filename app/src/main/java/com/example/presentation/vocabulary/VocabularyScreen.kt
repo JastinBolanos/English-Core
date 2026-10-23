@@ -34,6 +34,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -43,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -603,34 +605,20 @@ fun VocabularyScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
           ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = null,
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(26.dp)
+            Text(
+              text = "Herramientas",
+              style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color(0xFFF8FAFC)
               )
-              Text(
-                text = "Herramientas",
-                style = MaterialTheme.typography.titleLarge.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 20.sp,
-                  color = Color(0xFFF8FAFC)
-                )
-              )
-            }
+            )
 
-            // Copa con contador de palabras usadas al lado de Herramientas
+            // Copa con contador de palabras usadas flotando libremente sin caja
             Row(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(4.dp),
               modifier = Modifier
-                .background(Color(0xFF1E293B), shape = RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
                 .clickable {
                   Toast.makeText(
                     context,
@@ -638,13 +626,14 @@ fun VocabularyScreen(
                     Toast.LENGTH_SHORT
                   ).show()
                 }
+                .padding(horizontal = 4.dp, vertical = 4.dp)
                 .testTag("drawer_counter_used_words_badge")
             ) {
               Text(
                 text = "$usedWordsCount",
                 style = MaterialTheme.typography.titleMedium.copy(
                   fontWeight = FontWeight.Bold,
-                  fontSize = 14.5.sp,
+                  fontSize = 15.sp,
                   color = Color(0xFFF8FAFC)
                 ),
                 modifier = Modifier.testTag("drawer_text_used_words_count")
@@ -654,19 +643,11 @@ fun VocabularyScreen(
                 contentDescription = "Trofeo de palabras usadas",
                 tint = Color(0xFFFACC15),
                 modifier = Modifier
-                  .size(19.dp)
+                  .size(20.dp)
                   .testTag("drawer_icon_trophy")
               )
             }
           }
-          Text(
-            text = "Accesos y funciones de estudio",
-            style = MaterialTheme.typography.bodySmall.copy(
-              color = Color(0xFF94A3B8),
-              fontSize = 12.sp
-            ),
-            modifier = Modifier.padding(top = 4.dp)
-          )
         }
 
         HorizontalDivider(
@@ -677,7 +658,20 @@ fun VocabularyScreen(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // 1. Ruta de aprendizaje
+        // 1. Meta de 8 meses (En la cima de la lista)
+        DrawerItemRow(
+          icon = Icons.Outlined.Flag,
+          iconTint = Color(0xFF38BDF8),
+          title = "Meta de 8 Meses",
+          subtitle = "Hitos, progreso y dibujos",
+          testTag = "drawer_item_roadmap_8months",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isRoadmap8MonthsTrayOpen = true
+          }
+        )
+
+        // 2. Ruta de aprendizaje
         DrawerItemRow(
           icon = Icons.Default.Explore,
           iconTint = Color(0xFF38BDF8),
@@ -687,19 +681,6 @@ fun VocabularyScreen(
           onClick = {
             coroutineScope.launch { drawerState.close() }
             showRoadmapDialog = true
-          }
-        )
-
-        // 2. Añadir palabra (+)
-        DrawerItemRow(
-          icon = Icons.Default.Add,
-          iconTint = Color(0xFF34D399),
-          title = "Añadir Palabra",
-          subtitle = "Crear nueva palabra personalizada",
-          testTag = "drawer_item_add_word",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            viewModel.openAddWordDialog()
           }
         )
 
@@ -742,20 +723,7 @@ fun VocabularyScreen(
           }
         )
 
-        // 6. Meta de 8 meses
-        DrawerItemRow(
-          icon = Icons.Outlined.Flag,
-          iconTint = Color(0xFF38BDF8),
-          title = "Meta de 8 Meses",
-          subtitle = "Hitos, progreso y dibujos",
-          testTag = "drawer_item_roadmap_8months",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isRoadmap8MonthsTrayOpen = true
-          }
-        )
-
-        // 7. Traductor de español a inglés
+        // 6. Traductor de español a inglés
         DrawerItemRow(
           icon = Icons.Default.Translate,
           iconTint = Color(0xFF00E5FF),
@@ -767,80 +735,31 @@ fun VocabularyScreen(
             isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
           }
         )
+
+        // 7. Añadir palabra (+) (Al final de la lista)
+        DrawerItemRow(
+          icon = Icons.Default.Add,
+          iconTint = Color(0xFF34D399),
+          title = "Añadir Palabra",
+          subtitle = "Crear nueva palabra personalizada",
+          testTag = "drawer_item_add_word",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            viewModel.openAddWordDialog()
+          }
+        )
       }
     }
   ) {
     Scaffold(
       modifier = modifier
         .fillMaxSize()
-        .testTag("screen_vocabulario"),
-      bottomBar = {
-        // Pastilla flotante independiente sin tabla ni barra de fondo
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp),
-          contentAlignment = Alignment.Center
-        ) {
-          Surface(
-            modifier = Modifier
-              .width(175.dp)
-              .testTag("giant_bottom_pill"),
-            shape = CircleShape,
-            color = Color(0xFF101923),
-            border = BorderStroke(1.2.dp, Color(0xFF334155)),
-            shadowElevation = 8.dp
-          ) {
-            Row(
-              modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-              horizontalArrangement = Arrangement.spacedBy(8.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              // 1. Gemini Web
-              GeminiWebFloatingActionButton(
-                isOpen = isGeminiWebTrayOpen,
-                onClick = {
-                  isGeminiWebTrayOpen = !isGeminiWebTrayOpen
-                  if (isGeminiWebTrayOpen) {
-                    isYouTubeTrayOpen = false
-                    isGoogleTranslateWebTrayOpen = false
-                  }
-                }
-              )
-              // 2. YouTube Web
-              YouTubeFloatingActionButton(
-                isOpen = isYouTubeTrayOpen,
-                onClick = {
-                  isYouTubeTrayOpen = !isYouTubeTrayOpen
-                  if (isYouTubeTrayOpen) {
-                    isGeminiWebTrayOpen = false
-                    isGoogleTranslateWebTrayOpen = false
-                  }
-                }
-              )
-              // 3. Google Translate Web
-              GoogleTranslateFloatingActionButton(
-                isOpen = isGoogleTranslateWebTrayOpen,
-                onClick = {
-                  isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
-                  if (isGoogleTranslateWebTrayOpen) {
-                    isYouTubeTrayOpen = false
-                    isGeminiWebTrayOpen = false
-                  }
-                }
-              )
-            }
-          }
-        }
-      }
+        .testTag("screen_vocabulario")
     ) { innerPadding ->
       Box(
         modifier = Modifier
           .fillMaxSize()
-          .padding(innerPadding)
+          .padding(top = innerPadding.calculateTopPadding())
       ) {
         Column(
           modifier = Modifier.fillMaxSize()
@@ -922,15 +841,21 @@ fun VocabularyScreen(
           // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
           // 1. Icono de nube flotante reactivo SIN CAJA a la izquierda (CenterStart)
           // 2. Pestañas de solo texto con rayita baja (Vocabulario, Abecedario, Números, Frases)
-          // Pestañas centrales: Vocabulario, Abecedario, Números, Frases
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 10.dp, vertical = 6.dp)
-              .testTag("tab_selector_vocabulario_abecedario_frases"),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+          BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth()
           ) {
+            val tabsScrollState = rememberScrollState()
+            val isOverflowing = (tabsScrollState.maxValue > 0 && tabsScrollState.maxValue != Int.MAX_VALUE) || maxWidth < 380.dp
+
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(tabsScrollState)
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .testTag("tab_selector_vocabulario_abecedario_frases"),
+              horizontalArrangement = if (isOverflowing) Arrangement.Start else Arrangement.Center,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
             // 1. Botón de solo texto "Vocabulario" con su rayita baja
             Column(
               modifier = Modifier
@@ -1061,6 +986,7 @@ fun VocabularyScreen(
               )
             }
           }
+        }
 
           if (selectedSectionTab == MainSectionTab.VOCABULARY) {
             // FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - Mismo alto que el traductor (34dp)
@@ -1071,7 +997,7 @@ fun VocabularyScreen(
               horizontalArrangement = Arrangement.spacedBy(6.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              // Buscador de texto tradicional (Filtro) - Alto 34dp igual al traductor superior
+              // Buscador de texto tradicional (Filtro) - Altura aumentada a 42dp con lupa adecuada y palabra fantasma 'Buscar'
               BasicTextField(
                 value = searchQuery,
                 onValueChange = {
@@ -1083,7 +1009,7 @@ fun VocabularyScreen(
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                   color = Color.White,
-                  fontSize = 12.sp
+                  fontSize = 13.sp
                 ),
                 cursorBrush = SolidColor(Color.White),
                 modifier = Modifier
@@ -1093,7 +1019,7 @@ fun VocabularyScreen(
                   Row(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(34.dp)
+                      .height(42.dp)
                       .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
                       .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 10.dp),
@@ -1101,27 +1027,36 @@ fun VocabularyScreen(
                   ) {
                     Icon(
                       imageVector = Icons.Default.Search,
-                      contentDescription = null,
+                      contentDescription = "Buscar",
                       tint = Color(0xFF94A3B8),
-                      modifier = Modifier.size(15.dp)
+                      modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Box(
                       modifier = Modifier.weight(1f),
                       contentAlignment = Alignment.CenterStart
                     ) {
+                      if (searchQuery.isEmpty()) {
+                        Text(
+                          text = "Buscar",
+                          style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            fontSize = 13.sp
+                          )
+                        )
+                      }
                       innerTextField()
                     }
                     if (searchQuery.isNotEmpty()) {
                       IconButton(
                         onClick = { viewModel.updateSearchQuery("") },
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                       ) {
                         Icon(
                           imageVector = Icons.Default.Close,
                           contentDescription = "Limpiar búsqueda",
                           tint = Color(0xFF94A3B8),
-                          modifier = Modifier.size(14.dp)
+                          modifier = Modifier.size(16.dp)
                         )
                       }
                     }
@@ -1129,7 +1064,7 @@ fun VocabularyScreen(
                 }
               )
 
-              // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Alto 34dp igual al traductor superior (ancho intacto)
+              // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Altura aumentada a 42dp (ancho intacto)
               BasicTextField(
                 value = jumpRankInput,
                 onValueChange = { raw ->
@@ -1150,7 +1085,7 @@ fun VocabularyScreen(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                   color = Color(0xFF38BDF8),
                   fontWeight = FontWeight.Bold,
-                  fontSize = 11.5.sp,
+                  fontSize = 12.sp,
                   textAlign = TextAlign.Center
                 ),
                 cursorBrush = SolidColor(Color(0xFF38BDF8)),
@@ -1161,7 +1096,7 @@ fun VocabularyScreen(
                   Box(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(34.dp)
+                      .height(42.dp)
                       .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
                       .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 6.dp),
@@ -1170,9 +1105,10 @@ fun VocabularyScreen(
                     if (jumpRankInput.isEmpty()) {
                       Text(
                         text = "1-${words.maxOfOrNull { it.rank } ?: 2809}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                          fontSize = 11.5.sp
+                        ),
                         color = Color(0xFF64748B),
-                        fontSize = 10.5.sp,
                         textAlign = TextAlign.Center
                       )
                     }
@@ -1201,7 +1137,7 @@ fun VocabularyScreen(
               .fillMaxWidth()
               .weight(1f)
               .testTag("vocabulary_list"),
-            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             when {
@@ -1387,6 +1323,69 @@ fun VocabularyScreen(
           }
         }
       )
+
+      // BANDEJA EN PASTILLA FLOTANTE (Solo la pastilla flotante y sus 3 botones: Gemini, YouTube, Traductor)
+      // Flotando limpiamente sobre el contenido sin ninguna tabla ni barra de fondo
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .align(Alignment.BottomCenter)
+          .navigationBarsPadding()
+          .padding(bottom = 12.dp),
+        contentAlignment = Alignment.Center
+      ) {
+        Surface(
+          modifier = Modifier
+            .width(175.dp)
+            .testTag("giant_bottom_pill"),
+          shape = CircleShape,
+          color = Color(0xFF101923),
+          border = BorderStroke(1.2.dp, Color(0xFF334155)),
+          shadowElevation = 8.dp
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            // 1. Gemini Web
+            GeminiWebFloatingActionButton(
+              isOpen = isGeminiWebTrayOpen,
+              onClick = {
+                isGeminiWebTrayOpen = !isGeminiWebTrayOpen
+                if (isGeminiWebTrayOpen) {
+                  isYouTubeTrayOpen = false
+                  isGoogleTranslateWebTrayOpen = false
+                }
+              }
+            )
+            // 2. YouTube Web
+            YouTubeFloatingActionButton(
+              isOpen = isYouTubeTrayOpen,
+              onClick = {
+                isYouTubeTrayOpen = !isYouTubeTrayOpen
+                if (isYouTubeTrayOpen) {
+                  isGeminiWebTrayOpen = false
+                  isGoogleTranslateWebTrayOpen = false
+                }
+              }
+            )
+            // 3. Google Translate Web
+            GoogleTranslateFloatingActionButton(
+              isOpen = isGoogleTranslateWebTrayOpen,
+              onClick = {
+                isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
+                if (isGoogleTranslateWebTrayOpen) {
+                  isYouTubeTrayOpen = false
+                  isGeminiWebTrayOpen = false
+                }
+              }
+            )
+          }
+        }
+      }
     }
   }
 }
@@ -1796,7 +1795,7 @@ fun SettingsFloatingActionButton(
 @Composable
 fun AnimatedEnglishHeader(
   usedWordsCount: Int = 0,
-  currentSpeed: Float = 1.0f,
+  currentSpeed: Float = 0.3f,
   onToggleSpeed: () -> Unit = {},
   onOpenDrawer: () -> Unit = {},
   onOpenRoadmap8Months: () -> Unit = {},
@@ -2147,7 +2146,7 @@ fun EverydayPhrasesSection(
         .fillMaxWidth()
         .weight(1f)
         .testTag("everyday_phrases_list"),
-      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 16.dp),
+      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 80.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
       itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { index, phrase ->

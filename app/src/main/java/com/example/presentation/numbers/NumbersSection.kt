@@ -194,7 +194,7 @@ fun NumbersSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("numbers_1_to_100_list"),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Buscador rápido sin texto fantasma

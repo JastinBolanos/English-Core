@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -112,7 +113,7 @@ fun FloatingSettingsBackupTray(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
-                    .padding(vertical = 24.dp)
+                    .fillMaxHeight(0.65f)
                     .shadow(16.dp, shape = RoundedCornerShape(20.dp))
                     .testTag("floating_settings_backup_dialog"),
                 shape = RoundedCornerShape(20.dp),
@@ -129,7 +130,7 @@ fun FloatingSettingsBackupTray(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(20.dp)
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -190,52 +191,6 @@ fun FloatingSettingsBackupTray(
                                 contentDescription = "Cerrar ajustes",
                                 tint = Color(0xFF94A3B8),
                                 modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Tarjeta explicativa del respaldo
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1E293B).copy(alpha = 0.7f)
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            0.8.dp,
-                            Color(0xFF334155).copy(alpha = 0.7f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = Color(0xFF38BDF8),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = "Protege tu progreso",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.5.sp,
-                                        color = Color(0xFFE2E8F0)
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Exporta tus 2,809 palabras con sus contadores de uso exactos, tus copas ganadas (palabras practicadas mínimo 1 vez), 26 letras del abecedario, 100 números, 50 frases cotidianas y notas locales en un archivo .json estándar. Podrás restaurarlo en cualquier momento, incluso tras desinstalar y reinstalar la app, sin perder tu historial ni volver a 0.",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 11.5.sp,
-                                    lineHeight = 16.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
                             )
                         }
                     }

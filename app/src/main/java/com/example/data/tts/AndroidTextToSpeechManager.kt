@@ -21,8 +21,8 @@ class AndroidTextToSpeechManager @Inject constructor(
   private var isInitialized = false
   private var pendingSpeechText: String? = null
 
-  val speedLevels = listOf(1.0f, 0.5f, 0.3f)
-  private val _currentSpeechRate = MutableStateFlow(1.0f)
+  val speedLevels = listOf(0.3f, 0.5f, 1.0f)
+  private val _currentSpeechRate = MutableStateFlow(0.3f)
   override val currentSpeechRate: StateFlow<Float> = _currentSpeechRate.asStateFlow()
 
   init {

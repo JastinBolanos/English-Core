@@ -469,11 +469,11 @@ class ExampleUnitTest {
 
   @Test
   fun testTtsSpeedLevels_CycleValues() {
-    val speedLevels = listOf(1.0f, 0.5f, 0.3f)
+    val speedLevels = listOf(0.3f, 0.5f, 1.0f)
     assertEquals(3, speedLevels.size)
-    assertEquals(1.0f, speedLevels[0])
+    assertEquals(0.3f, speedLevels[0])
     assertEquals(0.5f, speedLevels[1])
-    assertEquals(0.3f, speedLevels[2])
+    assertEquals(1.0f, speedLevels[2])
 
     fun getNextSpeed(current: Float): Float {
       val currentIndex = speedLevels.indexOf(current)
@@ -481,9 +481,9 @@ class ExampleUnitTest {
       return speedLevels[nextIndex]
     }
 
-    assertEquals(0.5f, getNextSpeed(1.0f))
-    assertEquals(0.3f, getNextSpeed(0.5f))
-    assertEquals(1.0f, getNextSpeed(0.3f))
+    assertEquals(0.5f, getNextSpeed(0.3f))
+    assertEquals(1.0f, getNextSpeed(0.5f))
+    assertEquals(0.3f, getNextSpeed(1.0f))
   }
 }
 

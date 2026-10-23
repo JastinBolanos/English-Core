@@ -861,11 +861,8 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("study_stopwatch_container").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("bottom_actions_tray").assertExists()
+    composeTestRule.onNodeWithTag("bottom_actions_tray").assertDoesNotExist()
     composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
-    composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
-    composeTestRule.onNodeWithTag("fab_speed_control").assertExists()
-    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
     composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
     composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
     composeTestRule.onNodeWithTag("fab_google_translate_web").assertExists()

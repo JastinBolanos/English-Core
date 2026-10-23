@@ -17,12 +17,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -110,30 +116,130 @@ fun AlphabetListSection(
     onAddLetterToCanvas: (AlphabetLetter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val displayedLetters = remember { englishAlphabetCatalog }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val allLetters = remember { englishAlphabetCatalog }
+    val displayedLetters = remember(searchQuery) {
+        if (searchQuery.isBlank()) {
+            allLetters
+        } else {
+            val q = searchQuery.trim().lowercase()
+            allLetters.filter { item ->
+                item.letter.lowercase().contains(q) ||
+                item.phoneticSp.lowercase().contains(q) ||
+                item.ipa.lowercase().contains(q) ||
+                (if (item.isVowel) "vocal" else "consonante").contains(q)
+            }
+        }
+    }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("alphabet_list_view"),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        // Buscador de letras con lupa adecuada y palabra fantasma 'Buscar'
+        item(key = "alphabet_search_control") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            ) {
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.White,
+                        fontSize = 13.sp
+                    ),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("input_search_alphabet"),
+                    decorationBox = { innerTextField ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
+                                .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                                .padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Buscar",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "Buscar",
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = Color(0xFF64748B),
+                                            fontSize = 13.sp
+                                        )
+                                    )
+                                }
+                                innerTextField()
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Limpiar búsqueda",
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+        }
 
-        // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)
-        itemsIndexed(
-            items = displayedLetters,
-            key = { _, item -> item.letter }
-        ) { index, item ->
-            val count = letterCounts[item.letter] ?: 0
-            AlphabetLetterRowItem(
-                index = index + 1,
-                letterItem = item,
-                count = count,
-                onListen = { onSpeakLetter(item) },
-                onAddToCanvas = { onAddLetterToCanvas(item) }
-            )
+        if (displayedLetters.isEmpty()) {
+            item(key = "empty_alphabet_search") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No se encontraron coincidencias para \"$searchQuery\"",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        } else {
+            // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)
+            itemsIndexed(
+                items = displayedLetters,
+                key = { _, item -> item.letter }
+            ) { index, item ->
+                val count = letterCounts[item.letter] ?: 0
+                AlphabetLetterRowItem(
+                    index = index + 1,
+                    letterItem = item,
+                    count = count,
+                    onListen = { onSpeakLetter(item) },
+                    onAddToCanvas = { onAddLetterToCanvas(item) }
+                )
+            }
         }
     }
 }
