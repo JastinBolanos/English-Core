@@ -113,31 +113,17 @@ fun FloatingRoadmap8MonthsTray(
     val context = LocalContext.current
     val storage = remember(context) { RoadmapStorage(context) }
     var config by remember { mutableStateOf(storage.loadRoadmap()) }
-    var isEditing by remember { mutableStateOf(false) }
-
-    // Estado borrador para la edición
-    var draftTitle by remember(config) { mutableStateOf(config.missionTitle) }
-    var draftDateRange by remember(config) { mutableStateOf(config.dateRange) }
-    var draftHoursSummary by remember(config) { mutableStateOf(config.hoursSummary) }
-    var draftMilestones by remember(config) { mutableStateOf(config.milestones) }
-    var draftRoutines by remember(config) { mutableStateOf(config.routines) }
-    var draftFooter by remember(config) { mutableStateOf(config.footerText) }
 
     // Recargar al abrir
     LaunchedEffect(isOpen) {
         if (isOpen) {
             config = storage.loadRoadmap()
-            isEditing = false
         }
     }
 
     if (isOpen) {
         BackHandler {
-            if (isEditing) {
-                isEditing = false
-            } else {
-                onClose()
-            }
+            onClose()
         }
     }
 
@@ -175,7 +161,7 @@ fun FloatingRoadmap8MonthsTray(
                         indication = null,
                         enabled = isOpen
                     ) {
-                        if (!isEditing) onClose()
+                        onClose()
                     }
             )
         }
@@ -200,171 +186,50 @@ fun FloatingRoadmap8MonthsTray(
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Barra Superior de la Bandeja Flotante
+                // Barra Superior de la Bandeja Flotante (sin recargar ni lápiz de editar)
                 RoadmapTopBar(
-                    isEditing = isEditing,
-                    onToggleEdit = {
-                        if (isEditing) {
-                            // Salir sin guardar
-                            isEditing = false
-                        } else {
-                            // Entrar en modo edición cargando copia
-                            draftTitle = config.missionTitle
-                            draftDateRange = config.dateRange
-                            draftHoursSummary = config.hoursSummary
-                            draftMilestones = config.milestones.map { it.copy() }
-                            draftRoutines = config.routines.map { it.copy() }
-                            draftFooter = config.footerText
-                            isEditing = true
-                        }
-                    },
-                    onClose = onClose,
-                    onReset = {
-                        val reset = storage.resetToDefault()
-                        config = reset
-                        isEditing = false
-                        Toast.makeText(context, "Ruta restablecida al diseño original", Toast.LENGTH_SHORT).show()
-                    }
+                    onClose = onClose
                 )
 
                 HorizontalDivider(color = Color(0xFF1E293B), thickness = 1.dp)
 
-                if (isEditing) {
-                    // Modo Edición interactivo
-                    RoadmapEditorContent(
-                        draftTitle = draftTitle,
-                        onTitleChange = { draftTitle = it },
-                        draftDateRange = draftDateRange,
-                        onDateRangeChange = { draftDateRange = it },
-                        draftHoursSummary = draftHoursSummary,
-                        onHoursSummaryChange = { draftHoursSummary = it },
-                        draftMilestones = draftMilestones,
-                        onMilestonesChange = { draftMilestones = it },
-                        draftRoutines = draftRoutines,
-                        onRoutinesChange = { draftRoutines = it },
-                        draftFooter = draftFooter,
-                        onFooterChange = { draftFooter = it },
-                        onSave = {
-                            val newConfig = RoadmapConfig(
-                                missionTitle = draftTitle.trim(),
-                                dateRange = draftDateRange.trim(),
-                                hoursSummary = draftHoursSummary.trim(),
-                                milestones = draftMilestones,
-                                routines = draftRoutines,
-                                footerText = draftFooter.trim()
-                            )
-                            storage.saveRoadmap(newConfig)
-                            config = newConfig
-                            isEditing = false
-                            Toast.makeText(context, "¡Ruta actualizada con éxito!", Toast.LENGTH_SHORT).show()
-                        },
-                        onCancel = { isEditing = false }
-                    )
-                } else {
-                    // Vista Oficial: Todos los datos de la imagen con dibujos regentes minimalistas
-                    RoadmapViewContent(
-                        config = config,
-                        onToggleMilestone = { milestoneId ->
-                            val updatedList = config.milestones.map {
-                                if (it.id == milestoneId) it.copy(isCompleted = !it.isCompleted) else it
-                            }
-                            val updatedConfig = config.copy(milestones = updatedList)
-                            storage.saveRoadmap(updatedConfig)
-                            config = updatedConfig
-                        }
-                    )
-                }
+                // Vista Oficial: Todos los datos con los 244 días en fila y los hitos finales de cada mes
+                RoadmapViewContent(
+                    config = config,
+                    onToggleMilestone = { /* no-op automático */ }
+                )
             }
         }
     }
 }
 
 /**
- * Barra superior con botón de cerrar, título e icono de Lápiz en la esquina derecha
+ * Barra superior limpia con botón de volver y título
  */
 @Composable
 private fun RoadmapTopBar(
-    isEditing: Boolean,
-    onToggleEdit: () -> Unit,
-    onClose: () -> Unit,
-    onReset: () -> Unit
+    onClose: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF0F172A))
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.End
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier
+                .size(32.dp)
+                .testTag("btn_close_roadmap_tray")
         ) {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("btn_close_roadmap_tray")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Text(
-                text = if (isEditing) "EDITAR RUTA 8 MESES" else "1 de 1",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = if (isEditing) Color(0xFF38BDF8) else Color(0xFFE2E8F0)
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Cerrar",
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(20.dp)
             )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            // Botón de restablecer
-            IconButton(
-                onClick = onReset,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("btn_reset_roadmap")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Restablecer original",
-                    tint = Color(0xFF64748B),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            // LÁPIZ EN LA ESQUINA DE EDITAR (Requisito explícito del usuario)
-            Surface(
-                shape = CircleShape,
-                color = if (isEditing) Color(0xFF38BDF8).copy(alpha = 0.2f) else Color(0xFF1E293B),
-                border = BorderStroke(
-                    1.dp,
-                    if (isEditing) Color(0xFF38BDF8) else Color(0xFF334155)
-                )
-            ) {
-                IconButton(
-                    onClick = onToggleEdit,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("btn_edit_roadmap_pencil")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = if (isEditing) "Cerrar edición" else "Editar ruta con lápiz",
-                        tint = if (isEditing) Color(0xFF38BDF8) else Color(0xFFF1F5F9),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
         }
     }
 }
@@ -508,7 +373,7 @@ private fun TimelineSection(
         val autoCompletedDaysCount = (peruStatus.dayNumber - 1).coerceIn(0, 244)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -516,12 +381,6 @@ private fun TimelineSection(
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFFCBD5E1)
-            )
-            Text(
-                text = "${autoCompletedDaysCount * 3}h acumuladas",
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF38BDF8)
             )
         }
 
@@ -731,21 +590,6 @@ private fun RegularDayTimelineRow(
             modifier = Modifier.padding(end = 6.dp)
         )
 
-        if (dayItem.isToday) {
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = Color(0xFF0284C7).copy(alpha = 0.35f),
-                border = BorderStroke(1.dp, Color(0xFF38BDF8))
-            ) {
-                Text(
-                    text = "📍 HOY",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 9.sp,
-                    color = Color(0xFF38BDF8),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                )
-            }
-        }
     }
 }
 

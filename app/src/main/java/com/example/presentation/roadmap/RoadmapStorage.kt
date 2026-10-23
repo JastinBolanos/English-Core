@@ -30,12 +30,14 @@ class RoadmapStorage(context: Context) {
             val milestonesArray = root.optJSONArray("milestones") ?: JSONArray()
             for (i in 0 until milestonesArray.length()) {
                 val itemObj = milestonesArray.getJSONObject(i)
+                val rawDesc = itemObj.optString("description", "")
+                val finalDesc = if (rawDesc == "C1 listo para liberar la app") "Nivel C1 logrado" else rawDesc
                 milestones.add(
                     MilestoneItem(
                         id = itemObj.optString("id", "m_$i"),
                         date = itemObj.optString("date", ""),
                         title = itemObj.optString("title", ""),
-                        description = itemObj.optString("description", ""),
+                        description = finalDesc,
                         iconType = itemObj.optString("iconType", "star"),
                         isCompleted = itemObj.optBoolean("isCompleted", false)
                     )

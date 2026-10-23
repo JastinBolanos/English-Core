@@ -127,24 +127,7 @@ fun ProficiencyLevelsTray(
         label = "pulse_glow"
     )
 
-    val currentLevel = remember(masteredWordsCount) {
-        when {
-            masteredWordsCount >= 2809 -> CEFR_LEVELS[4]
-            masteredWordsCount >= 2400 -> CEFR_LEVELS[4]
-            masteredWordsCount >= 1800 -> CEFR_LEVELS[3]
-            masteredWordsCount >= 1000 -> CEFR_LEVELS[2]
-            masteredWordsCount >= 500 -> CEFR_LEVELS[1]
-            else -> CEFR_LEVELS[0]
-        }
-    }
 
-    val overallProgress = remember(masteredWordsCount) {
-        (masteredWordsCount.toFloat() / 2809f).coerceIn(0f, 1f)
-    }
-
-    val wordsToC1 = remember(masteredWordsCount) {
-        (2809 - masteredWordsCount).coerceAtLeast(0)
-    }
 
     Box(
         modifier = modifier
@@ -167,7 +150,7 @@ fun ProficiencyLevelsTray(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.82f)
+                .fillMaxHeight(0.65f)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -243,113 +226,6 @@ fun ProficiencyLevelsTray(
                             tint = Color(0xFF94A3B8),
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // RESUMEN GENERAL: Estado actual y meta C1 (2809+ palabras)
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF1E293B).copy(alpha = 0.7f),
-                    border = BorderStroke(1.dp, Color(0xFF334155)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "DOMINIO ACTUAL",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.6.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = "$masteredWordsCount",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 22.sp,
-                                        color = Color(0xFFF8FAFC)
-                                    )
-                                    Text(
-                                        text = "/ 2809+ palabras",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF64748B)
-                                    )
-                                    Text(
-                                        text = "🏆",
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-
-                            // Badge de nivel actual alcanzado
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = currentLevel.color.copy(alpha = 0.2f),
-                                border = BorderStroke(1.2.dp, currentLevel.color)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = "Nivel ${currentLevel.code}",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 12.sp,
-                                        color = currentLevel.color
-                                    )
-                                }
-                            }
-                        }
-
-                        // Barra general hacia la meta C1 (2809+)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = if (masteredWordsCount >= 2809) {
-                                        "🎉 ¡Meta C1 Alcanzada (2809+ palabras en dominio)!"
-                                    } else {
-                                        "Faltan $wordsToC1 palabras para C1"
-                                    },
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (masteredWordsCount >= 2809) Color(0xFFFACC15) else Color(0xFF38BDF8)
-                                )
-                                Text(
-                                    text = "${(overallProgress * 100).toInt()}%",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF8FAFC)
-                                )
-                            }
-
-                            LinearProgressIndicator(
-                                progress = { overallProgress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = if (masteredWordsCount >= 2809) Color(0xFFFACC15) else Color(0xFF38BDF8),
-                                trackColor = Color(0xFF0F172A)
-                            )
-                        }
                     }
                 }
 

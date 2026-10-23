@@ -108,7 +108,7 @@ object DefaultRoadmapData {
                     id = "m10",
                     date = "21 JUN 2027",
                     title = "MES 8 / GRADUACIÓN",
-                    description = "C1 listo para liberar la app",
+                    description = "Nivel C1 logrado",
                     iconType = "school",
                     isCompleted = false
                 )

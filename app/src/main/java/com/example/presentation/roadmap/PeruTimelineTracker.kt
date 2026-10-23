@@ -204,7 +204,7 @@ object PeruTimelineTracker {
 
             val isStart = false
             val isMonthEnd = when (dayNumber) {
-                32, 62, 93, 124, 152, 183, 213, 240, 244 -> true
+                32, 62, 93, 124, 152, 183, 213, 244 -> true
                 else -> false
             }
 
@@ -216,8 +216,7 @@ object PeruTimelineTracker {
                 152 -> milestones.getOrNull(5)
                 183 -> milestones.getOrNull(6)
                 213 -> milestones.getOrNull(7)
-                240 -> milestones.getOrNull(8)
-                244 -> milestones.getOrNull(9)
+                244 -> milestones.getOrNull(9) ?: milestones.lastOrNull()
                 else -> null
             }
 
