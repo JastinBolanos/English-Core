@@ -202,14 +202,13 @@ object PeruTimelineTracker {
                 else -> "MES 8: Umbral C1 y Graduación (Días 214–244)"
             }
 
-            val isStart = dayNumber == 1
+            val isStart = false
             val isMonthEnd = when (dayNumber) {
                 32, 62, 93, 124, 152, 183, 213, 240, 244 -> true
                 else -> false
             }
 
             val milestoneItem: MilestoneItem? = when (dayNumber) {
-                1 -> milestones.getOrNull(0)
                 32 -> milestones.getOrNull(1)
                 62 -> milestones.getOrNull(2)
                 93 -> milestones.getOrNull(3)

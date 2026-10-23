@@ -383,10 +383,6 @@ private fun RoadmapViewContent(
     var completedDays by remember { mutableStateOf(storage.getCompletedDays()) }
     val scrollState = rememberScrollState()
     val peruStatus = remember(config.milestones) { PeruTimelineTracker.calculateStatus(config.milestones) }
-    val completedCount = config.milestones.count { it.isCompleted }
-    val totalCount = config.milestones.size
-    val progressRatio = if (totalCount > 0) completedCount.toFloat() / totalCount.toFloat() else 0f
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -428,132 +424,7 @@ private fun RoadmapViewContent(
                 textAlign = TextAlign.Center,
                 color = Color(0xFF38BDF8)
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-            // Barra de progreso interactiva de hitos completados
-            Row(
-                modifier = Modifier.fillMaxWidth(0.85f),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Hitos: $completedCount de $totalCount completados",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF94A3B8)
-                )
-                Text(
-                    text = "${(progressRatio * 100).toInt()}%",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF10B981)
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { progressRatio },
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = Color(0xFF10B981),
-                trackColor = Color(0xFF1E293B)
-            )
         }
-
-        // PANEL INTELIGENTE DE DETECCIÓN EN VIVO (ZONA HORARIA PERÚ)
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF0F1E36),
-            border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.7f)),
-            shadowElevation = 6.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(text = "🇵🇪", fontSize = 15.sp)
-                        Text(
-                            text = "FECHA ACTUAL (PERÚ)",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 11.5.sp,
-                            color = Color(0xFF38BDF8),
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.22f),
-                        border = BorderStroke(1.dp, Color(0xFF10B981))
-                    ) {
-                        Text(
-                            text = "DÍA ${peruStatus.dayNumber} DE ${peruStatus.totalDays}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF10B981),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                Text(
-                    text = "${peruStatus.peruDateFormatted} • ${peruStatus.peruTimeFormatted}",
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF8FAFC)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "📍 Hito activo: ${peruStatus.activeMilestoneTitle}",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF38BDF8)
-                    )
-                    Text(
-                        text = "${peruStatus.totalHoursEstimated}h / ${peruStatus.totalGoalHours}h",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFBBF24)
-                    )
-                }
-
-                LinearProgressIndicator(
-                    progress = { (peruStatus.dayNumber.toFloat() / peruStatus.totalDays.toFloat()).coerceIn(0.005f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(3.dp)),
-                    color = Color(0xFF38BDF8),
-                    trackColor = Color(0xFF1E293B)
-                )
-            }
-        }
-
-        // TÍTULO DE SECCIÓN: LÍNEA DE TIEMPO
-        Text(
-            text = "LÍNEA DE TIEMPO (244 DÍAS EN FILA)",
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 14.5.sp,
-            letterSpacing = 1.2.sp,
-            color = Color(0xFFE2E8F0),
-            modifier = Modifier.padding(top = 4.dp)
-        )
 
         // LÍNEA DE TIEMPO CON TODOS LOS DÍAS EN FILA Y LOS HITOS FINALES DE CADA MES
         TimelineSection(
@@ -565,29 +436,6 @@ private fun RoadmapViewContent(
             },
             onToggleMilestone = onToggleMilestone
         )
-
-        // TÍTULO DE SECCIÓN: RUTINA DIARIA
-        Text(
-            text = "RUTINA DIARIA",
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 14.5.sp,
-            letterSpacing = 1.2.sp,
-            color = Color(0xFFE2E8F0),
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
-        // TARJETAS DE RUTINA DIARIA (Mañana, Tarde, Noche)
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            config.routines.forEach { routine ->
-                RoutineCardItem(routine = routine)
-            }
-        }
-
-        // PIE DE PÁGINA (FUERZA INTERNA / REFLEJO EN VIVO)
-        FooterRatioCard(footerText = config.footerText)
 
         Spacer(modifier = Modifier.height(14.dp))
     }
@@ -710,14 +558,6 @@ private fun TimelineSection(
                     isLast = isLastInView,
                     pulseGlow = pulseGlow,
                     onToggleMilestone = { onToggleMilestone(dayItem.milestoneItem.id) }
-                )
-            } else if (dayItem.isStartMilestone && dayItem.milestoneItem != null) {
-                // HITO INICIAL: DÍA 1 EL DESPEGUE
-                StartMilestoneCard(
-                    dayItem = dayItem,
-                    milestone = dayItem.milestoneItem,
-                    pulseGlow = pulseGlow,
-                    onToggle = { onToggleDay(dayItem.dayNumber) }
                 )
             } else {
                 // DÍA REGULAR EN FILA (Sin hitos, limpio y conectado)
@@ -906,84 +746,6 @@ private fun RegularDayTimelineRow(
     }
 }
 
-/**
- * Tarjeta del Hito Inicial (Día 1: El Despegue)
- */
-@Composable
-private fun StartMilestoneCard(
-    dayItem: DayTimelineItem,
-    milestone: MilestoneItem,
-    pulseGlow: Float,
-    onToggle: () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF0F1E36),
-        border = BorderStroke(1.5.dp, Color(0xFF38BDF8).copy(alpha = 0.85f * pulseGlow)),
-        shadowElevation = 4.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onToggle() }
-            .padding(vertical = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            MinimalistDrawing(
-                iconType = "rocket",
-                isCompleted = dayItem.isCompleted,
-                modifier = Modifier.size(34.dp)
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "🚀 DÍA 1 • ${dayItem.dateString}",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.5.sp,
-                        color = Color(0xFFF8FAFC)
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF0284C7).copy(alpha = 0.35f),
-                        border = BorderStroke(1.dp, Color(0xFF38BDF8))
-                    ) {
-                        Text(
-                            text = "📍 HOY",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 9.sp,
-                            color = Color(0xFF38BDF8),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = milestone.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color(0xFF38BDF8)
-                )
-                Text(
-                    text = milestone.description,
-                    fontSize = 11.sp,
-                    color = Color(0xFF94A3B8)
-                )
-            }
-
-            Icon(
-                imageVector = if (dayItem.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                contentDescription = null,
-                tint = if (dayItem.isCompleted) Color(0xFF10B981) else Color(0xFF64748B),
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
 
 /**
  * Tarjeta destacada para el Hito Final de cada Mes
