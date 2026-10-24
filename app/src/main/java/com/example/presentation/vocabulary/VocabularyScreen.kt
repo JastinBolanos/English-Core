@@ -133,6 +133,10 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Wallpaper
+import com.example.data.wallpaper.WallpaperManager
+import com.example.data.wallpaper.WallpaperStorage
+import com.example.presentation.wallpaper.FloatingWallpaperTray
 import com.example.domain.translation.TranslationState
 import com.example.domain.model.EverydayPhrase
 import com.example.domain.model.EverydayPhrasesCatalog
@@ -253,8 +257,15 @@ enum class MainSectionTab {
 fun VocabularyScreen(
   viewModel: VocabularyViewModel,
   onBack: () -> Unit = {},
+  wallpaperManager: WallpaperManager? = null,
   modifier: Modifier = Modifier
 ) {
+  val context = LocalContext.current
+  val activeWallpaperManager = wallpaperManager ?: remember(context) {
+    val ctx = context.applicationContext
+    val storage = WallpaperStorage(ctx)
+    WallpaperManager(storage)
+  }
   var selectedSectionTab by rememberSaveable { mutableStateOf(MainSectionTab.VOCABULARY) }
 
   BackHandler(enabled = (selectedSectionTab != MainSectionTab.VOCABULARY)) {
@@ -281,8 +292,6 @@ fun VocabularyScreen(
   val alphabetCounts by viewModel.alphabetCounts.collectAsStateWithLifecycle()
   val numberCounts by viewModel.numberCounts.collectAsStateWithLifecycle()
   val phraseCounts by viewModel.phraseCounts.collectAsStateWithLifecycle()
-
-  val context = LocalContext.current
   val haptic = LocalHapticFeedback.current
   var isSpanishTranslatorCardVisible by rememberSaveable { mutableStateOf(false) }
   var isCloudSaving by remember { mutableStateOf(false) }
@@ -378,6 +387,8 @@ fun VocabularyScreen(
   var isLocalNotesTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isSettingsTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isProficiencyLevelsTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isWallpaperTrayOpen by rememberSaveable { mutableStateOf(false) }
+  val currentWallpaper by activeWallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
 
   // SAF Launcher para exportar copia .json
   val exportBackupLauncher = rememberLauncherForActivityResult(
@@ -733,6 +744,19 @@ fun VocabularyScreen(
           }
         )
 
+        // 5. Cambiar Fondo de Pantalla
+        DrawerItemRow(
+          icon = Icons.Default.Wallpaper,
+          iconTint = Color(0xFFE879F9),
+          title = "Cambiar Fondo de Pantalla",
+          subtitle = "Elegir fondo general de la app",
+          testTag = "drawer_item_wallpaper",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isWallpaperTrayOpen = true
+          }
+        )
+
         // 5. Notas locales
         DrawerItemRow(
           icon = Icons.Outlined.Description,
@@ -777,7 +801,8 @@ fun VocabularyScreen(
     Scaffold(
       modifier = modifier
         .fillMaxSize()
-        .testTag("screen_vocabulario")
+        .testTag("screen_vocabulario"),
+      containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else MaterialTheme.colorScheme.background
     ) { innerPadding ->
       Box(
         modifier = Modifier
@@ -791,7 +816,12 @@ fun VocabularyScreen(
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .background(MaterialTheme.colorScheme.background)
+              .background(
+                if (!currentWallpaper.isDefaultNone)
+                  Color.Transparent
+                else
+                  MaterialTheme.colorScheme.background
+              )
               .padding(top = 8.dp, bottom = 2.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
           ) {
@@ -1047,8 +1077,8 @@ fun VocabularyScreen(
                     modifier = Modifier
                       .fillMaxWidth()
                       .height(42.dp)
-                      .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-                      .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                      .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
+                      .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                   ) {
@@ -1124,8 +1154,8 @@ fun VocabularyScreen(
                     modifier = Modifier
                       .fillMaxWidth()
                       .height(42.dp)
-                      .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-                      .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                      .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
+                      .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 6.dp),
                     contentAlignment = Alignment.Center
                   ) {
@@ -1359,6 +1389,12 @@ fun VocabularyScreen(
         isOpen = isProficiencyLevelsTrayOpen,
         onClose = { isProficiencyLevelsTrayOpen = false },
         masteredWordsCount = usedWordsCount
+      )
+
+      FloatingWallpaperTray(
+        isOpen = isWallpaperTrayOpen,
+        onClose = { isWallpaperTrayOpen = false },
+        wallpaperManager = activeWallpaperManager
       )
 
       // BANDEJA EN PASTILLA FLOTANTE (Solo la pastilla flotante y sus 3 botones: Gemini, YouTube, Traductor)
@@ -2377,8 +2413,8 @@ fun EverydayPhrasesSection(
             modifier = Modifier
               .fillMaxWidth()
               .height(48.dp)
-              .background(Color(0xFF0F172A), shape = RoundedCornerShape(12.dp))
-              .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(12.dp))
+              .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(12.dp))
+              .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(12.dp))
               .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {

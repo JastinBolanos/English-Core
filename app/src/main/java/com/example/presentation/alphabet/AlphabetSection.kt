@@ -164,8 +164,8 @@ fun AlphabetListSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(42.dp)
-                                .background(Color(0xFF0F172A), shape = RoundedCornerShape(10.dp))
-                                .border(1.dp, Color(0xFF334155), shape = RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
+                                .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {

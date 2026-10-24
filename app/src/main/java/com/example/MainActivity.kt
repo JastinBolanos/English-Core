@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -104,29 +105,45 @@ fun EnglishApp() {
       }
     )
 
-  AnimatedContent(
-    targetState = currentScreen,
-    transitionSpec = {
-      if (targetState == AppScreen.ALARMAS) {
-        slideInHorizontally { width -> width } togetherWith slideOutHorizontally { width -> -width }
-      } else {
-        slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
-      }
-    },
-    label = "ScreenTransition"
-  ) { screen ->
-    when (screen) {
-      AppScreen.HOME,
-      AppScreen.VOCABULARIO -> {
-        com.example.presentation.vocabulary.VocabularyScreen(
-          viewModel = vocabularyViewModel,
-          onBack = { /* Primary screen */ }
-        )
-      }
-      AppScreen.ALARMAS -> {
-        com.example.presentation.alarm.AlarmsScreen(
-          onBack = { currentScreen = AppScreen.VOCABULARIO }
-        )
+  val wallpaperManager = androidx.compose.runtime.remember(context) {
+    val storage = com.example.data.wallpaper.WallpaperStorage(context.applicationContext)
+    com.example.data.wallpaper.WallpaperManager(storage)
+  }
+
+  val currentWallpaper by wallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
+  val dimAlpha by wallpaperManager.dimAlpha.collectAsStateWithLifecycle()
+
+  Box(modifier = Modifier.fillMaxSize()) {
+    com.example.presentation.wallpaper.AppWallpaperBackground(
+      wallpaper = currentWallpaper,
+      dimAlpha = dimAlpha
+    )
+
+    AnimatedContent(
+      targetState = currentScreen,
+      transitionSpec = {
+        if (targetState == AppScreen.ALARMAS) {
+          slideInHorizontally { width -> width } togetherWith slideOutHorizontally { width -> -width }
+        } else {
+          slideInHorizontally { width -> -width } togetherWith slideOutHorizontally { width -> width }
+        }
+      },
+      label = "ScreenTransition"
+    ) { screen ->
+      when (screen) {
+        AppScreen.HOME,
+        AppScreen.VOCABULARIO -> {
+          com.example.presentation.vocabulary.VocabularyScreen(
+            viewModel = vocabularyViewModel,
+            wallpaperManager = wallpaperManager,
+            onBack = { /* Primary screen */ }
+          )
+        }
+        AppScreen.ALARMAS -> {
+          com.example.presentation.alarm.AlarmsScreen(
+            onBack = { currentScreen = AppScreen.VOCABULARIO }
+          )
+        }
       }
     }
   }

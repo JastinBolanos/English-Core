@@ -1455,6 +1455,86 @@ class ExampleRobolectricTest {
     assertEquals(0, loaded[399])
     assertEquals(9, loaded[400])
   }
+
+  @Test
+  fun `verify wallpaper storage scans special assets wallpapers folder and recognizes images`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.wallpaper.WallpaperStorage(context)
+
+    val wallpapers = storage.scanAvailableWallpapers()
+    assertTrue("Debe incluir al menos la opción predeterminada y las imágenes de assets", wallpapers.size >= 2)
+
+    val defaultOption = wallpapers.first { it.isDefaultNone }
+    assertEquals("none", defaultOption.id)
+
+    // Verificar que los fondos agregados a assets estén reconocidos
+    val firstImageWallpaper = wallpapers.firstOrNull { !it.isDefaultNone }
+    assertNotNull("Debe haber fondos reconocidos en assets", firstImageWallpaper)
+    assertTrue(firstImageWallpaper!!.title.isNotBlank())
+    assertTrue(firstImageWallpaper.assetPath!!.startsWith("wallpapers/"))
+  }
+
+  @Test
+  fun `verify wallpaper manager updates and persists selected wallpaper and dim alpha`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.wallpaper.WallpaperStorage(context)
+    val manager = com.example.data.wallpaper.WallpaperManager(storage)
+
+    // Inicialmente opción predeterminada
+    assertEquals("none", manager.selectedWallpaper.value.id)
+
+    val sampleWallpaper = manager.wallpapers.value.first { !it.isDefaultNone }
+    manager.selectWallpaper(sampleWallpaper)
+    assertEquals(sampleWallpaper.id, manager.selectedWallpaper.value.id)
+    assertEquals(sampleWallpaper.id, storage.getSelectedWallpaperId())
+
+    // Probar ajuste de atenuación
+    manager.updateDimAlpha(0.60f)
+    assertEquals(0.60f, manager.dimAlpha.value, 0.01f)
+    assertEquals(0.60f, storage.getWallpaperDimAlpha(), 0.01f)
+
+    // Crear nueva instancia de manager simulando reinicio de la app
+    val newManager = com.example.data.wallpaper.WallpaperManager(storage)
+    assertEquals(sampleWallpaper.id, newManager.selectedWallpaper.value.id)
+    assertEquals(0.60f, newManager.dimAlpha.value, 0.01f)
+
+    // Revertir a predeterminado
+    newManager.selectWallpaper(com.example.data.wallpaper.WallpaperStorage.DEFAULT_NONE_WALLPAPER)
+    assertEquals("none", newManager.selectedWallpaper.value.id)
+  }
+
+  @Test
+  fun `verify floating wallpaper tray UI renders items and handles selection`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.wallpaper.WallpaperStorage(context)
+    val manager = com.example.data.wallpaper.WallpaperManager(storage)
+    var closed = false
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.wallpaper.FloatingWallpaperTray(
+          isOpen = true,
+          onClose = { closed = true },
+          wallpaperManager = manager
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    composeTestRule.onNodeWithTag("floating_wallpaper_tray_overlay").assertExists()
+    composeTestRule.onNodeWithTag("floating_wallpaper_tray_title").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_wallpaper_tray_x").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_wallpaper_tray").assertExists()
+
+    // Verificar que existe el item del fondo predeterminado
+    composeTestRule.onNodeWithTag("wallpaper_item_none").assertExists()
+
+    // Cerrar
+    composeTestRule.onNodeWithTag("btn_close_wallpaper_tray").performClick()
+    composeTestRule.waitForIdle()
+    assertTrue(closed)
+  }
 }
 
 

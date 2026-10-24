@@ -250,10 +250,10 @@ fun NumbersSection(
                     ),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF0F172A).copy(alpha = 0.85f),
-                        unfocusedContainerColor = Color(0xFF0F172A).copy(alpha = 0.65f),
+                        focusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f),
+                        unfocusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f),
                         focusedBorderColor = Color(0xFF38BDF8),
-                        unfocusedBorderColor = Color(0xFF334155),
+                        unfocusedBorderColor = Color(0xFF334155).copy(alpha = 0.7f),
                         focusedTextColor = Color(0xFFF8FAFC),
                         unfocusedTextColor = Color(0xFFF8FAFC)
                     )
