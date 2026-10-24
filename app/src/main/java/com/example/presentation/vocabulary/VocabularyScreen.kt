@@ -83,12 +83,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricBolt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
@@ -283,6 +286,9 @@ fun VocabularyScreen(
   val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
   val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
   val draftWords by viewModel.draftWords.collectAsStateWithLifecycle()
+  val canUndoDraft by viewModel.canUndoDraft.collectAsStateWithLifecycle()
+  val canRedoDraft by viewModel.canRedoDraft.collectAsStateWithLifecycle()
+  val isSpanishToEnglish by viewModel.isSpanishToEnglish.collectAsStateWithLifecycle()
   val isPhraseUpdated by viewModel.isPhraseUpdated.collectAsStateWithLifecycle()
   val isTranslationTrayExpanded by viewModel.isTranslationTrayExpanded.collectAsStateWithLifecycle()
   val translationState by viewModel.translationState.collectAsStateWithLifecycle()
@@ -291,6 +297,7 @@ fun VocabularyScreen(
   val spanishInputText by viewModel.spanishInputText.collectAsStateWithLifecycle()
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
+  val editingCustomWord by viewModel.editingCustomWord.collectAsStateWithLifecycle()
   val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
   val vocabularyTotalUses by viewModel.vocabularyTotalUses.collectAsStateWithLifecycle()
@@ -707,7 +714,6 @@ fun VocabularyScreen(
               )
             }
           }
-        }
 
         HorizontalDivider(
           color = Color(0xFF334155).copy(alpha = 0.6f),
@@ -833,6 +839,7 @@ fun VocabularyScreen(
             viewModel.openAddWordDialog()
           }
         )
+        }
       }
     }
   ) {
@@ -879,7 +886,7 @@ fun VocabularyScreen(
               }
             )
 
-          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ➔ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
+          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
           AnimatedVisibility(
             visible = isSpanishTranslatorCardVisible,
             enter = expandVertically(animationSpec = tween(280)) + fadeIn(animationSpec = tween(220)),
@@ -893,6 +900,8 @@ fun VocabularyScreen(
               translationState = spanishTranslationState,
               onSpeakEnglish = { viewModel.speakWord(it) },
               onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+              isSpanishToEnglish = isSpanishToEnglish,
+              onSwapLanguages = { viewModel.swapTranslationDirection() },
               onWordClick = { word ->
                 if (jumpRankInput.isNotEmpty()) {
                   jumpRankInput = ""
@@ -908,14 +917,18 @@ fun VocabularyScreen(
           }
 
           // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-          // Solo se muestra y abre cuando hay palabras añadidas al lienzo
+          // Se muestra y abre cuando hay palabras añadidas al lienzo o cuando se puede retroceder
           AnimatedVisibility(
-            visible = draftWords.isNotEmpty(),
+            visible = draftWords.isNotEmpty() || canUndoDraft,
             enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(220)),
             exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
           ) {
             DraftScratchpadHeader(
               draftWords = draftWords,
+              canUndoDraft = canUndoDraft,
+              canRedoDraft = canRedoDraft,
+              onUndo = { viewModel.undoDraft() },
+              onRedo = { viewModel.redoDraft() },
               isPhraseUpdated = isPhraseUpdated,
               isTranslationTrayExpanded = isTranslationTrayExpanded,
               translationState = translationState,
@@ -931,14 +944,18 @@ fun VocabularyScreen(
                   val savedStorage = SavedPhrasesStorage(context)
                   val phraseText = draftWords.joinToString(" ") { it.lemma }
                   val wordsList = draftWords.map { it.lemma }
+                  val translation = (translationState as? TranslationState.Success)?.translation
+                    ?.takeIf { it.isNotBlank() }
+                    ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
                   val newSavedPhrase = SavedDraftPhrase(
                     id = java.util.UUID.randomUUID().toString(),
                     phraseText = phraseText,
                     words = wordsList,
+                    spanishTranslation = translation,
                     createdAt = System.currentTimeMillis()
                   )
                   savedStorage.addSavedPhrase(newSavedPhrase)
-                  Toast.makeText(context, "Frase guardada en la bandeja lateral", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
 
                   // Actualiza la copia de seguridad local automática con las frases guardadas
                   val allWords = viewModel.words.value
@@ -1329,7 +1346,8 @@ fun VocabularyScreen(
                       onTap = { viewModel.addWordToDraft(word) },
                       onSpeak = { viewModel.speakWord(word) },
                       onSpeakExample = { example -> viewModel.speakExample(word, example) },
-                      onOpenDetails = { viewModel.recordWordUsage(word) }
+                      onOpenDetails = { viewModel.recordWordUsage(word) },
+                      onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null
                     )
                   }
                 }
@@ -1561,12 +1579,23 @@ fun VocabularyScreen(
   if (showAddWordDialog) {
     AddCustomWordDialog(
       nextRank = nextRank,
+      editingWord = editingCustomWord,
       onDismiss = { viewModel.closeAddWordDialog() },
       onSaveWord = { word, category, spanish, example ->
-        viewModel.addNewCustomWord(word, category, spanish, example)
-        coroutineScope.launch {
-          val newIndex = words.size.coerceAtLeast(0)
-          listState.animateScrollToItem(newIndex)
+        if (editingCustomWord != null) {
+          viewModel.updateExistingCustomWord(
+            rank = editingCustomWord!!.rank,
+            word = word,
+            category = category,
+            spanishTranslation = spanish,
+            microExample = example
+          )
+        } else {
+          viewModel.addNewCustomWord(word, category, spanish, example)
+          coroutineScope.launch {
+            val newIndex = words.size.coerceAtLeast(0)
+            listState.animateScrollToItem(newIndex)
+          }
         }
       },
       onPreviewSpeak = { text -> viewModel.speakWord(text) }
@@ -2019,22 +2048,15 @@ fun AnimatedEnglishHeader(
       .testTag("header_english_space"),
     contentAlignment = Alignment.Center
   ) {
-    // 0. Esquina superior izquierda: Botón de tres rayitas para abrir la bandeja lateral
-    IconButton(
-      onClick = onOpenDrawer,
+    // Esquina superior izquierda: Selector / reductor de velocidad TTS (en lugar del botón de 3 rayas)
+    SpeedFloatingActionButton(
+      currentSpeed = currentSpeed,
+      onClick = onToggleSpeed,
       modifier = Modifier
         .align(Alignment.CenterStart)
         .padding(start = 6.dp)
-        .size(36.dp)
-        .testTag("btn_open_side_drawer")
-    ) {
-      Icon(
-        imageVector = Icons.Default.Menu,
-        contentDescription = "Abrir bandeja lateral",
-        tint = Color(0xFF38BDF8),
-        modifier = Modifier.size(24.dp)
-      )
-    }
+        .testTag("header_speed_control")
+    )
 
     // 1. Halo ambiental de fondo suave y difuso
     Box(
@@ -2099,35 +2121,24 @@ fun AnimatedEnglishHeader(
       modifier = Modifier.testTag("text_english_title")
     )
 
-    // 4. Esquina superior derecha: Indicador de Logros ("28 🏆") + Botón de graduar velocidad TTS
-    Row(
+    // Esquina superior derecha: Indicador de Logros ("28 🏆") libre sin caja ni recuadro
+    PremiumTrophyBadge(
+      count = usedWordsCount,
+      celebrationTrigger = celebrationTrigger,
+      onClick = onOpenProficiencyLevels,
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .padding(end = 4.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      // Indicador reactivo de Copas / Palabras dominadas con efecto Premium
-      PremiumTrophyBadge(
-        count = usedWordsCount,
-        celebrationTrigger = celebrationTrigger,
-        onClick = onOpenProficiencyLevels,
-        modifier = Modifier.testTag("header_trophy_achievement_badge")
-      )
-
-      SpeedFloatingActionButton(
-        currentSpeed = currentSpeed,
-        onClick = onToggleSpeed,
-        modifier = Modifier.testTag("header_speed_control")
-      )
-    }
+        .padding(end = 6.dp)
+        .testTag("header_trophy_achievement_badge")
+    )
   }
 }
 
 /**
- * Insignia de logros de lujo ("28 🏆") para la pantalla principal de aprendizaje.
- * Reacciona de forma dinámica y visualmente impactante (brillo, escala elástica, resplandor áurico,
- * bamboleo de trofeo y partícula flotante "+1 🏆") cuando una palabra pasa de 0 a 1 contador.
+ * Insignia de logros ("28 🏆") para la cabecera principal de aprendizaje.
+ * Totalmente libre y sin caja ni recuadro amarillo tenue, conservando intacto todo el efecto
+ * de animación reactivo festivo (rebote elástico, giro festivo de trofeo, destello áureo en celebración
+ * y partícula flotante ascendente "+1 🏆").
  */
 @Composable
 fun PremiumTrophyBadge(
@@ -2142,24 +2153,11 @@ fun PremiumTrophyBadge(
   val scaleAnim = remember { Animatable(1.0f) }
   val glowAnim = remember { Animatable(0f) }
   val rotationAnim = remember { Animatable(0f) }
-  val shimmerOffset = remember { Animatable(-100f) }
   val floatingOffsetY = remember { Animatable(0f) }
   val floatingAlpha = remember { Animatable(0f) }
   var showFloatingPlusOne by remember { mutableStateOf(false) }
 
-  // Brillo continuo sutil de ambiente (respiración en reposo)
-  val infiniteTransition = rememberInfiniteTransition(label = "trophy_ambient_glow")
-  val ambientPulse by infiniteTransition.animateFloat(
-    initialValue = 0.35f,
-    targetValue = 0.75f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(2200, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "trophy_ambient_pulse"
-  )
-
-  // Disparo de la reacción visual festiva premium al detectar palabra nueva (0 -> 1)
+  // Disparo de la reacción visual festiva al detectar palabra nueva (0 -> 1)
   var lastHandledTrigger by remember { mutableLongStateOf(0L) }
   LaunchedEffect(celebrationTrigger) {
     if (celebrationTrigger > 0L && celebrationTrigger != lastHandledTrigger) {
@@ -2196,19 +2194,13 @@ fun PremiumTrophyBadge(
         )
       }
 
-      // 2. Destello de rayo de luz (Shimmer sweep)
-      launch {
-        shimmerOffset.snapTo(-80f)
-        shimmerOffset.animateTo(220f, tween(850, easing = LinearEasing))
-      }
-
-      // 3. Resplandor áurico radial (Golden aura flash)
+      // 2. Resplandor festivo momentáneo al celebrar
       launch {
         glowAnim.animateTo(1.0f, tween(160, easing = FastOutSlowInEasing))
         glowAnim.animateTo(0f, tween(750, easing = LinearEasing))
       }
 
-      // 4. Bamboleo del trofeo (Playful tilt)
+      // 3. Bamboleo festivo del trofeo (Playful tilt)
       launch {
         rotationAnim.animateTo(-16f, tween(90, easing = FastOutSlowInEasing))
         rotationAnim.animateTo(16f, tween(120, easing = FastOutSlowInEasing))
@@ -2222,145 +2214,49 @@ fun PremiumTrophyBadge(
     modifier = modifier,
     contentAlignment = Alignment.Center
   ) {
-    // 1. Halo dorado expansivo detrás de la cápsula (crece y brilla durante el logro)
-    val haloAlpha = (glowAnim.value * 0.85f).coerceAtLeast(ambientPulse * 0.20f)
-    val haloScale = 1.0f + glowAnim.value * 0.35f
-    Box(
+    // Contenido libre sin caja ni recuadro: Número + Trofeo ("28 🏆")
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
       modifier = Modifier
-        .matchParentSize()
-        .graphicsLayer {
-          scaleX = haloScale
-          scaleY = haloScale
-          alpha = haloAlpha
-        }
-        .background(
-          brush = Brush.radialGradient(
-            colors = listOf(
-              Color(0xFFFDE047).copy(alpha = 0.75f),
-              Color(0xFFEAB308).copy(alpha = 0.40f),
-              Color(0xFFD97706).copy(alpha = 0.15f),
-              Color.Transparent
-            )
-          ),
-          shape = CircleShape
+        .clip(RoundedCornerShape(8.dp))
+        .clickable(
+          interactionSource = remember { MutableInteractionSource() },
+          indication = null,
+          onClick = onClick
         )
-    )
-
-    // 2. Cápsula interactiva de lujo (Borde dorado metálico + Fondo obsidian oscuro parejo)
-    Surface(
-      onClick = onClick,
-      shape = CircleShape,
-      color = Color(0xFF0F172A),
-      border = BorderStroke(
-        width = if (glowAnim.value > 0.05f) 1.8.dp else 1.1.dp,
-        brush = Brush.horizontalGradient(
-          colors = if (glowAnim.value > 0.05f) {
-            listOf(
-              Color(0xFFFFFFFF),
-              Color(0xFFFDE047),
-              Color(0xFFFACC15),
-              Color(0xFFFFFFFF)
-            )
-          } else {
-            listOf(
-              Color(0xFFFDE047).copy(alpha = ambientPulse * 0.7f + 0.3f),
-              Color(0xFFEAB308).copy(alpha = 0.85f),
-              Color(0xFFCA8A04).copy(alpha = 0.6f),
-              Color(0xFFFDE047).copy(alpha = ambientPulse * 0.7f + 0.3f)
-            )
-          }
-        )
-      ),
-      shadowElevation = 0.dp,
-      modifier = Modifier
+        .padding(horizontal = 4.dp, vertical = 4.dp)
         .testTag("counter_used_words_badge")
         .graphicsLayer {
           scaleX = scaleAnim.value
           scaleY = scaleAnim.value
         }
     ) {
-      Box(
+      Text(
+        text = "$count",
+        style = MaterialTheme.typography.titleSmall.copy(
+          fontWeight = FontWeight.ExtraBold,
+          fontSize = 15.sp,
+          color = if (glowAnim.value > 0.05f) Color(0xFFFDE047) else Color(0xFFF8FAFC),
+          shadow = if (glowAnim.value > 0.05f) Shadow(
+            color = Color(0xFFEAB308),
+            blurRadius = 8f
+          ) else null
+        ),
+        modifier = Modifier.testTag("text_used_words_count")
+      )
+      Text(
+        text = "🏆",
+        fontSize = 15.sp,
         modifier = Modifier
-          .clip(CircleShape)
-          .background(
-            brush = Brush.verticalGradient(
-              colors = listOf(
-                Color(0xFF1E293B),
-                Color(0xFF0F172A)
-              )
-            ),
-            shape = CircleShape
-          )
-          .padding(horizontal = 11.dp, vertical = 5.dp),
-        contentAlignment = Alignment.Center
-      ) {
-        // Tinte dorado interno sutil
-        Box(
-          modifier = Modifier
-            .matchParentSize()
-            .background(
-              brush = Brush.horizontalGradient(
-                colors = listOf(
-                  Color(0xFFEAB308).copy(alpha = 0.12f + glowAnim.value * 0.28f),
-                  Color(0xFFF59E0B).copy(alpha = 0.06f + glowAnim.value * 0.20f)
-                )
-              )
-            )
-        )
-
-        // Contenido: Número + Trofeo ("28 🏆")
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-          Text(
-            text = "$count",
-            style = MaterialTheme.typography.titleSmall.copy(
-              fontWeight = FontWeight.ExtraBold,
-              fontSize = 14.5.sp,
-              color = if (glowAnim.value > 0.05f) Color(0xFFFFFFFF) else Color(0xFFF8FAFC),
-              shadow = Shadow(
-                color = Color(0xFFEAB308).copy(alpha = 0.6f),
-                blurRadius = 6f
-              )
-            ),
-            modifier = Modifier.testTag("text_used_words_count")
-          )
-          Text(
-            text = "🏆",
-            fontSize = 14.sp,
-            modifier = Modifier
-              .testTag("icon_trophy")
-              .graphicsLayer {
-                rotationZ = rotationAnim.value
-              }
-          )
-        }
-
-        // 3. Haz de luz reflectante (Shimmer beam sweep)
-        if (shimmerOffset.value > -60f && shimmerOffset.value < 180f) {
-          Box(
-            modifier = Modifier
-              .matchParentSize()
-              .background(
-                brush = Brush.linearGradient(
-                  colors = listOf(
-                    Color.Transparent,
-                    Color.White.copy(alpha = 0.7f),
-                    Color(0xFFFFFBEB).copy(alpha = 0.9f),
-                    Color(0xFFFDE047).copy(alpha = 0.6f),
-                    Color.Transparent
-                  ),
-                  start = Offset(shimmerOffset.value, 0f),
-                  end = Offset(shimmerOffset.value + 40f, 40f)
-                )
-              )
-          )
-        }
-      }
+          .testTag("icon_trophy")
+          .graphicsLayer {
+            rotationZ = rotationAnim.value
+          }
+      )
     }
 
-    // 4. Partícula flotante ascendente "+1 🏆"
+    // Partícula flotante ascendente "+1 🏆"
     if (showFloatingPlusOne) {
       Text(
         text = "+1 🏆",
@@ -2838,22 +2734,31 @@ private fun CompactWordInputField(
 }
 
 /**
- * Diálogo interactivo con caja tipo HUD para añadir una palabra personalizada.
- * El rank siempre se asigna automáticamente (maxOf(2809, maxRank) + 1).
+ * Diálogo interactivo con caja tipo HUD para añadir o actualizar una palabra personalizada (#2810+).
+ * - En modo añadir: El rank se asigna automáticamente (maxOf(2809, maxRank) + 1).
+ * - En modo actualizar: Se auto-rellena con los datos existentes de ese bloque y conserva su rank original.
  * Guarda en custom_words.json en el almacenamiento local del teléfono sin alterar
  * el vocabulario nativo de 2,809 palabras.
  */
 @Composable
 fun AddCustomWordDialog(
   nextRank: Int,
+  editingWord: Word? = null,
   onDismiss: () -> Unit,
   onSaveWord: (word: String, category: String, spanish: String, example: String) -> Unit,
   onPreviewSpeak: (String) -> Unit
 ) {
-  var wordInput by rememberSaveable { mutableStateOf("") }
-  var spanishInput by rememberSaveable { mutableStateOf("") }
-  var exampleInput by rememberSaveable { mutableStateOf("") }
-  var selectedCategory by rememberSaveable { mutableStateOf("sustantivo") }
+  val isEditing = editingWord != null
+  val displayRank = editingWord?.rank ?: nextRank
+
+  var wordInput by remember(editingWord) { mutableStateOf(editingWord?.lemma ?: "") }
+  var spanishInput by remember(editingWord) { mutableStateOf(editingWord?.spanishTranslation ?: "") }
+  var exampleInput by remember(editingWord) { mutableStateOf(editingWord?.microExample ?: "") }
+  var selectedCategory by remember(editingWord) {
+    mutableStateOf(
+      editingWord?.rawPartOfSpeech?.takeIf { it.isNotBlank() } ?: "sustantivo"
+    )
+  }
 
   val previewPartOfSpeech = remember(selectedCategory) {
     com.example.domain.util.WordGrammarCatalog.getPrimaryCategory(selectedCategory)
@@ -2892,14 +2797,14 @@ fun AddCustomWordDialog(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
             Icon(
-              imageVector = Icons.Default.Add,
+              imageVector = if (isEditing) Icons.Default.Edit else Icons.Default.Add,
               contentDescription = null,
               tint = syntaxColor,
               modifier = Modifier.size(24.dp)
             )
             Column {
               Text(
-                text = "AÑADIR PALABRA (#$nextRank)",
+                text = if (isEditing) "ACTUALIZAR PALABRA (#$displayRank)" else "AÑADIR PALABRA (#$displayRank)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFFF8FAFC),
@@ -2955,7 +2860,7 @@ fun AddCustomWordDialog(
               .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
-            // Badge de Rank automático
+            // Badge de Rank
             Surface(
               shape = RoundedCornerShape(8.dp),
               color = Color(0xFF0F172A),
@@ -2964,7 +2869,7 @@ fun AddCustomWordDialog(
             ) {
               Box(contentAlignment = Alignment.Center) {
                 Text(
-                  text = "#$nextRank",
+                  text = "#$displayRank",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.Bold,
                   color = Color(0xFF38BDF8)
@@ -2988,7 +2893,7 @@ fun AddCustomWordDialog(
                   color = if (wordInput.isNotBlank()) syntaxColor else Color(0xFF64748B)
                 )
                 Text(
-                  text = "0",
+                  text = "${editingWord?.useCount ?: 0}",
                   fontSize = 13.sp,
                   fontWeight = FontWeight.Normal,
                   color = Color(0xFF64748B)
@@ -3149,7 +3054,7 @@ fun AddCustomWordDialog(
           )
         ) {
           Text(
-            text = "GUARDAR PALABRA #$nextRank",
+            text = if (isEditing) "ACTUALIZAR PALABRA #$displayRank" else "GUARDAR PALABRA #$displayRank",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = if (wordInput.isNotBlank()) Color(0xFF0F172A) else Color(0xFF94A3B8)
@@ -4123,6 +4028,10 @@ fun openGoogleTranslate(context: Context, phrase: String) {
 @Composable
 private fun DraftScratchpadHeader(
   draftWords: List<Word>,
+  canUndoDraft: Boolean = false,
+  canRedoDraft: Boolean = false,
+  onUndo: () -> Unit = {},
+  onRedo: () -> Unit = {},
   isPhraseUpdated: Boolean,
   isTranslationTrayExpanded: Boolean,
   translationState: TranslationState,
@@ -4174,11 +4083,43 @@ private fun DraftScratchpadHeader(
           )
         }
 
-        // Acciones rápidas (Traducir a Google Translate, Guardar, Play y Limpiar)
+        // Acciones rápidas (Retroceder, Adelantar, Traducir a Google Translate, Guardar, Play y Limpiar)
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+          // Botón Flecha Retroceder cambio (Undo)
+          IconButton(
+            onClick = onUndo,
+            enabled = canUndoDraft,
+            modifier = Modifier
+              .size(30.dp)
+              .testTag("btn_undo_draft")
+          ) {
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.Undo,
+              contentDescription = "Retroceder cambio en lienzo",
+              tint = if (canUndoDraft) Color(0xFF38BDF8) else Color(0xFF475569),
+              modifier = Modifier.size(19.dp)
+            )
+          }
+
+          // Botón Flecha Adelantar cambio (Redo)
+          IconButton(
+            onClick = onRedo,
+            enabled = canRedoDraft,
+            modifier = Modifier
+              .size(30.dp)
+              .testTag("btn_redo_draft")
+          ) {
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.Redo,
+              contentDescription = "Adelantar cambio en lienzo",
+              tint = if (canRedoDraft) Color(0xFF38BDF8) else Color(0xFF475569),
+              modifier = Modifier.size(19.dp)
+            )
+          }
+
           // El botón de traducir SOLO existe si hay frase armada en el Lienzo de Pruebas
           if (draftWords.isNotEmpty()) {
             IconButton(
@@ -4547,6 +4488,7 @@ fun WordHudCard(
   onSpeak: () -> Unit = {},
   onSpeakExample: ((String) -> Unit)? = null,
   onOpenDetails: (() -> Unit)? = null,
+  onEdit: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   var isRevealed by rememberSaveable(word.id) { mutableStateOf(false) }
@@ -4634,6 +4576,23 @@ fun WordHudCard(
           tint = Color(0xFF94A3B8),
           modifier = Modifier.size(20.dp)
         )
+      }
+
+      // Icono de edición (SOLO para palabras personalizadas con rank >= 2810)
+      if (word.rank >= 2810 && onEdit != null) {
+        IconButton(
+          onClick = onEdit,
+          modifier = Modifier
+            .size(36.dp)
+            .testTag("btn_edit_word_${word.rank}")
+        ) {
+          Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = "Editar palabra ${word.lemma}",
+            tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(19.dp)
+          )
+        }
       }
 
       // Icono para desplegar bandeja de detalles (español y oración) agrandado

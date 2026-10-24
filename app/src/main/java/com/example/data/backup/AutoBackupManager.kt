@@ -253,6 +253,7 @@ object AutoBackupManager {
                         val wArr = JSONArray()
                         sp.words.forEach { wArr.put(it) }
                         put("words", wArr)
+                        put("spanishTranslation", sp.spanishTranslation)
                         put("createdAt", sp.createdAt)
                     })
                 }
@@ -853,6 +854,7 @@ object AutoBackupManager {
                     }
                     val phraseText = obj.optString("phraseText", wordsList.joinToString(" "))
                     val id = obj.optString("id", java.util.UUID.randomUUID().toString())
+                    val spanishTranslation = obj.optString("spanishTranslation", "")
                     val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                     if (phraseText.isNotBlank() || wordsList.isNotEmpty()) {
                         savedDraftPhrasesList.add(
@@ -860,6 +862,7 @@ object AutoBackupManager {
                                 id = id,
                                 phraseText = phraseText,
                                 words = wordsList,
+                                spanishTranslation = spanishTranslation,
                                 createdAt = createdAt
                             )
                         )

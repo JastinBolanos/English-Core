@@ -17,4 +17,11 @@ interface VocabularyRepository {
     spanishTranslation: String,
     microExample: String
   ): Word
+  suspend fun updateCustomWord(
+    rank: Int,
+    word: String,
+    partOfSpeech: String,
+    spanishTranslation: String,
+    microExample: String
+  ): Word?
 }

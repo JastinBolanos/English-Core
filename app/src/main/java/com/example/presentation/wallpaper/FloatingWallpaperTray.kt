@@ -191,14 +191,13 @@ fun FloatingWallpaperTray(
               onClick = onClose,
               modifier = Modifier
                 .size(36.dp)
-                .background(Color(0xFF1E293B), CircleShape)
                 .testTag("btn_close_wallpaper_tray_x")
             ) {
               Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Cerrar",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(18.dp)
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(22.dp)
               )
             }
           }

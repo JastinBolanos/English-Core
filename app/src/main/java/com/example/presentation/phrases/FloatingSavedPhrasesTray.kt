@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -191,14 +194,13 @@ fun FloatingSavedPhrasesTray(
               onClick = onClose,
               modifier = Modifier
                 .size(36.dp)
-                .background(Color(0xFF1E293B), CircleShape)
                 .testTag("btn_close_saved_phrases_x")
             ) {
               Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Cerrar",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(18.dp)
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(22.dp)
               )
             }
           }
@@ -335,48 +337,75 @@ private fun SavedPhraseItemCard(
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(12.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp)
+        .padding(10.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-      // Texto en inglés de la frase guardada
-      Text(
-        text = phrase.phraseText,
-        style = MaterialTheme.typography.bodyLarge.copy(
-          fontWeight = FontWeight.Bold,
-          fontSize = 15.sp,
-          color = Color(0xFFF8FAFC)
-        ),
-        modifier = Modifier.testTag("text_saved_phrase_${phrase.id}")
-      )
-
-      // Fila de acciones: Pronunciar (🔊), + Lienzo (botón para reutilizar), Borrar (🗑️)
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        // Botón de audio TTS
-        IconButton(
-          onClick = onSpeak,
+        Column(
           modifier = Modifier
-            .size(36.dp)
-            .background(Color(0xFF0F172A), CircleShape)
-            .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f), CircleShape)
-            .testTag("btn_speak_saved_phrase_${phrase.id}")
+            .weight(1f)
+            .padding(end = 8.dp)
         ) {
-          Icon(
-            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-            contentDescription = "Escuchar pronunciación",
-            tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(18.dp)
+          Text(
+            text = phrase.phraseText,
+            style = MaterialTheme.typography.bodyLarge.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 15.sp,
+              color = Color(0xFFF8FAFC)
+            ),
+            modifier = Modifier.testTag("text_saved_phrase_${phrase.id}")
           )
+
+          if (phrase.spanishTranslation.isNotBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Translate,
+                contentDescription = null,
+                tint = Color(0xFF38BDF8),
+                modifier = Modifier.size(12.dp)
+              )
+              Text(
+                text = phrase.spanishTranslation,
+                style = MaterialTheme.typography.bodySmall.copy(
+                  color = Color(0xFF38BDF8),
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.testTag("text_saved_phrase_trans_${phrase.id}")
+              )
+            }
+          }
         }
 
+        // Fila de acciones compacta en la misma tarjeta: Pronunciar (🔊), + Lienzo (botón para reutilizar), Borrar (🗑️)
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
+          horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-          // Botón "+ Lienzo" (reutilizar en el lienzo de pruebas)
+          IconButton(
+            onClick = onSpeak,
+            modifier = Modifier
+              .size(34.dp)
+              .background(Color(0xFF0F172A), CircleShape)
+              .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f), CircleShape)
+              .testTag("btn_speak_saved_phrase_${phrase.id}")
+          ) {
+            Icon(
+              imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+              contentDescription = "Escuchar pronunciación",
+              tint = Color(0xFF38BDF8),
+              modifier = Modifier.size(16.dp)
+            )
+          }
+
           Button(
             onClick = onAddToCanvas,
             shape = RoundedCornerShape(8.dp),
@@ -385,7 +414,7 @@ private fun SavedPhraseItemCard(
               contentColor = Color(0xFF38BDF8)
             ),
             border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             modifier = Modifier
               .height(34.dp)
               .testTag("btn_add_saved_to_canvas_${phrase.id}")
@@ -395,15 +424,14 @@ private fun SavedPhraseItemCard(
               contentDescription = null,
               modifier = Modifier.size(14.dp)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(3.dp))
             Text(
               text = "+ Lienzo",
-              fontSize = 12.sp,
+              fontSize = 11.sp,
               fontWeight = FontWeight.Bold
             )
           }
 
-          // Botón eliminar frase guardada
           IconButton(
             onClick = onDelete,
             modifier = Modifier
@@ -415,7 +443,7 @@ private fun SavedPhraseItemCard(
               imageVector = Icons.Default.DeleteOutline,
               contentDescription = "Eliminar frase guardada",
               tint = Color(0xFFEF4444),
-              modifier = Modifier.size(18.dp)
+              modifier = Modifier.size(16.dp)
             )
           }
         }

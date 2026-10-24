@@ -157,6 +157,52 @@ class VocabularyRepositoryImpl @Inject constructor(
     return entity.copy(id = id).toDomain()
   }
 
+  override suspend fun updateCustomWord(
+    rank: Int,
+    word: String,
+    partOfSpeech: String,
+    spanishTranslation: String,
+    microExample: String
+  ): Word? {
+    if (rank < 2810) return null
+    val cleanLemma = word.trim()
+    if (cleanLemma.isBlank()) return null
+    val cleanLemmaLower = cleanLemma.lowercase(java.util.Locale.ROOT)
+
+    val existing = wordDao.getWordByRank(rank) ?: return null
+    val currentUseCount = existing.useCount
+
+    val customRecord = com.example.data.local.CustomWordRecord(
+      rank = rank,
+      word = cleanLemma,
+      partOfSpeech = partOfSpeech,
+      spanishTranslation = spanishTranslation.trim(),
+      microExample = microExample.trim(),
+      useCount = currentUseCount
+    )
+
+    // 1. Guardar/actualizar en custom_words.json
+    customWordsStorage?.saveCustomWord(customRecord)
+
+    // 2. Inyectar en catálogos en memoria
+    WordGrammarCatalog.injectGrammarTypes(mapOf(cleanLemmaLower to partOfSpeech))
+    if (spanishTranslation.isNotBlank()) {
+      WordDictionary.injectTranslations(mapOf(cleanLemmaLower to spanishTranslation.trim()))
+    }
+    if (microExample.isNotBlank()) {
+      WordDictionary.injectExamples(mapOf(cleanLemmaLower to microExample.trim()))
+    }
+
+    // 3. Actualizar en Room Database conservando ID y useCount
+    val updatedEntity = existing.copy(
+      word = cleanLemma,
+      partOfSpeech = partOfSpeech
+    )
+    wordDao.insertWord(updatedEntity)
+
+    return updatedEntity.toDomain()
+  }
+
   private fun WordEntity.toDomain(): Word {
     val cleanLemma = word.lowercase().trim()
 

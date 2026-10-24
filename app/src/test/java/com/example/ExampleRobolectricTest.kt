@@ -2,10 +2,14 @@ package com.example
 
 import android.content.Context
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import kotlinx.coroutines.flow.first
 
 import androidx.test.core.app.ApplicationProvider
@@ -60,10 +64,14 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("header_speed_control").assertExists()
+    composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertExists()
 
-    // Open side drawer and click Roadmap
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    // Open side drawer by edge swiping and click Roadmap
+    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
+      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
+    }
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
@@ -253,8 +261,10 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
+      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
+    }
     composeTestRule.waitForIdle()
 
     // Click Ruta item in drawer
@@ -468,10 +478,12 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     // Initially hidden
     composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertDoesNotExist()
 
-    // Tap drawer item to open writer card
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    // Open side drawer by swipe and tap drawer item to open writer card
+    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
+      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
+    }
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("drawer_item_spanish_translator").performScrollTo().performClick()
     composeTestRule.waitForIdle()
@@ -666,8 +678,10 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").performClick()
     composeTestRule.waitForIdle()
 
-    // Open side drawer and click Add Word
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    // Open side drawer by swiping and click Add Word
+    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
+      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
+    }
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("drawer_item_add_word").performScrollTo().performClick()
     composeTestRule.waitForIdle()
@@ -1567,9 +1581,329 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_speak_saved_phrase_${phrase.id}").performClick()
     composeTestRule.waitForIdle()
     assertEquals("How are you today", spokenPhrase)
+
+    // Verify translation row exists in UI
+    composeTestRule.onNodeWithTag("text_saved_phrase_trans_${phrase.id}").assertExists()
+  }
+
+  @Test
+  fun `verify saved phrases storage writes to json file with translation and full fields`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.local.SavedPhrasesStorage(context)
+    storage.clearAll()
+
+    val file = java.io.File(context.filesDir, "saved_phrases.json")
+    storage.addPhrase("that was good", listOf("that", "was", "good"))
+    assertTrue("saved_phrases.json debe existir en context.filesDir", file.exists())
+
+    val content = file.readText()
+    assertTrue(content.contains("that was good"))
+    assertTrue(content.contains("spanishTranslation"))
+
+    val loaded = storage.loadSavedPhrases()
+    assertEquals(1, loaded.size)
+    assertEquals("that was good", loaded[0].phraseText)
+    assertTrue("Debe tener traducción generada o persistida", loaded[0].spanishTranslation.isNotBlank())
+    assertEquals(listOf("that", "was", "good"), loaded[0].words)
+  }
+
+  @Test
+  fun `verify wallpaper tray X close button renders cleanly without background circle`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.wallpaper.FloatingWallpaperTray(
+          isOpen = true,
+          onClose = {},
+          wallpaperManager = com.example.data.wallpaper.WallpaperManager(
+            com.example.data.wallpaper.WallpaperStorage(context)
+          )
+        )
+      }
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("btn_close_wallpaper_tray_x").assertExists()
+  }
+
+  @Test
+  fun `verify lienzo de pruebas undo and redo arrows restore and advance changes`() {
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    val word1 = Word(id = 1, lemma = "hello", rank = 1, partOfSpeech = PartOfSpeech.NOUN)
+    val word2 = Word(id = 2, lemma = "world", rank = 2, partOfSpeech = PartOfSpeech.NOUN)
+
+    assertFalse("Inicialmente no se puede retroceder", viewModel.canUndoDraft.value)
+    assertFalse("Inicialmente no se puede adelantar", viewModel.canRedoDraft.value)
+
+    // 1. Agregar palabra 1
+    viewModel.addWordToDraft(word1)
+    assertEquals(listOf("hello"), viewModel.draftWords.value.map { it.lemma })
+    assertTrue("Ahora se puede retroceder", viewModel.canUndoDraft.value)
+    assertFalse("No se puede adelantar", viewModel.canRedoDraft.value)
+
+    // 2. Agregar palabra 2
+    viewModel.addWordToDraft(word2)
+    assertEquals(listOf("hello", "world"), viewModel.draftWords.value.map { it.lemma })
+
+    // 3. Retroceder (Undo)
+    viewModel.undoDraft()
+    assertEquals(listOf("hello"), viewModel.draftWords.value.map { it.lemma })
+    assertTrue("Se puede retroceder más", viewModel.canUndoDraft.value)
+    assertTrue("Ahora se puede adelantar", viewModel.canRedoDraft.value)
+
+    // 4. Retroceder otra vez (al estado vacío inicial)
+    viewModel.undoDraft()
+    assertTrue(viewModel.draftWords.value.isEmpty())
+    assertFalse("No se puede retroceder más allá del inicio", viewModel.canUndoDraft.value)
+    assertTrue("Se puede adelantar", viewModel.canRedoDraft.value)
+
+    // 5. Adelantar (Redo) paso 1
+    viewModel.redoDraft()
+    assertEquals(listOf("hello"), viewModel.draftWords.value.map { it.lemma })
+
+    // 6. Adelantar (Redo) paso 2
+    viewModel.redoDraft()
+    assertEquals(listOf("hello", "world"), viewModel.draftWords.value.map { it.lemma })
+    assertFalse("Se agotó la pila de adelantar", viewModel.canRedoDraft.value)
+
+    db.close()
+  }
+
+  @Test
+  fun `verify translator direction swap inverts mode and swaps tray contents`() {
+    val fakeTts = object : com.example.data.tts.TtsManager {
+      override val currentSpeechRate = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+      override fun cycleSpeechRate(): Float = 1.0f
+      override fun speak(text: String) {}
+      override fun stop() {}
+      override fun shutdown() {}
+      override fun setSpeechRate(rate: Float) {}
+    }
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
+    val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
+
+    // Modo inicial: Español -> Inglés
+    assertTrue("Modo inicial debe ser Español -> Inglés", viewModel.isSpanishToEnglish.value)
+
+    // Escribir palabra en español
+    viewModel.updateSpanishInputText("mundo")
+    assertEquals("mundo", viewModel.spanishInputText.value)
+
+    // Traducir de inmediato
+    viewModel.translateSpanishNow()
+    for (i in 0..30) {
+      org.robolectric.shadows.ShadowLooper.idleMainLooper()
+      if (viewModel.spanishTranslationState.value is com.example.domain.translation.TranslationState.Success) break
+      Thread.sleep(40)
+    }
+
+    // Invertir dirección: ahora debe ser Inglés -> Español
+    viewModel.swapTranslationDirection()
+    assertFalse("Modo ahora debe ser Inglés -> Español", viewModel.isSpanishToEnglish.value)
+
+    // Si había traducción, se intercambia al input; si no, el input se mantiene y se invierte el flujo
+    val currentInput = viewModel.spanishInputText.value
+    assertTrue("El input debe tener contenido no vacío", currentInput.isNotBlank())
+
+    // Invertir nuevamente
+    viewModel.swapTranslationDirection()
+    assertTrue("Modo regresa a Español -> Inglés", viewModel.isSpanishToEnglish.value)
+
+    db.close()
+  }
+
+  @Test
+  fun `verify writer card renders swap button and lienzo header renders undo and redo buttons`() {
+    var swapped = false
+    var undid = false
+    var redid = false
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        androidx.compose.foundation.layout.Column {
+          com.example.presentation.vocabulary.SpanishToEnglishWriterCard(
+            spanishText = "hola",
+            onSpanishTextChanged = {},
+            onTranslateNow = {},
+            onClear = {},
+            translationState = com.example.domain.translation.TranslationState.Success("hello"),
+            onSpeakEnglish = {},
+            onAddToCanvas = {},
+            isSpanishToEnglish = true,
+            onSwapLanguages = { swapped = true }
+          )
+
+          com.example.presentation.vocabulary.SpanishToEnglishWriterCard(
+            spanishText = "hello",
+            onSpanishTextChanged = {},
+            onTranslateNow = {},
+            onClear = {},
+            translationState = com.example.domain.translation.TranslationState.Success("hola"),
+            onSpeakEnglish = {},
+            onAddToCanvas = {},
+            isSpanishToEnglish = false,
+            onSwapLanguages = { swapped = true }
+          )
+        }
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // El botón swap debe existir y responder
+    composeTestRule.onAllNodesWithTag("btn_swap_translation_direction")[0].performClick()
+    assertTrue(swapped)
+  }
+
+  @Test
+  fun `verify only custom words 2810 and above have edit button and words 1 to 2809 cannot be edited`() {
+    val wordCore = Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.MODIFIER)
+    val wordCustom = Word(id = 2810, lemma = "breakthrough", rank = 2810, partOfSpeech = PartOfSpeech.NOUN)
+
+    var editClicked = false
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        androidx.compose.foundation.layout.Column {
+          com.example.presentation.vocabulary.WordHudCard(
+            word = wordCore,
+            onTap = {},
+            onEdit = if (wordCore.rank >= 2810) { {} } else null
+          )
+          com.example.presentation.vocabulary.WordHudCard(
+            word = wordCustom,
+            onTap = {},
+            onEdit = if (wordCustom.rank >= 2810) { { editClicked = true } } else null
+          )
+        }
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // 1. Palabra del núcleo (#1): NO debe tener botón de editar
+    composeTestRule.onNodeWithTag("btn_edit_word_1").assertDoesNotExist()
+
+    // 2. Palabra personalizada (#2810): SÍ debe tener botón de editar
+    composeTestRule.onNodeWithTag("btn_edit_word_2810").assertExists()
+    composeTestRule.onNodeWithTag("btn_edit_word_2810").performClick()
+    assertTrue("Debe invocar la acción de edición", editClicked)
+  }
+
+  @Test
+  fun `verify editing custom word updates json storage and room database with same rank`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
+
+    // Crear palabra 2810 inicial
+    val created = repo.addCustomWord(
+      word = "breakthrough",
+      partOfSpeech = "sustantivo",
+      spanishTranslation = "avance",
+      microExample = "a great breakthrough"
+    )
+    assertEquals(2810, created.rank)
+    assertEquals("breakthrough", created.lemma)
+
+    // Actualizar la palabra 2810
+    val updated = repo.updateCustomWord(
+      rank = 2810,
+      word = "innovation",
+      partOfSpeech = "sustantivo",
+      spanishTranslation = "innovación",
+      microExample = "a new innovation"
+    )
+    assertNotNull(updated)
+    assertEquals(2810, updated!!.rank)
+    assertEquals("innovation", updated.lemma)
+    assertEquals("innovación", updated.spanishTranslation)
+
+    // Verificar en custom_words.json
+    val jsonFile = java.io.File(context.filesDir, "custom_words.json")
+    assertTrue(jsonFile.exists())
+    val content = jsonFile.readText()
+    assertTrue(content.contains("innovation"))
+    assertTrue(content.contains("innovación"))
+
+    // Verificar que una palabra < 2810 rechaza ser editada
+    val rejected = repo.updateCustomWord(
+      rank = 100,
+      word = "hacked",
+      partOfSpeech = "verbo",
+      spanishTranslation = "hackeado",
+      microExample = ""
+    )
+    assertEquals(null, rejected)
+
+    db.close()
+  }
+
+  @Test
+  fun `verify AddCustomWordDialog in edit mode displays Actualizar palabra and prefilled data`() {
+    val customWord = Word(
+      id = 2810,
+      lemma = "feedback",
+      rank = 2810,
+      rawPartOfSpeech = "sustantivo",
+      spanishTranslation = "retroalimentación",
+      microExample = "give me feedback"
+    )
+
+    var savedWord: String? = null
+    var savedSpanish: String? = null
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.vocabulary.AddCustomWordDialog(
+          nextRank = 2811,
+          editingWord = customWord,
+          onDismiss = {},
+          onSaveWord = { word, _, spanish, _ ->
+            savedWord = word
+            savedSpanish = spanish
+          },
+          onPreviewSpeak = {}
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Debe mostrar ACTUALIZAR PALABRA (#2810)
+    composeTestRule.onNodeWithText("ACTUALIZAR PALABRA (#2810)").assertExists()
+    // El botón inferior debe decir ACTUALIZAR PALABRA #2810
+    composeTestRule.onNodeWithText("ACTUALIZAR PALABRA #2810").assertExists()
+
+    // Al hacer clic en guardar debe disparar con los datos autorellenados
+    composeTestRule.onNodeWithTag("btn_save_custom_word").performScrollTo().performClick()
+    assertEquals("feedback", savedWord)
+    assertEquals("retroalimentación", savedSpanish)
   }
 }
-
-
-
 

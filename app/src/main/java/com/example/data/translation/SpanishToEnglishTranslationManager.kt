@@ -31,12 +31,14 @@ class SpanishToEnglishTranslationManager(
   private val _translationState = MutableStateFlow<TranslationState>(TranslationState.Idle)
   val translationState: StateFlow<TranslationState> = _translationState.asStateFlow()
 
-  private var isModelDownloaded = false
-  private var isDownloading = false
+  private var isModelDownloadedEsToEn = false
+  private var isModelDownloadedEnToEs = false
+  private var isDownloadingEsToEn = false
+  private var isDownloadingEnToEs = false
   private var latestPendingText: String? = null
   private var activeTranslationJob: Job? = null
 
-  private val translator: Translator by lazy {
+  private val esToEnTranslator: Translator by lazy {
     val options = TranslatorOptions.Builder()
       .setSourceLanguage(TranslateLanguage.SPANISH)
       .setTargetLanguage(TranslateLanguage.ENGLISH)
@@ -44,10 +46,27 @@ class SpanishToEnglishTranslationManager(
     Translation.getClient(options)
   }
 
+  private val enToEsTranslator: Translator by lazy {
+    val options = TranslatorOptions.Builder()
+      .setSourceLanguage(TranslateLanguage.ENGLISH)
+      .setTargetLanguage(TranslateLanguage.SPANISH)
+      .build()
+    Translation.getClient(options)
+  }
+
+  fun setSuccess(text: String) {
+    val clean = text.trim()
+    if (clean.isNotBlank()) {
+      latestPendingText = clean
+      _translationState.value = TranslationState.Success(clean)
+    }
+  }
+
   fun translate(
     text: String,
     apiKey: String = "",
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    isSpanishToEnglish: Boolean = true
   ) {
     val clean = text.trim()
     if (clean.isBlank()) {
@@ -61,21 +80,31 @@ class SpanishToEnglishTranslationManager(
     activeTranslationJob?.cancel()
 
     activeTranslationJob = scope.launch(Dispatchers.IO) {
-      // 1. Traducción preliminar inmediata con diccionario inverso
-      val dictTranslation = lookupInDictionary(clean)
+      // 1. Traducción preliminar inmediata con diccionario inverso o PhraseTranslator
+      val dictTranslation = if (isSpanishToEnglish) {
+        lookupInDictionary(clean)
+      } else {
+        com.example.domain.util.PhraseTranslator.translatePhrase(clean)
+      }
+
       if (dictTranslation.isNotBlank()) {
         _translationState.value = TranslationState.Success(dictTranslation)
       } else {
         _translationState.value = TranslationState.Translating
       }
 
-      // 2. Si se cuenta con API key de Gemini, usar Gemini directamente evitando carga de ML Kit
+      // 2. Si se cuenta con API key de Gemini, usar Gemini directamente
       val cleanKey = apiKey.trim()
       if (cleanKey.isNotBlank() && cleanKey != "your_gemini_api_key_here") {
         var geminiSuccess = false
         try {
-          val prompt = "Translate the following Spanish text into natural, idiomatic, accurate English. " +
-            "Respond ONLY with the direct English translation without explanations, quotes, or notes:\n$clean"
+          val prompt = if (isSpanishToEnglish) {
+            "Translate the following Spanish text into natural, idiomatic, accurate English. " +
+              "Respond ONLY with the direct English translation without explanations, quotes, or notes:\n$clean"
+          } else {
+            "Translate the following English text into natural, idiomatic, accurate Spanish. " +
+              "Respond ONLY with the direct Spanish translation without explanations, quotes, or notes:\n$clean"
+          }
           val result = geminiChatService.askGemini(emptyList(), prompt, cleanKey)
           result.onSuccess { refined ->
             val cleanRefined = refined.trim().removeSurrounding("\"").removeSurrounding("'")
@@ -88,9 +117,9 @@ class SpanishToEnglishTranslationManager(
         if (geminiSuccess) return@launch
       }
 
-      // 3. Modelo neuronal offline de Google ML Kit (Spanish -> English)
+      // 3. Modelo neuronal offline de Google ML Kit
       try {
-        executeMlKitTranslation(clean, dictTranslation)
+        executeMlKitTranslation(clean, dictTranslation, isSpanishToEnglish)
       } catch (_: Throwable) {
         if (dictTranslation.isNotBlank() && latestPendingText == clean) {
           _translationState.value = TranslationState.Success(dictTranslation)
@@ -99,30 +128,39 @@ class SpanishToEnglishTranslationManager(
     }
   }
 
-  private fun executeMlKitTranslation(text: String, fallback: String) {
+  private fun executeMlKitTranslation(text: String, fallback: String, isSpanishToEnglish: Boolean) {
+    val targetTranslator = if (isSpanishToEnglish) esToEnTranslator else enToEsTranslator
+    val isDownloaded = if (isSpanishToEnglish) isModelDownloadedEsToEn else isModelDownloadedEnToEs
+    val isDownloading = if (isSpanishToEnglish) isDownloadingEsToEn else isDownloadingEnToEs
+
     try {
-      if (!isModelDownloaded) {
+      if (!isDownloaded) {
         if (!isDownloading) {
-          isDownloading = true
+          if (isSpanishToEnglish) isDownloadingEsToEn = true else isDownloadingEnToEs = true
           _translationState.value = TranslationState.DownloadingModel
           val conditions = DownloadConditions.Builder().build()
-          translator.downloadModelIfNeeded(conditions)
+          targetTranslator.downloadModelIfNeeded(conditions)
             .addOnSuccessListener {
-              isModelDownloaded = true
-              isDownloading = false
+              if (isSpanishToEnglish) {
+                isModelDownloadedEsToEn = true
+                isDownloadingEsToEn = false
+              } else {
+                isModelDownloadedEnToEs = true
+                isDownloadingEnToEs = false
+              }
               if (text == latestPendingText) {
-                runMlKitTranslate(text, fallback)
+                runMlKitTranslate(targetTranslator, text, fallback)
               }
             }
             .addOnFailureListener {
-              isDownloading = false
+              if (isSpanishToEnglish) isDownloadingEsToEn = false else isDownloadingEnToEs = false
               if (fallback.isNotBlank() && text == latestPendingText) {
                 _translationState.value = TranslationState.Success(fallback)
               }
             }
         }
       } else {
-        runMlKitTranslate(text, fallback)
+        runMlKitTranslate(targetTranslator, text, fallback)
       }
     } catch (_: Exception) {
       if (fallback.isNotBlank() && text == latestPendingText) {
@@ -131,8 +169,8 @@ class SpanishToEnglishTranslationManager(
     }
   }
 
-  private fun runMlKitTranslate(text: String, fallback: String) {
-    translator.translate(text)
+  private fun runMlKitTranslate(targetTranslator: Translator, text: String, fallback: String) {
+    targetTranslator.translate(text)
       .addOnSuccessListener { result ->
         if (text == latestPendingText) {
           val cleanResult = result.trim()
@@ -175,7 +213,8 @@ class SpanishToEnglishTranslationManager(
   fun close() {
     try {
       activeTranslationJob?.cancel()
-      translator.close()
+      esToEnTranslator.close()
+      enToEsTranslator.close()
     } catch (_: Exception) {}
   }
 }

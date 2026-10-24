@@ -94,6 +94,63 @@ class VocabularyViewModel @Inject constructor(
   private val _geminiInputText = MutableStateFlow("")
   val geminiInputText: StateFlow<String> = _geminiInputText.asStateFlow()
 
+  // Estado del Borrador de Frases (Scratchpad / Lienzo de Pruebas)
+  private val _draftWords = MutableStateFlow<List<Word>>(emptyList())
+  val draftWords: StateFlow<List<Word>> = _draftWords.asStateFlow()
+
+  // Historial de cambios para retroceder (Undo) y adelantar (Redo) en el lienzo
+  private val undoDraftStack = mutableListOf<List<Word>>()
+  private val redoDraftStack = mutableListOf<List<Word>>()
+
+  private val _canUndoDraft = MutableStateFlow(false)
+  val canUndoDraft: StateFlow<Boolean> = _canUndoDraft.asStateFlow()
+
+  private val _canRedoDraft = MutableStateFlow(false)
+  val canRedoDraft: StateFlow<Boolean> = _canRedoDraft.asStateFlow()
+
+  // Indica si la frase fue actualizada/reordenada y está lista para sonar en su nueva posición
+  private val _isPhraseUpdated = MutableStateFlow(false)
+  val isPhraseUpdated: StateFlow<Boolean> = _isPhraseUpdated.asStateFlow()
+
+  // Estado de la bandeja desplegable de traducción con Google ML Kit
+  private val _isTranslationTrayExpanded = MutableStateFlow(false)
+  val isTranslationTrayExpanded: StateFlow<Boolean> = _isTranslationTrayExpanded.asStateFlow()
+
+  private fun updateDraftWithHistory(newDraft: List<Word>) {
+    if (newDraft == _draftWords.value) return
+    undoDraftStack.add(_draftWords.value)
+    redoDraftStack.clear()
+    _draftWords.value = newDraft
+    _canUndoDraft.value = true
+    _canRedoDraft.value = false
+  }
+
+  fun undoDraft() {
+    if (undoDraftStack.isEmpty()) return
+    val previous = undoDraftStack.removeAt(undoDraftStack.lastIndex)
+    redoDraftStack.add(_draftWords.value)
+    _draftWords.value = previous
+    _canUndoDraft.value = undoDraftStack.isNotEmpty()
+    _canRedoDraft.value = true
+    _isPhraseUpdated.value = previous.isNotEmpty()
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
+  }
+
+  fun redoDraft() {
+    if (redoDraftStack.isEmpty()) return
+    val next = redoDraftStack.removeAt(redoDraftStack.lastIndex)
+    undoDraftStack.add(_draftWords.value)
+    _draftWords.value = next
+    _canUndoDraft.value = true
+    _canRedoDraft.value = redoDraftStack.isNotEmpty()
+    _isPhraseUpdated.value = next.isNotEmpty()
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
+  }
+
   // Gestor del Abecedario (Contador de prácticas y subida al lienzo de pruebas)
   private val alphabetStorage = AlphabetStorage(context)
   private val _alphabetCounts = MutableStateFlow<Map<String, Int>>(alphabetStorage.loadCounts())
@@ -119,7 +176,7 @@ class VocabularyViewModel @Inject constructor(
       microExample = letterItem.ipa,
       useCount = newCount
     )
-    _draftWords.value = _draftWords.value + letterWord
+    updateDraftWithHistory(_draftWords.value + letterWord)
     _isPhraseUpdated.value = true
     ttsManager.speak(letter)
     if (_isTranslationTrayExpanded.value) {
@@ -158,7 +215,7 @@ class VocabularyViewModel @Inject constructor(
       microExample = entry.ipa,
       useCount = newCount
     )
-    _draftWords.value = _draftWords.value + numWord
+    updateDraftWithHistory(_draftWords.value + numWord)
     _isPhraseUpdated.value = true
     ttsManager.speak(entry.word)
     if (_isTranslationTrayExpanded.value) {
@@ -210,7 +267,7 @@ class VocabularyViewModel @Inject constructor(
             spanishTranslation = phrase.spanishText
           )
       }
-      _draftWords.value = _draftWords.value + newWords
+      updateDraftWithHistory(_draftWords.value + newWords)
       _isPhraseUpdated.value = true
       ttsManager.speak(clean)
       if (_isTranslationTrayExpanded.value) {
@@ -332,7 +389,7 @@ class VocabularyViewModel @Inject constructor(
           spanishTranslation = ""
         )
     }
-    _draftWords.value = _draftWords.value + newWords
+    updateDraftWithHistory(_draftWords.value + newWords)
     _isPhraseUpdated.value = true
     if (_isTranslationTrayExpanded.value) {
       translateCurrentDraft()
@@ -340,14 +397,55 @@ class VocabularyViewModel @Inject constructor(
     ttsManager.speak(savedPhrase.phraseText)
   }
 
-  // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
+  // Gestor del Escritor Traductor (Bandeja bajo el Lienzo de Pruebas: Español ⇄ Inglés)
   private val spanishToEnglishTranslator = com.example.data.translation.SpanishToEnglishTranslationManager(geminiChatService)
   val spanishTranslationState: StateFlow<com.example.domain.translation.TranslationState> = spanishToEnglishTranslator.translationState
 
   private val _spanishInputText = MutableStateFlow("")
   val spanishInputText: StateFlow<String> = _spanishInputText.asStateFlow()
 
+  // Dirección de traducción: true = Español ➔ Inglés, false = Inglés ➔ Español
+  private val _isSpanishToEnglish = MutableStateFlow(true)
+  val isSpanishToEnglish: StateFlow<Boolean> = _isSpanishToEnglish.asStateFlow()
+
   private var spanishTranslationJob: kotlinx.coroutines.Job? = null
+
+  fun swapTranslationDirection() {
+    val newDirection = !_isSpanishToEnglish.value
+    _isSpanishToEnglish.value = newDirection
+
+    val currentInput = _spanishInputText.value.trim()
+    val currentTranslation = (spanishTranslationState.value as? TranslationState.Success)?.translation?.trim() ?: ""
+
+    if (currentTranslation.isNotEmpty()) {
+      _spanishInputText.value = currentTranslation
+      spanishTranslationJob?.cancel()
+      if (currentInput.isNotEmpty()) {
+        spanishToEnglishTranslator.setSuccess(currentInput)
+      }
+      spanishTranslationJob = viewModelScope.launch {
+        spanishToEnglishTranslator.translate(
+          currentTranslation,
+          _geminiApiKey.value,
+          viewModelScope,
+          isSpanishToEnglish = newDirection
+        )
+      }
+    } else if (currentInput.isNotEmpty()) {
+      spanishTranslationJob?.cancel()
+      spanishTranslationJob = viewModelScope.launch {
+        spanishToEnglishTranslator.translate(
+          currentInput,
+          _geminiApiKey.value,
+          viewModelScope,
+          isSpanishToEnglish = newDirection
+        )
+      }
+    } else {
+      spanishTranslationJob?.cancel()
+      spanishToEnglishTranslator.reset()
+    }
+  }
 
   fun updateSpanishInputText(text: String) {
     _spanishInputText.value = text
@@ -362,7 +460,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob = viewModelScope.launch {
       kotlinx.coroutines.delay(350)
       if (_spanishInputText.value.trim() != clean) return@launch
-      spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope)
+      spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope, _isSpanishToEnglish.value)
     }
   }
 
@@ -370,7 +468,7 @@ class VocabularyViewModel @Inject constructor(
     spanishTranslationJob?.cancel()
     val clean = _spanishInputText.value.trim()
     if (clean.isBlank()) return
-    spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope)
+    spanishToEnglishTranslator.translate(clean, _geminiApiKey.value, viewModelScope, _isSpanishToEnglish.value)
   }
 
   fun clearSpanishTranslator() {
@@ -394,7 +492,7 @@ class VocabularyViewModel @Inject constructor(
           partOfSpeech = PartOfSpeech.OTHER
         )
     }
-    _draftWords.value = _draftWords.value + newWords
+    updateDraftWithHistory(_draftWords.value + newWords)
     _isPhraseUpdated.value = true
     ttsManager.speak(clean)
     viewModelScope.launch {
@@ -473,15 +571,26 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
-  // Estado para creación de palabras personalizadas (#2810+)
+  // Estado para creación y edición de palabras personalizadas (#2810+)
   private val _showAddWordDialog = MutableStateFlow(false)
   val showAddWordDialog: StateFlow<Boolean> = _showAddWordDialog.asStateFlow()
 
+  private val _editingCustomWord = MutableStateFlow<Word?>(null)
+  val editingCustomWord: StateFlow<Word?> = _editingCustomWord.asStateFlow()
+
   fun openAddWordDialog() {
+    _editingCustomWord.value = null
+    _showAddWordDialog.value = true
+  }
+
+  fun openEditWordDialog(word: Word) {
+    if (word.rank < 2810) return
+    _editingCustomWord.value = word
     _showAddWordDialog.value = true
   }
 
   fun closeAddWordDialog() {
+    _editingCustomWord.value = null
     _showAddWordDialog.value = false
   }
 
@@ -501,6 +610,30 @@ class VocabularyViewModel @Inject constructor(
           spanishTranslation = spanishTranslation.trim(),
           microExample = microExample.trim()
         )
+        _showAddWordDialog.value = false
+      } catch (_: Exception) {}
+    }
+  }
+
+  fun updateExistingCustomWord(
+    rank: Int,
+    word: String,
+    category: String,
+    spanishTranslation: String,
+    microExample: String
+  ) {
+    val clean = word.trim()
+    if (clean.isBlank() || rank < 2810) return
+    viewModelScope.launch {
+      try {
+        repository.updateCustomWord(
+          rank = rank,
+          word = clean,
+          partOfSpeech = category,
+          spanishTranslation = spanishTranslation.trim(),
+          microExample = microExample.trim()
+        )
+        _editingCustomWord.value = null
         _showAddWordDialog.value = false
       } catch (_: Exception) {}
     }
@@ -532,18 +665,6 @@ class VocabularyViewModel @Inject constructor(
       }
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-  // Estado del Borrador de Frases (Scratchpad / Lienzo de Pruebas)
-  private val _draftWords = MutableStateFlow<List<Word>>(emptyList())
-  val draftWords: StateFlow<List<Word>> = _draftWords.asStateFlow()
-
-  // Indica si la frase fue actualizada/reordenada y está lista para sonar en su nueva posición
-  private val _isPhraseUpdated = MutableStateFlow(false)
-  val isPhraseUpdated: StateFlow<Boolean> = _isPhraseUpdated.asStateFlow()
-
-  // Estado de la bandeja desplegable de traducción con Google ML Kit
-  private val _isTranslationTrayExpanded = MutableStateFlow(false)
-  val isTranslationTrayExpanded: StateFlow<Boolean> = _isTranslationTrayExpanded.asStateFlow()
 
   val translationState: StateFlow<TranslationState> = translationManager?.translationState
     ?: MutableStateFlow(TranslationState.Idle)
@@ -837,7 +958,7 @@ class VocabularyViewModel @Inject constructor(
     if (word.useCount == 0) {
       _wordMasteredCelebrationEvent.tryEmit(word.lemma)
     }
-    _draftWords.value = _draftWords.value + word
+    updateDraftWithHistory(_draftWords.value + word)
     _isPhraseUpdated.value = true
     ttsManager.speak(word.lemma)
     if (_isTranslationTrayExpanded.value) {
@@ -860,7 +981,7 @@ class VocabularyViewModel @Inject constructor(
       val updated = current.toMutableList()
       val item = updated.removeAt(fromIndex)
       updated.add(toIndex, item)
-      _draftWords.value = updated
+      updateDraftWithHistory(updated)
       _isPhraseUpdated.value = true
       if (_isTranslationTrayExpanded.value) {
         translateCurrentDraft()
@@ -893,7 +1014,7 @@ class VocabularyViewModel @Inject constructor(
     if (index in _draftWords.value.indices) {
       val updated = _draftWords.value.toMutableList()
       updated.removeAt(index)
-      _draftWords.value = updated
+      updateDraftWithHistory(updated)
       _isPhraseUpdated.value = updated.isNotEmpty()
       if (_isTranslationTrayExpanded.value) {
         translateCurrentDraft()
@@ -905,7 +1026,7 @@ class VocabularyViewModel @Inject constructor(
    * Limpia todo el borrador en un solo toque (Papelera 🗑️).
    */
   fun clearDraft() {
-    _draftWords.value = emptyList()
+    updateDraftWithHistory(emptyList())
     _isPhraseUpdated.value = false
     translationManager?.reset()
   }

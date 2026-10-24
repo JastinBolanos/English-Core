@@ -64,13 +64,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.translation.TranslationState
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.SwapHoriz
+
 /**
- * Bandeja / Escritor Traductor de alta precisión: Español ➔ Inglés.
+ * Bandeja / Escritor Traductor de alta precisión: Español ⇄ Inglés.
  * Ubicada justo debajo del Lienzo de Pruebas.
  *
  * Flujo:
- * - El usuario escribe palabras o frases en español en el escritor superior.
- * - Inmediatamente abajo dentro del mismo escritor se despliega la traducción al inglés.
+ * - El usuario puede alternar la dirección entre Español ➔ Inglés y Inglés ➔ Español con el mini icono de inversión.
+ * - Si hay contenido escrito y traducido, se invierten ambos lados como en Google Translate.
  * - Incluye reproducción auditiva nativa (TTS), copiado al portapapeles y botón para subir al lienzo.
  * - Cada palabra en inglés es interactiva y al tocarla busca esa palabra en el vocabulario (#1-2809).
  */
@@ -85,6 +88,8 @@ fun SpanishToEnglishWriterCard(
   onSpeakEnglish: (String) -> Unit,
   onAddToCanvas: (String) -> Unit,
   onWordClick: (String) -> Unit = {},
+  isSpanishToEnglish: Boolean = true,
+  onSwapLanguages: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
@@ -132,26 +137,53 @@ fun SpanishToEnglishWriterCard(
             .fillMaxWidth()
             .height(48.dp)
             .background(Color(0xFF131D2E).copy(alpha = 0.88f), shape = RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 10.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Icon(
-            imageVector = Icons.Default.Translate,
-            contentDescription = "Traductor",
-            tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(20.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
+          // Mini botón selector/inversor de dirección de traducción (Google Translate style)
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .clickable { onSwapLanguages() }
+              .padding(horizontal = 4.dp, vertical = 2.dp)
+              .testTag("btn_swap_translation_direction")
+          ) {
+            Text(
+              text = if (isSpanishToEnglish) "ES" else "EN",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color(0xFF38BDF8),
+              fontSize = 11.5.sp
+            )
+            Icon(
+              imageVector = Icons.Default.SwapHoriz,
+              contentDescription = "Invertir dirección de traducción",
+              tint = Color(0xFF38BDF8),
+              modifier = Modifier.size(16.dp)
+            )
+            Text(
+              text = if (isSpanishToEnglish) "EN" else "ES",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color(0xFF94A3B8),
+              fontSize = 11.5.sp
+            )
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
           Box(
             modifier = Modifier.weight(1f),
             contentAlignment = Alignment.CenterStart
           ) {
             if (spanishText.isEmpty()) {
               Text(
-                text = "Escribe una palabra o frase",
+                text = if (isSpanishToEnglish) "Escribe en español..." else "Escribe en inglés...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF94A3B8),
-                fontSize = 15.sp,
+                fontSize = 14.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
               )
@@ -197,7 +229,7 @@ fun SpanishToEnglishWriterCard(
               ) {
                 Icon(
                   imageVector = Icons.Default.AutoAwesome,
-                  contentDescription = "Traducir al inglés",
+                  contentDescription = if (isSpanishToEnglish) "Traducir al inglés" else "Traducir al español",
                   tint = Color(0xFF38BDF8),
                   modifier = Modifier.size(16.dp)
                 )
@@ -299,7 +331,7 @@ fun SpanishToEnglishWriterCard(
                     onClick = {
                       try {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        val clip = ClipData.newPlainText("Traducción en inglés", englishText)
+                        val clip = ClipData.newPlainText("Traducción", englishText)
                         clipboard?.setPrimaryClip(clip)
                         Toast.makeText(context, "Copiado al portapapeles", Toast.LENGTH_SHORT).show()
                       } catch (_: Exception) {}
@@ -319,7 +351,7 @@ fun SpanishToEnglishWriterCard(
                   // Icono + con palabra Lienzo (sin caja)
                   Row(
                     modifier = Modifier
-                      .clickable { onAddToCanvas(englishText) }
+                      .clickable { onAddToCanvas(if (isSpanishToEnglish) englishText else spanishText) }
                       .padding(horizontal = 4.dp, vertical = 4.dp)
                       .testTag("btn_add_translation_to_canvas"),
                     verticalAlignment = Alignment.CenterVertically,
