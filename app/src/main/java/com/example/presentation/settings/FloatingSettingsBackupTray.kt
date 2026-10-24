@@ -611,37 +611,6 @@ fun FloatingSettingsBackupTray(
                         )
                     }
 
-                    if (hasDirectBackup && onDirectRestore != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = onDirectRestore,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
-                                .testTag("btn_direct_restore_documents"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF1E293B)
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.6f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF34D399),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Restaurar copia de Documentos/VocabFlow",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF34D399)
-                                )
-                            )
-                        }
-                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 

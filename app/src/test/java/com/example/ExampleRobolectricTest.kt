@@ -489,6 +489,21 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("input_spanish_text", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("btn_close_translator_card", useUnmergedTree = true).assertExists()
+
+    // Tap X at the side to close/dismiss the translator card from view
+    composeTestRule.onNodeWithTag("btn_close_translator_card", useUnmergedTree = true).performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
+
+    // Swipe drawer open and tap Traductor Idioma to open it again
+    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
+      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
+    }
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").performScrollTo().performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
   }
 
   @Test

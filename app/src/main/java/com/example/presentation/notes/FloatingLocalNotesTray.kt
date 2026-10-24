@@ -32,14 +32,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -77,13 +80,20 @@ fun FloatingLocalNotesTray(
 ) {
     if (!isOpen) return
 
-    BackHandler { onClose() }
-
     val context = LocalContext.current
     val storage = remember { LocalNotesStorage(context) }
     val notesList = remember { mutableStateListOf<NoteBlock>() }
+    var noteToDelete by remember { mutableStateOf<NoteBlock?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    BackHandler {
+        if (noteToDelete != null) {
+            noteToDelete = null
+        } else {
+            onClose()
+        }
+    }
 
     // Cargar notas al abrir
     LaunchedEffect(isOpen) {
@@ -196,40 +206,16 @@ fun FloatingLocalNotesTray(
                             }
                         }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier.size(32.dp)
                         ) {
-                            if (notesList.isNotEmpty()) {
-                                IconButton(
-                                    onClick = {
-                                        notesList.clear()
-                                        val emptyInitial = NoteBlock(text = "")
-                                        notesList.add(emptyInitial)
-                                        persistChanges()
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DeleteSweep,
-                                        contentDescription = "Limpiar notas",
-                                        tint = Color(0xFF94A3B8),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-
-                            IconButton(
-                                onClick = onClose,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Cerrar notas",
-                                    tint = Color(0xFFCBD5E1),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar notas",
+                                tint = Color(0xFFCBD5E1),
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
 
@@ -259,8 +245,7 @@ fun FloatingLocalNotesTray(
                                     }
                                 },
                                 onDelete = {
-                                    notesList.removeAll { it.id == block.id }
-                                    persistChanges()
+                                    noteToDelete = block
                                 }
                             )
                         }
@@ -321,6 +306,137 @@ fun FloatingLocalNotesTray(
                                             fontWeight = FontWeight.Medium,
                                             fontSize = 12.5.sp,
                                             color = Color(0xFFBAE6FD)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bandeja simple de confirmación de eliminación de bloque de nota
+            if (noteToDelete != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { noteToDelete = null },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {}
+                            .testTag("dialog_confirm_delete_note"),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.45f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .background(Color(0xFFEF4444).copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF87171),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+
+                            Text(
+                                text = "¿Eliminar este bloque de nota?",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFFF8FAFC)
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+
+                            val previewText = noteToDelete?.text?.trim().orEmpty()
+                            if (previewText.isNotEmpty()) {
+                                Text(
+                                    text = "\"${previewText.take(55)}${if (previewText.length > 55) "..." else ""}\"",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF94A3B8)
+                                    ),
+                                    maxLines = 2,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                Text(
+                                    text = "Este bloque de nota está vacío.",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF94A3B8)
+                                    ),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { noteToDelete = null },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp)
+                                        .testTag("btn_cancel_delete_note"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569))
+                                ) {
+                                    Text(
+                                        text = "Cancelar",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = Color(0xFFCBD5E1),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    )
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val target = noteToDelete
+                                        if (target != null) {
+                                            notesList.removeAll { it.id == target.id }
+                                            persistChanges()
+                                        }
+                                        noteToDelete = null
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(42.dp)
+                                        .testTag("btn_confirm_delete_note"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                                ) {
+                                    Text(
+                                        text = "Eliminar",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     )
                                 }

@@ -801,12 +801,12 @@ fun VocabularyScreen(
           }
         )
 
-        // 6. Traductor de español a inglés
+        // 6. Traductor
         DrawerItemRow(
           icon = Icons.Default.Translate,
           iconTint = Color(0xFF00E5FF),
-          title = "Traductor Español ➔ Inglés",
-          subtitle = if (isSpanishTranslatorCardVisible) "Ocultar panel escritor" else "Mostrar panel escritor",
+          title = "Traductor Idioma",
+          subtitle = if (isSpanishTranslatorCardVisible) "Ocultar traductor" else "Abrir traductor",
           testTag = "drawer_item_spanish_translator",
           onClick = {
             coroutineScope.launch { drawerState.close() }
@@ -902,6 +902,7 @@ fun VocabularyScreen(
               onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
               isSpanishToEnglish = isSpanishToEnglish,
               onSwapLanguages = { viewModel.swapTranslationDirection() },
+              onClose = { isSpanishTranslatorCardVisible = false },
               onWordClick = { word ->
                 if (jumpRankInput.isNotEmpty()) {
                   jumpRankInput = ""
@@ -1301,20 +1302,16 @@ fun VocabularyScreen(
                   Box(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .padding(32.dp),
+                      .padding(48.dp),
                     contentAlignment = Alignment.Center
                   ) {
-                    Column(
-                      horizontalAlignment = Alignment.CenterHorizontally,
-                      verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                      CircularProgressIndicator()
-                      Text(
-                        text = "Cargando palabras en orden de frecuencia...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                      )
-                    }
+                    CircularProgressIndicator(
+                      color = Color(0xFFF1F5F9),
+                      strokeWidth = 3.dp,
+                      modifier = Modifier
+                        .size(36.dp)
+                        .testTag("vocabulary_loading_indicator")
+                    )
                   }
                 }
               }
@@ -1323,15 +1320,25 @@ fun VocabularyScreen(
                   Box(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .padding(32.dp),
+                      .padding(if (searchQuery.isNotEmpty()) 32.dp else 48.dp),
                     contentAlignment = Alignment.Center
                   ) {
-                    Text(
-                      text = if (searchQuery.isNotEmpty()) "No se encontraron coincidencias para \"$searchQuery\"" else "Cargando base de datos...",
-                      style = MaterialTheme.typography.bodyMedium,
-                      color = MaterialTheme.colorScheme.onSurfaceVariant,
-                      textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    if (searchQuery.isNotEmpty()) {
+                      Text(
+                        text = "No se encontraron coincidencias para \"$searchQuery\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                      )
+                    } else {
+                      CircularProgressIndicator(
+                        color = Color(0xFFF1F5F9),
+                        strokeWidth = 3.dp,
+                        modifier = Modifier
+                          .size(36.dp)
+                          .testTag("vocabulary_loading_indicator")
+                      )
+                    }
                   }
                 }
               }
@@ -1807,7 +1814,7 @@ fun SpanishTranslatorFloatingActionButton(
         Box(contentAlignment = Alignment.Center) {
           Icon(
             imageVector = Icons.Default.Translate,
-            contentDescription = if (isOpen) "Ocultar traductor español a inglés" else "Abrir traductor español a inglés",
+            contentDescription = if (isOpen) "Ocultar Traductor Idioma" else "Abrir Traductor Idioma",
             tint = if (isOpen) Color.White else Color(0xFF00E5FF),
             modifier = Modifier
               .size(18.dp)

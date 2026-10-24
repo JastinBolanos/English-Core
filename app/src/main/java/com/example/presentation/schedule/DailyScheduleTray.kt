@@ -168,9 +168,6 @@ fun FloatingDailyScheduleTray(
     val currentDateKey = remember(nowInPeru) {
         nowInPeru.format(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.getDefault()))
     }
-    val currentFormattedTime = remember(nowInPeru) {
-        nowInPeru.format(DateTimeFormatter.ofPattern("hh:mm a", Locale.getDefault())).uppercase(Locale.getDefault())
-    }
     val currentHour = nowInPeru.hour
     val currentMinute = nowInPeru.minute
 
@@ -293,88 +290,14 @@ fun FloatingDailyScheduleTray(
                             onClick = onClose,
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(Color(0xFF1E293B).copy(alpha = 0.8f), CircleShape)
                                 .testTag("btn_close_schedule_tray")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cerrar horario",
                                 tint = Color(0xFFCBD5E1),
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Tarjeta de Reloj y Estado en Tiempo Real (Perú)
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF111C30)),
-                        border = androidx.compose.foundation.BorderStroke(
-                            width = 1.dp,
-                            color = Color(0xFF1E293B)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccessTime,
-                                    contentDescription = null,
-                                    tint = Color(0xFFFACC15),
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "Hora actual Perú:",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontSize = 11.5.sp,
-                                        color = Color(0xFF94A3B8)
-                                    )
-                                )
-                                Text(
-                                    text = currentFormattedTime,
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = Color(0xFFFACC15)
-                                    )
-                                )
-                            }
-
-                            // Contador de horas completadas hoy
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        color = if (completedCount == 3) Color(0xFF10B981).copy(alpha = 0.25f)
-                                        else Color(0xFF38BDF8).copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (completedCount == 3) Color(0xFF10B981) else Color(0xFF38BDF8).copy(alpha = 0.6f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    text = "$completedCount/3 horas hoy",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 10.5.sp,
-                                        color = if (completedCount == 3) Color(0xFF34D399) else Color(0xFF7DD3FC)
-                                    )
-                                )
-                            }
                         }
                     }
 
