@@ -7,9 +7,12 @@ import com.example.data.tts.TtsManager
 import com.example.domain.model.PartOfSpeech
 import com.example.domain.model.Word
 import com.example.domain.repository.VocabularyRepository
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -62,6 +65,10 @@ class VocabularyViewModel @Inject constructor(
   private val geminiChatService: com.example.data.gemini.GeminiChatService = com.example.data.gemini.GeminiChatService(),
   private val context: android.content.Context? = null
 ) : ViewModel() {
+
+  // Evento reactivo de celebración premium cuando una palabra pasa de 0 a 1 contador
+  private val _wordMasteredCelebrationEvent = MutableSharedFlow<String>(replay = 0, extraBufferCapacity = 10)
+  val wordMasteredCelebrationEvent: SharedFlow<String> = _wordMasteredCelebrationEvent.asSharedFlow()
 
   // Estado de la bandeja de consulta a Gemini IA
   private val _showGeminiDialog = MutableStateFlow(false)
@@ -361,6 +368,9 @@ class VocabularyViewModel @Inject constructor(
     ttsManager.speak(clean)
     viewModelScope.launch {
       newWords.forEach { w ->
+        if (w.useCount == 0) {
+          _wordMasteredCelebrationEvent.tryEmit(w.lemma)
+        }
         try {
           repository.incrementWordUseCount(w.id, w.lemma)
         } catch (_: Exception) {}
@@ -793,6 +803,9 @@ class VocabularyViewModel @Inject constructor(
    * e incrementa de forma persistente su contador de uso en SQLite (Room).
    */
   fun addWordToDraft(word: Word) {
+    if (word.useCount == 0) {
+      _wordMasteredCelebrationEvent.tryEmit(word.lemma)
+    }
     _draftWords.value = _draftWords.value + word
     _isPhraseUpdated.value = true
     ttsManager.speak(word.lemma)
@@ -900,6 +913,9 @@ class VocabularyViewModel @Inject constructor(
   }
 
   fun recordWordUsage(word: Word) {
+    if (word.useCount == 0) {
+      _wordMasteredCelebrationEvent.tryEmit(word.lemma)
+    }
     viewModelScope.launch {
       try {
         repository.incrementWordUseCount(word.id, word.lemma)
@@ -910,6 +926,10 @@ class VocabularyViewModel @Inject constructor(
   fun recordWordUsage(wordLemma: String) {
     val clean = wordLemma.trim()
     if (clean.isBlank()) return
+    val existing = words.value.find { it.lemma.equals(clean, ignoreCase = true) }
+    if (existing != null && existing.useCount == 0) {
+      _wordMasteredCelebrationEvent.tryEmit(clean)
+    }
     viewModelScope.launch {
       try {
         repository.incrementWordUseCount(clean)

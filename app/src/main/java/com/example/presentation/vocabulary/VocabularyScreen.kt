@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.AnimatedVisibility
@@ -45,6 +46,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -164,7 +166,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -173,6 +177,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -282,6 +287,26 @@ fun VocabularyScreen(
   var isSpanishTranslatorCardVisible by rememberSaveable { mutableStateOf(false) }
   var isCloudSaving by remember { mutableStateOf(false) }
   var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
+
+  // Disparador reactivo de celebración de logro premium cuando una palabra pasa de 0 a 1 contador
+  var previousUsedWordsCount by rememberSaveable { mutableStateOf<Int?>(null) }
+  var celebrationTrigger by remember { mutableLongStateOf(0L) }
+
+  // 1. Escuchar evento inmediato desde ViewModel al tocar una palabra con contador 0
+  LaunchedEffect(Unit) {
+    viewModel.wordMasteredCelebrationEvent.collectLatest {
+      celebrationTrigger = System.currentTimeMillis()
+    }
+  }
+
+  // 2. Escuchar aumento del contador de palabras usadas persistidas
+  LaunchedEffect(usedWordsCount) {
+    val prev = previousUsedWordsCount
+    if (prev != null && usedWordsCount > prev) {
+      celebrationTrigger = System.currentTimeMillis()
+    }
+    previousUsedWordsCount = usedWordsCount
+  }
 
   // Auto-backup reactivo al detectar cambios en vocabulario, abecedario, números o frases
   LaunchedEffect(usedWordsCount, alphabetCounts, numberCounts, phraseCounts) {
@@ -770,15 +795,19 @@ fun VocabularyScreen(
               .padding(top = 8.dp, bottom = 2.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
           ) {
-            // Espacio superior encima de todo: "English" centrado con menú de tres rayitas a la izquierda y velocidad de sonido a la derecha
+            // Espacio superior encima de todo: "English" centrado con menú a la izquierda, y trofeo de logros + velocidad a la derecha
             AnimatedEnglishHeader(
               usedWordsCount = usedWordsCount,
+              celebrationTrigger = celebrationTrigger,
               currentSpeed = currentSpeechSpeed,
               onToggleSpeed = { viewModel.onToggleSpeed() },
               onOpenDrawer = {
                 coroutineScope.launch {
                   drawerState.open()
                 }
+              },
+              onOpenProficiencyLevels = {
+                isProficiencyLevelsTrayOpen = true
               }
             )
 
@@ -1796,16 +1825,19 @@ fun SettingsFloatingActionButton(
 
 /**
  * Cabecera superior con la palabra "English" centrada, en tipografía Fredericka la Grande,
- * con animaciones y efectos de luz luminosos específicos para esa palabra:
+ * con animaciones y efectos de luz luminosos:
+ * - A la izquierda: Botón de tres rayitas para abrir la bandeja lateral de Herramientas.
  * - Al centro: Palabra "English" con efecto de resplandor y barrido luminoso.
- * - A la derecha: Contador de palabras usadas con trofeo (copas).
+ * - A la derecha: Indicador de Logros ("28 🏆") con reacción premium (brillo, escala elástica, aura dorada y +1 flotante) + Selector de velocidad TTS.
  */
 @Composable
 fun AnimatedEnglishHeader(
   usedWordsCount: Int = 0,
+  celebrationTrigger: Long = 0L,
   currentSpeed: Float = 0.3f,
   onToggleSpeed: () -> Unit = {},
   onOpenDrawer: () -> Unit = {},
+  onOpenProficiencyLevels: () -> Unit = {},
   onOpenRoadmap8Months: () -> Unit = {},
   onOpenDailySchedule: () -> Unit = {},
   onOpenLocalNotes: () -> Unit = {},
@@ -1940,15 +1972,284 @@ fun AnimatedEnglishHeader(
       modifier = Modifier.testTag("text_english_title")
     )
 
-    // 4. Esquina superior derecha: Botón de graduar velocidad TTS (reemplaza a la copa que pasó a la bandeja lateral)
-    SpeedFloatingActionButton(
-      currentSpeed = currentSpeed,
-      onClick = onToggleSpeed,
+    // 4. Esquina superior derecha: Indicador de Logros ("28 🏆") + Botón de graduar velocidad TTS
+    Row(
       modifier = Modifier
         .align(Alignment.CenterEnd)
-        .padding(end = 6.dp)
-        .testTag("header_speed_control")
+        .padding(end = 4.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+      // Indicador reactivo de Copas / Palabras dominadas con efecto Premium
+      PremiumTrophyBadge(
+        count = usedWordsCount,
+        celebrationTrigger = celebrationTrigger,
+        onClick = onOpenProficiencyLevels,
+        modifier = Modifier.testTag("header_trophy_achievement_badge")
+      )
+
+      SpeedFloatingActionButton(
+        currentSpeed = currentSpeed,
+        onClick = onToggleSpeed,
+        modifier = Modifier.testTag("header_speed_control")
+      )
+    }
+  }
+}
+
+/**
+ * Insignia de logros de lujo ("28 🏆") para la pantalla principal de aprendizaje.
+ * Reacciona de forma dinámica y visualmente impactante (brillo, escala elástica, resplandor áurico,
+ * bamboleo de trofeo y partícula flotante "+1 🏆") cuando una palabra pasa de 0 a 1 contador.
+ */
+@Composable
+fun PremiumTrophyBadge(
+  count: Int,
+  celebrationTrigger: Long,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val haptic = LocalHapticFeedback.current
+
+  // Estados de animación para el efecto reactivo premium
+  val scaleAnim = remember { Animatable(1.0f) }
+  val glowAnim = remember { Animatable(0f) }
+  val rotationAnim = remember { Animatable(0f) }
+  val shimmerOffset = remember { Animatable(-100f) }
+  val floatingOffsetY = remember { Animatable(0f) }
+  val floatingAlpha = remember { Animatable(0f) }
+  var showFloatingPlusOne by remember { mutableStateOf(false) }
+
+  // Brillo continuo sutil de ambiente (respiración en reposo)
+  val infiniteTransition = rememberInfiniteTransition(label = "trophy_ambient_glow")
+  val ambientPulse by infiniteTransition.animateFloat(
+    initialValue = 0.35f,
+    targetValue = 0.75f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(2200, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "trophy_ambient_pulse"
+  )
+
+  // Disparo de la reacción visual festiva premium al detectar palabra nueva (0 -> 1)
+  var lastHandledTrigger by remember { mutableLongStateOf(0L) }
+  LaunchedEffect(celebrationTrigger) {
+    if (celebrationTrigger > 0L && celebrationTrigger != lastHandledTrigger) {
+      lastHandledTrigger = celebrationTrigger
+      try {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+      } catch (_: Throwable) {}
+
+      // Disparar secuencia coreografiada de animaciones
+      launch {
+        showFloatingPlusOne = true
+        floatingOffsetY.snapTo(0f)
+        floatingAlpha.snapTo(1f)
+        launch {
+          floatingOffsetY.animateTo(-42f, tween(1100, easing = FastOutSlowInEasing))
+        }
+        launch {
+          delay(450)
+          floatingAlpha.animateTo(0f, tween(650, easing = LinearEasing))
+        }
+        delay(1150)
+        showFloatingPlusOne = false
+      }
+
+      // 1. Efecto elástico de escala (Pop & Spring bounce)
+      launch {
+        scaleAnim.animateTo(1.36f, tween(180, easing = FastOutSlowInEasing))
+        scaleAnim.animateTo(
+          1.0f,
+          spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+          )
+        )
+      }
+
+      // 2. Destello de rayo de luz (Shimmer sweep)
+      launch {
+        shimmerOffset.snapTo(-80f)
+        shimmerOffset.animateTo(220f, tween(850, easing = LinearEasing))
+      }
+
+      // 3. Resplandor áurico radial (Golden aura flash)
+      launch {
+        glowAnim.animateTo(1.0f, tween(160, easing = FastOutSlowInEasing))
+        glowAnim.animateTo(0f, tween(750, easing = LinearEasing))
+      }
+
+      // 4. Bamboleo del trofeo (Playful tilt)
+      launch {
+        rotationAnim.animateTo(-16f, tween(90, easing = FastOutSlowInEasing))
+        rotationAnim.animateTo(16f, tween(120, easing = FastOutSlowInEasing))
+        rotationAnim.animateTo(-8f, tween(90, easing = FastOutSlowInEasing))
+        rotationAnim.animateTo(0f, tween(100, easing = FastOutSlowInEasing))
+      }
+    }
+  }
+
+  Box(
+    modifier = modifier,
+    contentAlignment = Alignment.Center
+  ) {
+    // 1. Halo dorado expansivo detrás de la cápsula (crece y brilla durante el logro)
+    val haloAlpha = (glowAnim.value * 0.85f).coerceAtLeast(ambientPulse * 0.20f)
+    val haloScale = 1.0f + glowAnim.value * 0.35f
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .graphicsLayer {
+          scaleX = haloScale
+          scaleY = haloScale
+          alpha = haloAlpha
+        }
+        .background(
+          brush = Brush.radialGradient(
+            colors = listOf(
+              Color(0xFFFDE047).copy(alpha = 0.75f),
+              Color(0xFFEAB308).copy(alpha = 0.40f),
+              Color(0xFFD97706).copy(alpha = 0.15f),
+              Color.Transparent
+            )
+          ),
+          shape = RoundedCornerShape(16.dp)
+        )
     )
+
+    // 2. Cápsula interactiva de lujo (Borde dorado metálico + Fondo obsidian oscuro)
+    Surface(
+      onClick = onClick,
+      shape = RoundedCornerShape(16.dp),
+      color = Color.Transparent,
+      border = BorderStroke(
+        width = if (glowAnim.value > 0.05f) 1.8.dp else 1.1.dp,
+        brush = Brush.horizontalGradient(
+          colors = if (glowAnim.value > 0.05f) {
+            listOf(
+              Color(0xFFFFFFFF),
+              Color(0xFFFDE047),
+              Color(0xFFFACC15),
+              Color(0xFFFFFFFF)
+            )
+          } else {
+            listOf(
+              Color(0xFFFDE047).copy(alpha = ambientPulse * 0.7f + 0.3f),
+              Color(0xFFEAB308).copy(alpha = 0.85f),
+              Color(0xFFCA8A04).copy(alpha = 0.6f),
+              Color(0xFFFDE047).copy(alpha = ambientPulse * 0.7f + 0.3f)
+            )
+          }
+        )
+      ),
+      shadowElevation = if (glowAnim.value > 0.05f) 8.dp else 2.dp,
+      modifier = Modifier
+        .testTag("counter_used_words_badge")
+        .graphicsLayer {
+          scaleX = scaleAnim.value
+          scaleY = scaleAnim.value
+        }
+    ) {
+      Box(
+        modifier = Modifier
+          .background(
+            brush = Brush.verticalGradient(
+              colors = listOf(
+                Color(0xFF1E293B),
+                Color(0xFF0F172A)
+              )
+            )
+          )
+          .padding(horizontal = 9.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center
+      ) {
+        // Tinte dorado interno sutil
+        Box(
+          modifier = Modifier
+            .matchParentSize()
+            .background(
+              brush = Brush.horizontalGradient(
+                colors = listOf(
+                  Color(0xFFEAB308).copy(alpha = 0.12f + glowAnim.value * 0.28f),
+                  Color(0xFFF59E0B).copy(alpha = 0.06f + glowAnim.value * 0.20f)
+                )
+              )
+            )
+        )
+
+        // Contenido: Número + Trofeo ("28 🏆")
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+          Text(
+            text = "$count",
+            style = MaterialTheme.typography.titleSmall.copy(
+              fontWeight = FontWeight.ExtraBold,
+              fontSize = 14.5.sp,
+              color = if (glowAnim.value > 0.05f) Color(0xFFFFFFFF) else Color(0xFFF8FAFC),
+              shadow = Shadow(
+                color = Color(0xFFEAB308).copy(alpha = 0.6f),
+                blurRadius = 6f
+              )
+            ),
+            modifier = Modifier.testTag("text_used_words_count")
+          )
+          Text(
+            text = "🏆",
+            fontSize = 14.sp,
+            modifier = Modifier
+              .testTag("icon_trophy")
+              .graphicsLayer {
+                rotationZ = rotationAnim.value
+              }
+          )
+        }
+
+        // 3. Haz de luz reflectante (Shimmer beam sweep)
+        if (shimmerOffset.value > -60f && shimmerOffset.value < 180f) {
+          Box(
+            modifier = Modifier
+              .matchParentSize()
+              .background(
+                brush = Brush.linearGradient(
+                  colors = listOf(
+                    Color.Transparent,
+                    Color.White.copy(alpha = 0.7f),
+                    Color(0xFFFFFBEB).copy(alpha = 0.9f),
+                    Color(0xFFFDE047).copy(alpha = 0.6f),
+                    Color.Transparent
+                  ),
+                  start = Offset(shimmerOffset.value, 0f),
+                  end = Offset(shimmerOffset.value + 40f, 40f)
+                )
+              )
+          )
+        }
+      }
+    }
+
+    // 4. Partícula flotante ascendente "+1 🏆"
+    if (showFloatingPlusOne) {
+      Text(
+        text = "+1 🏆",
+        style = TextStyle(
+          fontWeight = FontWeight.Black,
+          fontSize = 13.sp,
+          color = Color(0xFFFDE047),
+          shadow = Shadow(
+            color = Color(0xFFB45309),
+            blurRadius = 8f
+          )
+        ),
+        modifier = Modifier
+          .align(Alignment.TopCenter)
+          .offset(y = floatingOffsetY.value.dp)
+          .alpha(floatingAlpha.value)
+      )
+    }
   }
 }
 
