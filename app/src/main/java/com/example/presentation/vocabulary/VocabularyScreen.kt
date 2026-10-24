@@ -134,6 +134,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Bookmarks
+import com.example.data.local.SavedDraftPhrase
+import com.example.data.local.SavedPhrasesStorage
+import com.example.presentation.phrases.FloatingSavedPhrasesTray
 import com.example.data.wallpaper.WallpaperManager
 import com.example.data.wallpaper.WallpaperStorage
 import com.example.presentation.wallpaper.FloatingWallpaperTray
@@ -388,6 +393,7 @@ fun VocabularyScreen(
   var isSettingsTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isProficiencyLevelsTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isWallpaperTrayOpen by rememberSaveable { mutableStateOf(false) }
+  var isSavedPhrasesTrayOpen by rememberSaveable { mutableStateOf(false) }
   val currentWallpaper by activeWallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
 
   // SAF Launcher para exportar copia .json
@@ -544,8 +550,25 @@ fun VocabularyScreen(
             })
           }
           put("localNotes", notesArray)
+
+          // 8. Frases armadas guardadas desde el lienzo de pruebas
+          val savedPhrasesStorage = SavedPhrasesStorage(context)
+          val currentSavedPhrases = savedPhrasesStorage.loadSavedPhrases()
+          val savedPhrasesArray = JSONArray()
+          currentSavedPhrases.forEach { sp ->
+            savedPhrasesArray.put(JSONObject().apply {
+              put("id", sp.id)
+              put("phraseText", sp.phraseText)
+              val wArr = JSONArray()
+              sp.words.forEach { wArr.put(it) }
+              put("words", wArr)
+              put("createdAt", sp.createdAt)
+            })
+          }
+          put("savedDraftPhrases", savedPhrasesArray)
         }
 
+        val currentSavedPhrases = SavedPhrasesStorage(context).loadSavedPhrases()
         com.example.data.local.VocabularyStorage(context).saveCounts(vocabCounts)
         com.example.data.backup.AutoBackupManager.saveFullBackup(
           context = context,
@@ -556,12 +579,13 @@ fun VocabularyScreen(
           notes = currentNotes,
           alphabetCounts = alphabetCounts,
           numberCounts = numberCounts,
-          phraseCounts = phraseCounts
+          phraseCounts = phraseCounts,
+          savedDraftPhrases = currentSavedPhrases
         )
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
           outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
         }
-        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount copas, ${vocabCounts.values.sum()} usos de palabras, ${allWords.size} palabras totales, ${completeAlphabetCounts.size} letras, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${currentNotes.size} notas)"
+        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount copas, ${vocabCounts.values.sum()} usos de palabras, ${allWords.size} palabras totales, ${completeAlphabetCounts.size} letras, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${currentSavedPhrases.size} frases guardadas, ${currentNotes.size} notas)"
       } catch (e: Exception) {
         backupStatusMessage = "Error al exportar: ${e.message}"
       }
@@ -635,6 +659,7 @@ fun VocabularyScreen(
         Column(
           modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
           Row(
@@ -783,7 +808,20 @@ fun VocabularyScreen(
           }
         )
 
-        // 7. Añadir palabra (+) (Al final de la lista)
+        // 7. Frases Guardadas (creadas desde el lienzo de pruebas)
+        DrawerItemRow(
+          icon = Icons.Default.Bookmarks,
+          iconTint = Color(0xFFFBBF24),
+          title = "Frases Guardadas",
+          subtitle = "Reutilizar frases armadas (+ Lienzo)",
+          testTag = "drawer_item_saved_phrases",
+          onClick = {
+            coroutineScope.launch { drawerState.close() }
+            isSavedPhrasesTrayOpen = true
+          }
+        )
+
+        // 8. Añadir palabra (+) (Al final de la lista)
         DrawerItemRow(
           icon = Icons.Default.Add,
           iconTint = Color(0xFF34D399),
@@ -888,6 +926,49 @@ fun VocabularyScreen(
               onMoveRight = { index -> viewModel.moveWordRight(index) },
               onPlayPhrase = { viewModel.playFullDraftPhrase() },
               onClearDraft = { viewModel.clearDraft() },
+              onSavePhrase = {
+                if (draftWords.isNotEmpty()) {
+                  val savedStorage = SavedPhrasesStorage(context)
+                  val phraseText = draftWords.joinToString(" ") { it.lemma }
+                  val wordsList = draftWords.map { it.lemma }
+                  val newSavedPhrase = SavedDraftPhrase(
+                    id = java.util.UUID.randomUUID().toString(),
+                    phraseText = phraseText,
+                    words = wordsList,
+                    createdAt = System.currentTimeMillis()
+                  )
+                  savedStorage.addSavedPhrase(newSavedPhrase)
+                  Toast.makeText(context, "Frase guardada en la bandeja lateral", Toast.LENGTH_SHORT).show()
+
+                  // Actualiza la copia de seguridad local automática con las frases guardadas
+                  val allWords = viewModel.words.value
+                  val vocabCounts = allWords.associate { it.lemma to it.useCount }
+                  val customWords = allWords.filter { it.rank > 2809 }.map { w ->
+                    CustomWordRecord(
+                      rank = w.rank,
+                      word = w.lemma,
+                      partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+                      spanishTranslation = w.spanishTranslation,
+                      microExample = w.microExample,
+                      useCount = w.useCount
+                    )
+                  }
+                  val currentNotes = LocalNotesStorage(context).loadNotes()
+                  val allSavedPhrases = savedStorage.loadSavedPhrases()
+                  AutoBackupManager.saveFullBackup(
+                    context = context,
+                    vocabularyWordCounts = vocabCounts,
+                    allWordsDetails = allWords,
+                    customWords = customWords,
+                    usedWordsCount = usedWordsCount,
+                    notes = currentNotes,
+                    alphabetCounts = alphabetCounts,
+                    numberCounts = numberCounts,
+                    phraseCounts = phraseCounts,
+                    savedDraftPhrases = allSavedPhrases
+                  )
+                }
+              },
               onSpeakWord = { word -> viewModel.speakWord(word) }
             )
           }
@@ -1395,6 +1476,16 @@ fun VocabularyScreen(
         isOpen = isWallpaperTrayOpen,
         onClose = { isWallpaperTrayOpen = false },
         wallpaperManager = activeWallpaperManager
+      )
+
+      FloatingSavedPhrasesTray(
+        isOpen = isSavedPhrasesTrayOpen,
+        onClose = { isSavedPhrasesTrayOpen = false },
+        onSpeakPhrase = { text -> viewModel.speakWord(text) },
+        onAddToCanvas = { phrase ->
+          viewModel.addSavedPhraseToDraft(phrase)
+          isSavedPhrasesTrayOpen = false
+        }
       )
 
       // BANDEJA EN PASTILLA FLOTANTE (Solo la pastilla flotante y sus 3 botones: Gemini, YouTube, Traductor)
@@ -4042,6 +4133,7 @@ private fun DraftScratchpadHeader(
   onMoveRight: (Int) -> Unit,
   onPlayPhrase: () -> Unit,
   onClearDraft: () -> Unit,
+  onSavePhrase: () -> Unit = {},
   onSpeakWord: ((Word) -> Unit)? = null
 ) {
   Surface(
@@ -4082,7 +4174,7 @@ private fun DraftScratchpadHeader(
           )
         }
 
-        // Acciones rápidas (Traducir a Google Translate, Play y Limpiar)
+        // Acciones rápidas (Traducir a Google Translate, Guardar, Play y Limpiar)
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -4102,6 +4194,22 @@ private fun DraftScratchpadHeader(
                 modifier = Modifier.size(19.dp)
               )
             }
+          }
+
+          // Botón Guardar frase armada en bandeja lateral (solo icono, sin texto)
+          IconButton(
+            onClick = onSavePhrase,
+            enabled = draftWords.isNotEmpty(),
+            modifier = Modifier
+              .size(30.dp)
+              .testTag("btn_save_draft_phrase")
+          ) {
+            Icon(
+              imageVector = Icons.Default.Bookmark,
+              contentDescription = "Guardar frase en bandeja lateral",
+              tint = if (draftWords.isNotEmpty()) Color(0xFFFBBF24) else Color(0xFF475569),
+              modifier = Modifier.size(19.dp)
+            )
           }
 
           IconButton(

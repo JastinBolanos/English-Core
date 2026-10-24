@@ -78,7 +78,7 @@ class WallpaperStorage(private val context: Context) {
         val humanTitle = formatWallpaperTitle(baseName)
         items.add(
           WallpaperItem(
-            id = baseName,
+            id = fileName,
             title = humanTitle,
             fileName = fileName,
             assetPath = "$ASSET_WALLPAPERS_DIR/$fileName",

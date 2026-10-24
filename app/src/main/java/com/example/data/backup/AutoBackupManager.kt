@@ -3,6 +3,7 @@ package com.example.data.backup
 import android.content.Context
 import android.os.Environment
 import com.example.data.local.CustomWordRecord
+import com.example.data.local.SavedDraftPhrase
 import com.example.domain.model.EverydayPhrasesCatalog
 import com.example.domain.model.Word
 import com.example.presentation.notes.NoteBlock
@@ -115,7 +116,8 @@ data class RestoredBackupData(
     val usedPhrasesCount: Int = 0,
     val allPhrases: List<PhraseRecord> = emptyList(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
-    val notes: List<NoteBlock> = emptyList()
+    val notes: List<NoteBlock> = emptyList(),
+    val savedDraftPhrases: List<SavedDraftPhrase> = emptyList()
 )
 
 /**
@@ -152,7 +154,8 @@ object AutoBackupManager {
         numberCounts: Map<Int, Int> = emptyMap(),
         allNumbersDetails: List<NumberRecord> = emptyList(),
         phraseCounts: Map<Int, Int> = emptyMap(),
-        allPhrasesDetails: List<PhraseRecord> = emptyList()
+        allPhrasesDetails: List<PhraseRecord> = emptyList(),
+        savedDraftPhrases: List<SavedDraftPhrase> = emptyList()
     ): Boolean {
         return try {
             val rootJson = JSONObject().apply {
@@ -240,6 +243,20 @@ object AutoBackupManager {
                     })
                 }
                 put("localNotes", notesArray)
+
+                // 4.1 Frases armadas guardadas desde el lienzo de pruebas
+                val savedPhrasesArray = JSONArray()
+                savedDraftPhrases.forEach { sp ->
+                    savedPhrasesArray.put(JSONObject().apply {
+                        put("id", sp.id)
+                        put("phraseText", sp.phraseText)
+                        val wArr = JSONArray()
+                        sp.words.forEach { wArr.put(it) }
+                        put("words", wArr)
+                        put("createdAt", sp.createdAt)
+                    })
+                }
+                put("savedDraftPhrases", savedPhrasesArray)
 
                 // 5. Array detallado con las 26 letras del abecedario y sus contadores exactos (A a la Z)
                 val alphabetLettersArray = JSONArray()
@@ -821,6 +838,35 @@ object AutoBackupManager {
                 }
             }
 
+            // Frases armadas guardadas desde el lienzo de pruebas
+            val savedDraftPhrasesList = mutableListOf<SavedDraftPhrase>()
+            if (root.has("savedDraftPhrases")) {
+                val array = root.getJSONArray("savedDraftPhrases")
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val wordsList = mutableListOf<String>()
+                    if (obj.has("words")) {
+                        val wArr = obj.getJSONArray("words")
+                        for (wIdx in 0 until wArr.length()) {
+                            wordsList.add(wArr.getString(wIdx))
+                        }
+                    }
+                    val phraseText = obj.optString("phraseText", wordsList.joinToString(" "))
+                    val id = obj.optString("id", java.util.UUID.randomUUID().toString())
+                    val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    if (phraseText.isNotBlank() || wordsList.isNotEmpty()) {
+                        savedDraftPhrasesList.add(
+                            SavedDraftPhrase(
+                                id = id,
+                                phraseText = phraseText,
+                                words = wordsList,
+                                createdAt = createdAt
+                            )
+                        )
+                    }
+                }
+            }
+
             val effectiveUsedWords = if (usedWordsCount > 0) usedWordsCount else vocabCountsMap.values.count { it > 0 }
             val totalVocabUses = root.optInt("totalVocabularyUses", vocabCountsMap.values.sum())
 
@@ -845,7 +891,8 @@ object AutoBackupManager {
                 usedPhrasesCount = usedPhrasesCount,
                 allPhrases = phrasesList,
                 phraseCounts = phrasesMap,
-                notes = notesList
+                notes = notesList,
+                savedDraftPhrases = savedDraftPhrasesList
             )
         } catch (_: Exception) {
             null

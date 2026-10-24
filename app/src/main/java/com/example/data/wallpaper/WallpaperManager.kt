@@ -26,7 +26,9 @@ class WallpaperManager(private val storage: WallpaperStorage) {
     _wallpapers.value = list
 
     val savedId = storage.getSelectedWallpaperId()
-    val found = list.find { it.id == savedId } ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
+    val found = list.find { 
+      it.id == savedId || it.fileName == savedId || it.id.substringBeforeLast('.') == savedId 
+    } ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
     _selectedWallpaper.value = found
   }
 

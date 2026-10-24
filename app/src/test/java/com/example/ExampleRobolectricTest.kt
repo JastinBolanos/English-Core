@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import kotlinx.coroutines.flow.first
 
 import androidx.test.core.app.ApplicationProvider
@@ -49,7 +50,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `alarm shortcut and gemini top buttons are removed and roadmap button floats cleanly`() {
+  fun `alarm shortcut and gemini top buttons are removed and roadmap button opens from drawer`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -59,10 +60,13 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
 
-    // Click Roadmap shortcut button to open tactical roadmap dialog
-    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").performClick()
+    // Open side drawer and click Roadmap
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
   }
@@ -221,7 +225,7 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("draft_scratchpad").assertExists()
+    composeTestRule.onNodeWithTag("draft_scratchpad").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_translate_practice").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_mic_pronunciation").assertDoesNotExist()
     composeTestRule.onNodeWithTag("mirror_voice_tray").assertDoesNotExist()
@@ -249,10 +253,13 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    composeTestRule.waitForIdle()
 
-    // Click Ruta button
-    composeTestRule.onNodeWithTag("btn_roadmap_shortcut").performClick()
+    // Click Ruta item in drawer
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
     composeTestRule.waitForIdle()
 
     // Verify dialog opened
@@ -276,24 +283,24 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Assert FAB exists
-    val fabNode = composeTestRule.onNodeWithTag("fab_speed_control")
-    fabNode.assertExists()
+    // Assert speed button exists in header
+    val speedNode = composeTestRule.onNodeWithTag("header_speed_control")
+    speedNode.assertExists()
 
-    // Click FAB to cycle to 0.5
-    fabNode.performClick()
+    // Click to cycle to 0.5
+    speedNode.performClick()
     composeTestRule.waitForIdle()
-    fabNode.assertExists()
+    speedNode.assertExists()
 
-    // Click FAB to cycle to 0.3
-    fabNode.performClick()
+    // Click to cycle to 0.3
+    speedNode.performClick()
     composeTestRule.waitForIdle()
-    fabNode.assertExists()
+    speedNode.assertExists()
 
-    // Click FAB to cycle back to 1.0
-    fabNode.performClick()
+    // Click to cycle back to 1.0
+    speedNode.performClick()
     composeTestRule.waitForIdle()
-    fabNode.assertExists()
+    speedNode.assertExists()
   }
 
   @Test
@@ -451,7 +458,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify spanish to english writer card is hidden by default and toggles via header translate button`() {
+  fun `verify spanish to english writer card is hidden by default and toggles via drawer`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -461,18 +468,15 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     // Initially hidden
     composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").assertExists()
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertExists()
 
-    // Tap header translate button to open writer card
-    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").performClick()
+    // Tap drawer item to open writer card
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertExists()
-    composeTestRule.onNodeWithTag("input_spanish_text").assertExists()
-
-    // Tap header translate button again to hide writer card
-    composeTestRule.onNodeWithTag("btn_toggle_spanish_translator_header").performClick()
+    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").performScrollTo().performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("input_spanish_text", useUnmergedTree = true).assertExists()
   }
 
   @Test
@@ -651,9 +655,6 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Verify FAB '+' exists
-    composeTestRule.onNodeWithTag("fab_add_custom_word").assertExists()
-
     // Verify FAB Gemini Web exists and is clickable (opens 75% floating web tray)
     composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
     composeTestRule.onNodeWithTag("fab_gemini_web").performClick()
@@ -665,15 +666,17 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").performClick()
     composeTestRule.waitForIdle()
 
-    // Click FAB to open creation dialog
-    composeTestRule.onNodeWithTag("fab_add_custom_word").performClick()
+    // Open side drawer and click Add Word
+    composeTestRule.onNodeWithTag("btn_open_side_drawer").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("drawer_item_add_word").performScrollTo().performClick()
     composeTestRule.waitForIdle()
 
     // Verify dialog and preview card exist
-    composeTestRule.onNodeWithTag("dialog_add_custom_word").assertExists()
-    composeTestRule.onNodeWithTag("preview_custom_word_card").assertExists()
-    composeTestRule.onNodeWithTag("input_new_word_lemma").assertExists()
-    composeTestRule.onNodeWithTag("btn_save_custom_word").assertExists()
+    composeTestRule.onNodeWithTag("dialog_add_custom_word", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("preview_custom_word_card", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("input_new_word_lemma", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("btn_save_custom_word", useUnmergedTree = true).assertExists()
 
     // Close dialog
     composeTestRule.onNodeWithTag("btn_close_add_word_x").performClick()
@@ -936,21 +939,15 @@ class ExampleRobolectricTest {
     // Verify row for letter A
     composeTestRule.onNodeWithTag("alphabet_item_A").assertExists()
     composeTestRule.onNodeWithTag("alphabet_count_A", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("btn_add_letter_to_canvas_A").assertExists()
     composeTestRule.onNodeWithTag("btn_listen_letter_A").assertExists()
-
-    // Verify toggle pronunciation button exists and expands tray
-    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_A").assertExists()
-    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_A").performClick()
-    composeTestRule.waitForIdle()
 
     // Click listen button for A
     composeTestRule.onNodeWithTag("btn_listen_letter_A").performClick()
     composeTestRule.waitForIdle()
     assertEquals("A", listenedLetter)
 
-    // Click add to canvas button for A
-    composeTestRule.onNodeWithTag("btn_add_letter_to_canvas_A").performClick()
+    // Click row for A to add to canvas
+    composeTestRule.onNodeWithTag("alphabet_item_A").performClick()
     composeTestRule.waitForIdle()
     assertEquals("A", canvasLetter)
   }
@@ -1023,21 +1020,15 @@ class ExampleRobolectricTest {
     // Verify row for number 1
     composeTestRule.onNodeWithTag("number_card_1").assertExists()
     composeTestRule.onNodeWithTag("number_count_1", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("btn_add_number_to_canvas_1").assertExists()
     composeTestRule.onNodeWithTag("btn_speak_number_1").assertExists()
-
-    // Verify toggle pronunciation button exists and expands tray
-    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_1").assertExists()
-    composeTestRule.onNodeWithTag("btn_toggle_pronunciation_1").performClick()
-    composeTestRule.waitForIdle()
 
     // Click listen button for 1
     composeTestRule.onNodeWithTag("btn_speak_number_1").performClick()
     composeTestRule.waitForIdle()
     assertEquals(1, listenedNumber)
 
-    // Click add to canvas button for 1
-    composeTestRule.onNodeWithTag("btn_add_number_to_canvas_1").performClick()
+    // Click row for 1 to add to canvas
+    composeTestRule.onNodeWithTag("number_card_1").performClick()
     composeTestRule.waitForIdle()
     assertEquals(1, canvasNumber)
   }
@@ -1534,6 +1525,48 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("wallpaper_item_none").performClick()
     composeTestRule.waitForIdle()
     assertTrue("La bandeja flotante debe cerrarse inmediatamente al elegir un fondo", closed)
+  }
+
+  @Test
+  fun `verify saved phrases storage and floating saved phrases tray with add to canvas`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.local.SavedPhrasesStorage(context)
+    storage.clearAll()
+
+    val phrase = storage.addPhrase("How are you today", listOf("How", "are", "you", "today"))
+    val loaded = storage.loadSavedPhrases()
+    assertEquals(1, loaded.size)
+    assertEquals("How are you today", loaded[0].phraseText)
+
+    var addedToCanvasPhrase: com.example.data.local.SavedDraftPhrase? = null
+    var spokenPhrase = ""
+    var trayClosed = false
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        com.example.presentation.phrases.FloatingSavedPhrasesTray(
+          isOpen = true,
+          onClose = { trayClosed = true },
+          onSpeakPhrase = { spokenPhrase = it },
+          onAddToCanvas = { addedToCanvasPhrase = it }
+        )
+      }
+    }
+
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("floating_saved_phrases_dialog").assertExists()
+    composeTestRule.onNodeWithTag("btn_add_saved_to_canvas_${phrase.id}").assertExists()
+    composeTestRule.onNodeWithTag("btn_speak_saved_phrase_${phrase.id}").assertExists()
+
+    // Click + Lienzo
+    composeTestRule.onNodeWithTag("btn_add_saved_to_canvas_${phrase.id}").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals("How are you today", addedToCanvasPhrase?.phraseText)
+
+    // Click speak
+    composeTestRule.onNodeWithTag("btn_speak_saved_phrase_${phrase.id}").performClick()
+    composeTestRule.waitForIdle()
+    assertEquals("How are you today", spokenPhrase)
   }
 }
 

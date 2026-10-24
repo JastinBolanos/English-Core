@@ -23,10 +23,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -139,8 +139,7 @@ fun FloatingWallpaperTray(
         Column(
           modifier = Modifier
             .fillMaxSize()
-            .padding(18.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(18.dp),
           horizontalAlignment = Alignment.CenterHorizontally
         ) {
           // Barra superior con Icono, Título y Botón Cerrar X
@@ -204,72 +203,80 @@ fun FloatingWallpaperTray(
             }
           }
 
-          Spacer(modifier = Modifier.height(10.dp))
+          Spacer(modifier = Modifier.height(12.dp))
 
-          // Control de Atenuación (Dimming Slider)
-          if (!selectedWallpaper.isDefaultNone) {
-            Card(
-              modifier = Modifier.fillMaxWidth(),
-              shape = RoundedCornerShape(12.dp),
-              colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.6f)),
-              border = BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.5f))
-            ) {
-              Column(modifier = Modifier.padding(12.dp)) {
-                Row(
+          // Lista virtualizada con LazyColumn para soportar todos los 60+ fondos fluidamente
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxWidth()
+              .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+          ) {
+            // Control de Atenuación (Dimming Slider)
+            if (!selectedWallpaper.isDefaultNone) {
+              item(key = "wallpaper_dim_slider_card") {
+                Card(
                   modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.SpaceBetween,
-                  verticalAlignment = Alignment.CenterVertically
+                  shape = RoundedCornerShape(12.dp),
+                  colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.6f)),
+                  border = BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.5f))
                 ) {
-                  Text(
-                    text = "Atenuación del fondo",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                      color = Color(0xFFF1F5F9),
-                      fontWeight = FontWeight.SemiBold
+                  Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                    ) {
+                      Text(
+                        text = "Atenuación del fondo",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                          color = Color(0xFFF1F5F9),
+                          fontWeight = FontWeight.SemiBold
+                        )
+                      )
+                      Text(
+                        text = "${(dimAlpha * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                          color = Color(0xFFE879F9),
+                          fontWeight = FontWeight.Bold
+                        )
+                      )
+                    }
+                    Slider(
+                      value = dimAlpha,
+                      onValueChange = { wallpaperManager.updateDimAlpha(it) },
+                      valueRange = 0.10f..0.85f,
+                      colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFE879F9),
+                        activeTrackColor = Color(0xFFE879F9),
+                        inactiveTrackColor = Color(0xFF334155)
+                      ),
+                      modifier = Modifier.testTag("slider_wallpaper_dim")
                     )
-                  )
-                  Text(
-                    text = "${(dimAlpha * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                      color = Color(0xFFE879F9),
-                      fontWeight = FontWeight.Bold
-                    )
-                  )
+                  }
                 }
-                Slider(
-                  value = dimAlpha,
-                  onValueChange = { wallpaperManager.updateDimAlpha(it) },
-                  valueRange = 0.10f..0.85f,
-                  colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFFE879F9),
-                    activeTrackColor = Color(0xFFE879F9),
-                    inactiveTrackColor = Color(0xFF334155)
-                  ),
-                  modifier = Modifier.testTag("slider_wallpaper_dim")
-                )
               }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-          }
+            item(key = "wallpaper_section_header") {
+              Text(
+                text = "Fondos disponibles (${wallpapers.size})",
+                style = MaterialTheme.typography.labelMedium.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = Color(0xFF94A3B8)
+                ),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(top = 4.dp, bottom = 4.dp)
+              )
+            }
 
-          // Lista de Fondos de Pantalla
-          Text(
-            text = "Fondos disponibles (${wallpapers.size})",
-            style = MaterialTheme.typography.labelMedium.copy(
-              fontWeight = FontWeight.Bold,
-              color = Color(0xFF94A3B8)
-            ),
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(bottom = 8.dp)
-          )
-
-          Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            wallpapers.forEach { wallpaper ->
-              val isSelected = selectedWallpaper.id == wallpaper.id
+            items(
+              items = wallpapers,
+              key = { it.id }
+            ) { wallpaper ->
+              val isSelected = selectedWallpaper.id == wallpaper.id ||
+                (!wallpaper.isDefaultNone && selectedWallpaper.fileName == wallpaper.fileName)
               WallpaperCardItem(
                 wallpaper = wallpaper,
                 isSelected = isSelected,
@@ -281,7 +288,7 @@ fun FloatingWallpaperTray(
             }
           }
 
-          Spacer(modifier = Modifier.height(16.dp))
+          Spacer(modifier = Modifier.height(12.dp))
 
           // Botón Cerrar Bandeja Flotante
           Button(
@@ -368,12 +375,13 @@ private fun WallpaperCardItem(
             )
           }
         } else {
-          // Carga miniatura desde assets
+          // Carga miniatura desde assets con tamaño acotado para alta fluidez
           val assetUrl = "file:///android_asset/${wallpaper.assetPath}"
           AsyncImage(
             model = ImageRequest.Builder(context)
               .data(assetUrl)
               .crossfade(true)
+              .size(160, 220)
               .build(),
             contentDescription = wallpaper.title,
             contentScale = ContentScale.Crop,

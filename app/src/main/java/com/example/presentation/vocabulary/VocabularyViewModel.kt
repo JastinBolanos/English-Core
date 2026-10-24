@@ -283,6 +283,9 @@ class VocabularyViewModel @Inject constructor(
           phrasesStorage.saveCounts(data.phraseCounts)
           _phraseCounts.value = data.phraseCounts
         }
+        if (data.savedDraftPhrases.isNotEmpty()) {
+          com.example.data.local.SavedPhrasesStorage(context).saveSavedPhrases(data.savedDraftPhrases)
+        }
         com.example.data.backup.AutoBackupManager.saveFullBackup(
           context = context,
           vocabularyWordCounts = data.vocabularyWordCounts,
@@ -291,14 +294,15 @@ class VocabularyViewModel @Inject constructor(
           notes = data.notes,
           alphabetCounts = data.alphabetCounts,
           numberCounts = data.numberCounts,
-          phraseCounts = data.phraseCounts
+          phraseCounts = data.phraseCounts,
+          savedDraftPhrases = data.savedDraftPhrases
         )
         val activeWordsCount = data.vocabularyWordCounts.values.count { it > 0 }
         val totalWordUses = data.vocabularyWordCounts.values.sum()
         withContext(kotlinx.coroutines.Dispatchers.Main) {
           onComplete(
             true,
-            "¡Progreso restaurado con éxito! $activeWordsCount copas, $totalWordUses usos de vocabulario, ${data.alphabetCounts.size} letras, ${data.numberCounts.size} números, ${data.phraseCounts.size} frases y ${data.notes.size} notas."
+            "¡Progreso restaurado con éxito! $activeWordsCount copas, $totalWordUses usos de vocabulario, ${data.alphabetCounts.size} letras, ${data.numberCounts.size} números, ${data.phraseCounts.size} frases, ${data.savedDraftPhrases.size} frases guardadas y ${data.notes.size} notas."
           )
         }
       } catch (e: Exception) {
@@ -307,6 +311,33 @@ class VocabularyViewModel @Inject constructor(
         }
       }
     }
+  }
+
+  fun addSavedPhraseToDraft(savedPhrase: com.example.data.local.SavedDraftPhrase) {
+    val tokens = if (savedPhrase.words.isNotEmpty()) {
+      savedPhrase.words
+    } else {
+      savedPhrase.phraseText.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
+    }
+    if (tokens.isEmpty()) return
+
+    val allWords = words.value
+    val newWords = tokens.map { token ->
+      val cleanToken = token.trim()
+      allWords.firstOrNull { it.lemma.equals(cleanToken, ignoreCase = true) }
+        ?: Word(
+          id = (cleanToken.hashCode().toLong() and 0x7FFFFFFFL),
+          lemma = cleanToken,
+          partOfSpeech = PartOfSpeech.OTHER,
+          spanishTranslation = ""
+        )
+    }
+    _draftWords.value = _draftWords.value + newWords
+    _isPhraseUpdated.value = true
+    if (_isTranslationTrayExpanded.value) {
+      translateCurrentDraft()
+    }
+    ttsManager.speak(savedPhrase.phraseText)
   }
 
   // Gestor del Escritor Traductor de Español a Inglés (Bandeja bajo el Lienzo de Pruebas)
