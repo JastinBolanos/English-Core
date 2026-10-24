@@ -298,6 +298,7 @@ fun VocabularyScreen(
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
   val editingCustomWord by viewModel.editingCustomWord.collectAsStateWithLifecycle()
+  val wordToDelete by viewModel.wordToDelete.collectAsStateWithLifecycle()
   val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
   val vocabularyTotalUses by viewModel.vocabularyTotalUses.collectAsStateWithLifecycle()
@@ -1354,7 +1355,8 @@ fun VocabularyScreen(
                       onSpeak = { viewModel.speakWord(word) },
                       onSpeakExample = { example -> viewModel.speakExample(word, example) },
                       onOpenDetails = { viewModel.recordWordUsage(word) },
-                      onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null
+                      onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null,
+                      onDelete = if (word.rank >= 2810) { { viewModel.requestDeleteCustomWord(word) } } else null
                     )
                   }
                 }
@@ -1606,6 +1608,14 @@ fun VocabularyScreen(
         }
       },
       onPreviewSpeak = { text -> viewModel.speakWord(text) }
+    )
+  }
+
+  if (wordToDelete != null) {
+    DeleteWordConfirmationDialog(
+      word = wordToDelete!!,
+      onConfirm = { viewModel.confirmDeleteCustomWord() },
+      onDismiss = { viewModel.cancelDeleteCustomWord() }
     )
   }
 
@@ -2737,6 +2747,82 @@ private fun CompactWordInputField(
         innerTextField()
       }
     }
+  )
+}
+
+/**
+ * Diálogo de confirmación para eliminar una palabra personalizada (#2810+) creada por el usuario.
+ */
+@Composable
+fun DeleteWordConfirmationDialog(
+  word: Word,
+  onConfirm: () -> Unit,
+  onDismiss: () -> Unit
+) {
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    shape = RoundedCornerShape(20.dp),
+    containerColor = Color(0xFF0F172A),
+    icon = {
+      Box(
+        modifier = Modifier
+          .size(46.dp)
+          .background(Color(0x26EF4444), shape = CircleShape),
+        contentAlignment = Alignment.Center
+      ) {
+        Icon(
+          imageVector = Icons.Default.DeleteOutline,
+          contentDescription = null,
+          tint = Color(0xFFEF4444),
+          modifier = Modifier.size(24.dp)
+        )
+      }
+    },
+    title = {
+      Text(
+        text = "¿Eliminar palabra?",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = Color(0xFFF8FAFC),
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("dialog_delete_word_title")
+      )
+    },
+    text = {
+      Text(
+        text = "¿Estás seguro de que deseas eliminar la palabra \"${word.lemma}\" (#${word.rank}) de tu vocabulario? Esta acción no se puede deshacer.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color(0xFF94A3B8),
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("dialog_delete_word_message")
+      )
+    },
+    confirmButton = {
+      Button(
+        onClick = onConfirm,
+        colors = ButtonDefaults.buttonColors(
+          containerColor = Color(0xFFEF4444),
+          contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier.testTag("btn_confirm_delete_word")
+      ) {
+        Text("Eliminar", fontWeight = FontWeight.Bold)
+      }
+    },
+    dismissButton = {
+      TextButton(
+        onClick = onDismiss,
+        modifier = Modifier.testTag("btn_cancel_delete_word")
+      ) {
+        Text("Cancelar", color = Color(0xFF94A3B8))
+      }
+    },
+    modifier = Modifier.testTag("dialog_delete_word_confirmation")
   )
 }
 
@@ -4496,6 +4582,7 @@ fun WordHudCard(
   onSpeakExample: ((String) -> Unit)? = null,
   onOpenDetails: (() -> Unit)? = null,
   onEdit: (() -> Unit)? = null,
+  onDelete: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   var isRevealed by rememberSaveable(word.id) { mutableStateOf(false) }
@@ -4597,6 +4684,23 @@ fun WordHudCard(
             imageVector = Icons.Default.Edit,
             contentDescription = "Editar palabra ${word.lemma}",
             tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(19.dp)
+          )
+        }
+      }
+
+      // Icono de eliminar / tacho de basura (SOLO para palabras personalizadas con rank >= 2810)
+      if (word.rank >= 2810 && onDelete != null) {
+        IconButton(
+          onClick = onDelete,
+          modifier = Modifier
+            .size(36.dp)
+            .testTag("btn_delete_word_${word.rank}")
+        ) {
+          Icon(
+            imageVector = Icons.Default.DeleteOutline,
+            contentDescription = "Eliminar palabra ${word.lemma}",
+            tint = Color(0xFFEF4444),
             modifier = Modifier.size(19.dp)
           )
         }

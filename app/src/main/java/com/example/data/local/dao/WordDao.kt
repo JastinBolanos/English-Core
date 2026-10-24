@@ -85,6 +85,9 @@ interface WordDao {
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertAll(words: List<WordEntity>)
 
+  @Query("DELETE FROM words WHERE rank = :rank")
+  suspend fun deleteWordByRank(rank: Int): Int
+
   @Query("DELETE FROM words")
   suspend fun clearAll()
 }

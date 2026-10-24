@@ -639,6 +639,39 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
+  // Estado para confirmación de eliminación de palabras personalizadas (#2810+)
+  private val _wordToDelete = MutableStateFlow<Word?>(null)
+  val wordToDelete: StateFlow<Word?> = _wordToDelete.asStateFlow()
+
+  fun requestDeleteCustomWord(word: Word) {
+    if (word.rank < 2810) return
+    _wordToDelete.value = word
+  }
+
+  fun cancelDeleteCustomWord() {
+    _wordToDelete.value = null
+  }
+
+  fun confirmDeleteCustomWord() {
+    val word = _wordToDelete.value ?: return
+    if (word.rank < 2810) return
+    viewModelScope.launch {
+      try {
+        repository.deleteCustomWord(word.rank)
+      } catch (_: Exception) {}
+      _wordToDelete.value = null
+    }
+  }
+
+  fun deleteCustomWord(rank: Int) {
+    if (rank < 2810) return
+    viewModelScope.launch {
+      try {
+        repository.deleteCustomWord(rank)
+      } catch (_: Exception) {}
+    }
+  }
+
   private val _isLoading = MutableStateFlow(false)
   val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 

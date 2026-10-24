@@ -24,4 +24,5 @@ interface VocabularyRepository {
     spanishTranslation: String,
     microExample: String
   ): Word?
+  suspend fun deleteCustomWord(rank: Int): Boolean
 }

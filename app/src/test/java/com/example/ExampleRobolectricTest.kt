@@ -20,6 +20,7 @@ import com.example.ui.theme.EnglishAppTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -1919,6 +1920,106 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_save_custom_word").performScrollTo().performClick()
     assertEquals("feedback", savedWord)
     assertEquals("retroalimentación", savedSpanish)
+  }
+
+  @Test
+  fun `verify only custom words 2810 and above have delete button and confirmation dialog opens`() {
+    val wordCore = Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.MODIFIER)
+    val wordCustom = Word(id = 2810, lemma = "hello", rank = 2810, partOfSpeech = PartOfSpeech.NOUN)
+
+    var deleteClicked = false
+    var confirmedDelete = false
+
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        androidx.compose.foundation.layout.Column {
+          com.example.presentation.vocabulary.WordHudCard(
+            word = wordCore,
+            onTap = {},
+            onEdit = if (wordCore.rank >= 2810) { {} } else null,
+            onDelete = if (wordCore.rank >= 2810) { {} } else null
+          )
+          com.example.presentation.vocabulary.WordHudCard(
+            word = wordCustom,
+            onTap = {},
+            onEdit = if (wordCustom.rank >= 2810) { {} } else null,
+            onDelete = if (wordCustom.rank >= 2810) { { deleteClicked = true } } else null
+          )
+
+          com.example.presentation.vocabulary.DeleteWordConfirmationDialog(
+            word = wordCustom,
+            onConfirm = { confirmedDelete = true },
+            onDismiss = {}
+          )
+        }
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // 1. Palabra del núcleo (#1): NO debe tener botón de eliminar
+    composeTestRule.onNodeWithTag("btn_delete_word_1").assertDoesNotExist()
+
+    // 2. Palabra personalizada (#2810): SÍ debe tener botón de eliminar
+    composeTestRule.onNodeWithTag("btn_delete_word_2810").assertExists()
+    composeTestRule.onNodeWithTag("btn_delete_word_2810").performClick()
+    assertTrue("Debe invocar la acción de eliminar", deleteClicked)
+
+    // 3. Diálogo de confirmación debe mostrarse con título, mensaje y botones
+    composeTestRule.onNodeWithTag("dialog_delete_word_confirmation").assertExists()
+    composeTestRule.onNodeWithTag("dialog_delete_word_title").assertExists()
+    composeTestRule.onNodeWithTag("dialog_delete_word_message").assertExists()
+    composeTestRule.onNodeWithTag("btn_confirm_delete_word").assertExists()
+    composeTestRule.onNodeWithTag("btn_cancel_delete_word").assertExists()
+
+    composeTestRule.onNodeWithTag("btn_confirm_delete_word").performClick()
+    assertTrue("Debe confirmar eliminación", confirmedDelete)
+  }
+
+  @Test
+  fun `verify deleting custom word removes it from database and json storage`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.example.data.local.AppDatabase::class.java)
+      .allowMainThreadQueries()
+      .build()
+    val dao = db.wordDao()
+    val initializer = com.example.data.local.DatabaseInitializer(context, dao)
+    val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
+
+    // Crear palabra 2810 inicial
+    val created = repo.addCustomWord(
+      word = "todelete",
+      partOfSpeech = "sustantivo",
+      spanishTranslation = "a borrar",
+      microExample = "delete this word"
+    )
+    assertEquals(2810, created.rank)
+
+    // Verificar en base de datos y json
+    val inDbBefore = dao.getWordByRank(2810)
+    assertNotNull(inDbBefore)
+
+    val jsonFile = java.io.File(context.filesDir, "custom_words.json")
+    assertTrue(jsonFile.exists())
+    assertTrue(jsonFile.readText().contains("todelete"))
+
+    // Eliminar la palabra 2810
+    val deleted = repo.deleteCustomWord(2810)
+    assertTrue(deleted)
+
+    // Verificar que ya no está en Room DB
+    val inDbAfter = dao.getWordByRank(2810)
+    assertNull(inDbAfter)
+
+    // Verificar que ya no está en custom_words.json
+    val contentAfter = jsonFile.readText()
+    assertFalse(contentAfter.contains("todelete"))
+
+    // Intentar borrar una palabra < 2810 debe ser rechazado
+    val rejectedDelete = repo.deleteCustomWord(10)
+    assertFalse(rejectedDelete)
+
+    db.close()
   }
 }
 

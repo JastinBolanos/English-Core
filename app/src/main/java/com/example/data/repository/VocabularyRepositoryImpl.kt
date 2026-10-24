@@ -203,6 +203,17 @@ class VocabularyRepositoryImpl @Inject constructor(
     return updatedEntity.toDomain()
   }
 
+  override suspend fun deleteCustomWord(rank: Int): Boolean {
+    if (rank < 2810) return false
+    val existing = wordDao.getWordByRank(rank) ?: return false
+    val deletedRows = wordDao.deleteWordByRank(rank)
+    if (deletedRows > 0) {
+      customWordsStorage?.deleteCustomWord(rank)
+      return true
+    }
+    return false
+  }
+
   private fun WordEntity.toDomain(): Word {
     val cleanLemma = word.lowercase().trim()
 
