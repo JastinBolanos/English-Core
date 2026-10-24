@@ -2151,15 +2151,15 @@ fun PremiumTrophyBadge(
               Color.Transparent
             )
           ),
-          shape = RoundedCornerShape(16.dp)
+          shape = CircleShape
         )
     )
 
-    // 2. Cápsula interactiva de lujo (Borde dorado metálico + Fondo obsidian oscuro)
+    // 2. Cápsula interactiva de lujo (Borde dorado metálico + Fondo obsidian oscuro parejo)
     Surface(
       onClick = onClick,
-      shape = RoundedCornerShape(16.dp),
-      color = Color.Transparent,
+      shape = CircleShape,
+      color = Color(0xFF0F172A),
       border = BorderStroke(
         width = if (glowAnim.value > 0.05f) 1.8.dp else 1.1.dp,
         brush = Brush.horizontalGradient(
@@ -2180,7 +2180,7 @@ fun PremiumTrophyBadge(
           }
         )
       ),
-      shadowElevation = if (glowAnim.value > 0.05f) 8.dp else 2.dp,
+      shadowElevation = 0.dp,
       modifier = Modifier
         .testTag("counter_used_words_badge")
         .graphicsLayer {
@@ -2190,15 +2190,17 @@ fun PremiumTrophyBadge(
     ) {
       Box(
         modifier = Modifier
+          .clip(CircleShape)
           .background(
             brush = Brush.verticalGradient(
               colors = listOf(
                 Color(0xFF1E293B),
                 Color(0xFF0F172A)
               )
-            )
+            ),
+            shape = CircleShape
           )
-          .padding(horizontal = 9.dp, vertical = 5.dp),
+          .padding(horizontal = 11.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
       ) {
         // Tinte dorado interno sutil

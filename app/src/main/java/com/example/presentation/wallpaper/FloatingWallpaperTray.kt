@@ -85,6 +85,12 @@ fun FloatingWallpaperTray(
 
   BackHandler { onClose() }
 
+  androidx.compose.runtime.LaunchedEffect(isOpen) {
+    if (isOpen) {
+      wallpaperManager.refresh()
+    }
+  }
+
   val wallpapers by wallpaperManager.wallpapers.collectAsStateWithLifecycle()
   val selectedWallpaper by wallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
   val dimAlpha by wallpaperManager.dimAlpha.collectAsStateWithLifecycle()
@@ -198,82 +204,7 @@ fun FloatingWallpaperTray(
             }
           }
 
-          Spacer(modifier = Modifier.height(14.dp))
-
-          // Tarjeta de información de la carpeta especial de código
-          Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.85f)),
-            border = BorderStroke(1.dp, Color(0xFF334155))
-          ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-              ) {
-                Icon(
-                  imageVector = Icons.Default.FolderOpen,
-                  contentDescription = null,
-                  tint = Color(0xFF38BDF8),
-                  modifier = Modifier.size(18.dp)
-                )
-                Text(
-                  text = "Carpeta especial para tus imágenes:",
-                  style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF38BDF8)
-                  )
-                )
-              }
-              Spacer(modifier = Modifier.height(4.dp))
-              Text(
-                text = "app/src/main/assets/wallpapers/",
-                style = MaterialTheme.typography.bodySmall.copy(
-                  fontWeight = FontWeight.SemiBold,
-                  color = Color(0xFFF1F5F9),
-                  fontSize = 12.sp
-                )
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Text(
-                text = "Coloca aquí cualquier imagen (.jpg, .png, .webp). La app la detectará automáticamente para elegirla como fondo.",
-                style = MaterialTheme.typography.bodySmall.copy(
-                  color = Color(0xFF94A3B8),
-                  fontSize = 11.sp
-                )
-              )
-
-              Spacer(modifier = Modifier.height(6.dp))
-
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-              ) {
-                OutlinedButton(
-                  onClick = { wallpaperManager.refresh() },
-                  shape = RoundedCornerShape(8.dp),
-                  colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF38BDF8)
-                  ),
-                  border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-                  modifier = Modifier
-                    .height(32.dp)
-                    .testTag("btn_refresh_wallpapers")
-                ) {
-                  Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                  )
-                  Spacer(modifier = Modifier.width(4.dp))
-                  Text(text = "Escanear carpeta", fontSize = 11.sp)
-                }
-              }
-            }
-          }
-
-          Spacer(modifier = Modifier.height(14.dp))
+          Spacer(modifier = Modifier.height(10.dp))
 
           // Control de Atenuación (Dimming Slider)
           if (!selectedWallpaper.isDefaultNone) {
@@ -344,6 +275,7 @@ fun FloatingWallpaperTray(
                 isSelected = isSelected,
                 onClick = {
                   wallpaperManager.selectWallpaper(wallpaper)
+                  onClose()
                 }
               )
             }

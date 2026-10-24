@@ -1530,10 +1530,10 @@ class ExampleRobolectricTest {
     // Verificar que existe el item del fondo predeterminado
     composeTestRule.onNodeWithTag("wallpaper_item_none").assertExists()
 
-    // Cerrar
-    composeTestRule.onNodeWithTag("btn_close_wallpaper_tray").performClick()
+    // Al pulsar un fondo de pantalla para elegirlo, el sistema debe seleccionarlo y cerrar la bandeja automáticamente
+    composeTestRule.onNodeWithTag("wallpaper_item_none").performClick()
     composeTestRule.waitForIdle()
-    assertTrue(closed)
+    assertTrue("La bandeja flotante debe cerrarse inmediatamente al elegir un fondo", closed)
   }
 }
 
