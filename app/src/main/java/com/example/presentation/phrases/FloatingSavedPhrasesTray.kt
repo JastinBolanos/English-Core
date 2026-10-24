@@ -125,7 +125,7 @@ fun FloatingSavedPhrasesTray(
       Surface(
         modifier = Modifier
           .fillMaxWidth(0.92f)
-          .fillMaxHeight(0.80f)
+          .fillMaxHeight(0.65f)
           .shadow(16.dp, shape = RoundedCornerShape(20.dp))
           .testTag("floating_saved_phrases_dialog"),
         shape = RoundedCornerShape(20.dp),

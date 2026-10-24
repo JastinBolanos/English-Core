@@ -1,15 +1,8 @@
 package com.example.presentation.vocabulary
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -22,19 +15,15 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Stars
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -116,19 +105,6 @@ fun ProficiencyLevelsTray(
 
     BackHandler { onClose() }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "c1_trophy_glow")
-    val pulseGlow by infiniteTransition.animateFloat(
-        initialValue = 0.7f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_glow"
-    )
-
-
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -146,7 +122,7 @@ fun ProficiencyLevelsTray(
                 ) { onClose() }
         )
 
-        // Contenedor flotante centrado estilo Acrílico HUD
+        // Contenedor flotante centrado con diseño limpio y sobrio
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
@@ -159,14 +135,7 @@ fun ProficiencyLevelsTray(
                 .testTag("proficiency_levels_tray_surface"),
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF0F172A),
-            border = BorderStroke(
-                width = 1.5.dp,
-                color = if (masteredWordsCount >= 2809) {
-                    Color(0xFFFACC15).copy(alpha = 0.85f * pulseGlow)
-                } else {
-                    Color(0xFF38BDF8).copy(alpha = 0.5f)
-                }
-            )
+            border = BorderStroke(1.dp, Color(0xFF1E293B))
         ) {
             Column(
                 modifier = Modifier
@@ -185,8 +154,8 @@ fun ProficiencyLevelsTray(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFFFACC15).copy(alpha = 0.18f),
-                            border = BorderStroke(1.dp, Color(0xFFFACC15))
+                            color = Color(0xFFFACC15).copy(alpha = 0.15f),
+                            border = null
                         ) {
                             Icon(
                                 imageVector = Icons.Default.EmojiEvents,
@@ -201,9 +170,9 @@ fun ProficiencyLevelsTray(
                         Column {
                             Text(
                                 text = "NIVELES DE DOMINIO",
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                letterSpacing = 0.8.sp,
+                                letterSpacing = 0.5.sp,
                                 color = Color(0xFFF8FAFC)
                             )
                             Text(
@@ -243,8 +212,7 @@ fun ProficiencyLevelsTray(
                     CEFR_LEVELS.forEach { level ->
                         LevelCard(
                             level = level,
-                            currentWords = masteredWordsCount,
-                            pulseGlow = pulseGlow
+                            currentWords = masteredWordsCount
                         )
                     }
 
@@ -256,13 +224,12 @@ fun ProficiencyLevelsTray(
 }
 
 /**
- * Tarjeta individual para cada nivel (A1, A2, B1, B2, C1).
+ * Tarjeta individual limpia para cada nivel (A1, A2, B1, B2, C1).
  */
 @Composable
 private fun LevelCard(
     level: ProficiencyLevel,
-    currentWords: Int,
-    pulseGlow: Float
+    currentWords: Int
 ) {
     val isCompleted = currentWords >= level.targetWords
     val isCurrent = currentWords in level.minWords until level.targetWords
@@ -286,17 +253,13 @@ private fun LevelCard(
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = when {
-            isCompleted -> Color(0xFF0B2135).copy(alpha = 0.85f)
-            isCurrent -> Color(0xFF0F2642).copy(alpha = 0.95f)
-            else -> Color(0xFF0F172A).copy(alpha = 0.6f)
+            isCompleted -> Color(0xFF0F1B2E)
+            isCurrent -> Color(0xFF132238)
+            else -> Color(0xFF0B1324).copy(alpha = 0.7f)
         },
         border = BorderStroke(
-            width = if (isCurrent) 1.5.dp else 1.dp,
-            color = when {
-                isCompleted -> level.color.copy(alpha = 0.7f)
-                isCurrent -> level.color.copy(alpha = 0.9f * pulseGlow)
-                else -> Color(0xFF334155).copy(alpha = 0.4f)
-            }
+            width = 1.dp,
+            color = if (isCurrent) level.color.copy(alpha = 0.35f) else Color(0xFF1E293B)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -314,39 +277,28 @@ private fun LevelCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Badge con código (A1, A2, B1, B2, C1)
+                    // Badge con código limpio (A1, A2, B1, B2, C1) sin bordes pesados
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = level.color.copy(alpha = if (isLocked) 0.12f else 0.25f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isLocked) Color(0xFF475569) else level.color
-                        )
+                        color = level.color.copy(alpha = if (isLocked) 0.08f else 0.16f),
+                        border = null
                     ) {
                         Text(
                             text = level.code,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = if (isLocked) Color(0xFF94A3B8) else level.color,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            color = if (isLocked) Color(0xFF64748B) else level.color,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                         )
                     }
 
                     Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = level.title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = if (isLocked) Color(0xFF94A3B8) else Color(0xFFF8FAFC)
-                            )
-                            if (level.code == "C1") {
-                                Text(text = "👑", fontSize = 12.sp)
-                            }
-                        }
+                        Text(
+                            text = level.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = if (isLocked) Color(0xFF94A3B8) else Color(0xFFF8FAFC)
+                        )
                         Text(
                             text = level.subtitle,
                             fontSize = 10.5.sp,
@@ -355,7 +307,7 @@ private fun LevelCard(
                     }
                 }
 
-                // Estado (Completado / En curso / Bloqueado)
+                // Estado sobrio y sin emojis (Completado / En curso / Bloqueado)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -364,11 +316,11 @@ private fun LevelCard(
                         isCompleted -> {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFF10B981).copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, Color(0xFF10B981))
+                                color = Color(0xFF10B981).copy(alpha = 0.15f),
+                                border = null
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
@@ -380,7 +332,7 @@ private fun LevelCard(
                                     )
                                     Text(
                                         text = "SUPERADO",
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                         fontSize = 9.5.sp,
                                         color = Color(0xFF10B981)
                                     )
@@ -390,26 +342,26 @@ private fun LevelCard(
                         isCurrent -> {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = level.color.copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, level.color)
+                                color = level.color.copy(alpha = 0.16f),
+                                border = null
                             ) {
                                 Text(
-                                    text = "EN CURSO ⚡",
-                                    fontWeight = FontWeight.Bold,
+                                    text = "EN CURSO",
+                                    fontWeight = FontWeight.SemiBold,
                                     fontSize = 9.5.sp,
                                     color = level.color,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                                 )
                             }
                         }
                         else -> {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFF1E293B),
-                                border = BorderStroke(1.dp, Color(0xFF334155))
+                                color = Color(0xFF1E293B).copy(alpha = 0.6f),
+                                border = null
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
@@ -421,7 +373,7 @@ private fun LevelCard(
                                     )
                                     Text(
                                         text = "PRÓXIMO",
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Medium,
                                         fontSize = 9.5.sp,
                                         color = Color(0xFF64748B)
                                     )
@@ -475,10 +427,10 @@ private fun LevelCard(
                     progress = { levelProgress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(1.5.dp)),
                     color = if (isCompleted) Color(0xFF10B981) else level.color,
-                    trackColor = Color(0xFF0F172A)
+                    trackColor = Color(0xFF1E293B)
                 )
             }
         }

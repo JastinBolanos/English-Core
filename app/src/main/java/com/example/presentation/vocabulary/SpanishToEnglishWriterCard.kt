@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -109,161 +110,155 @@ fun SpanishToEnglishWriterCard(
       .testTag("spanish_english_writer_card"),
     verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {
-    // 1. Fila con caja de entrada para escribir + botón X a su costado para cerrar y ocultar
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-      BasicTextField(
-        value = spanishText,
-        onValueChange = onSpanishTextChanged,
-        singleLine = true,
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-          color = Color(0xFFF8FAFC),
-          fontSize = 15.sp,
-          fontWeight = FontWeight.Medium
-        ),
-        cursorBrush = SolidColor(Color(0xFF38BDF8)),
-        keyboardOptions = KeyboardOptions(
-          imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(
-          onDone = {
-            focusManager.clearFocus()
-            onTranslateNow()
-          }
-        ),
-        modifier = Modifier
-          .weight(1f)
-          .testTag("input_spanish_text"),
-        decorationBox = { innerTextField ->
+    // 1. Bandeja de traducción integrada: selector de idioma + input de texto + acciones (borrar tacho, traducir) + botón X de cierre integrado sin caja exterior
+    BasicTextField(
+      value = spanishText,
+      onValueChange = onSpanishTextChanged,
+      singleLine = true,
+      textStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = Color(0xFFF8FAFC),
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium
+      ),
+      cursorBrush = SolidColor(Color(0xFF38BDF8)),
+      keyboardOptions = KeyboardOptions(
+        imeAction = ImeAction.Done
+      ),
+      keyboardActions = KeyboardActions(
+        onDone = {
+          focusManager.clearFocus()
+          onTranslateNow()
+        }
+      ),
+      modifier = Modifier
+        .fillMaxWidth()
+        .testTag("input_spanish_text"),
+      decorationBox = { innerTextField ->
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(Color(0xFF131D2E).copy(alpha = 0.88f), shape = RoundedCornerShape(12.dp))
+            .padding(start = 10.dp, end = 6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          // Mini botón selector/inversor de dirección de traducción (Google Translate style)
           Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .background(Color(0xFF131D2E).copy(alpha = 0.88f), shape = RoundedCornerShape(12.dp))
-              .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+              .clip(RoundedCornerShape(8.dp))
+              .clickable { onSwapLanguages() }
+              .padding(horizontal = 4.dp, vertical = 2.dp)
+              .testTag("btn_swap_translation_direction")
           ) {
-            // Mini botón selector/inversor de dirección de traducción (Google Translate style)
+            Text(
+              text = if (isSpanishToEnglish) "ES" else "EN",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color(0xFF38BDF8),
+              fontSize = 11.5.sp
+            )
+            Icon(
+              imageVector = Icons.Default.SwapHoriz,
+              contentDescription = "Invertir dirección de traducción",
+              tint = Color(0xFF38BDF8),
+              modifier = Modifier.size(16.dp)
+            )
+            Text(
+              text = if (isSpanishToEnglish) "EN" else "ES",
+              style = MaterialTheme.typography.labelSmall,
+              fontWeight = FontWeight.Bold,
+              color = Color(0xFF94A3B8),
+              fontSize = 11.5.sp
+            )
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
+          ) {
+            if (spanishText.isEmpty()) {
+              Text(
+                text = if (isSpanishToEnglish) "Escribe en español..." else "Escribe en inglés...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF94A3B8),
+                fontSize = 14.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+            }
+            innerTextField()
+          }
+
+          if (isTranslating) {
+            CircularProgressIndicator(
+              modifier = Modifier.size(15.dp),
+              strokeWidth = 2.dp,
+              color = Color(0xFF38BDF8)
+            )
+          } else if (spanishText.isNotBlank()) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
               horizontalArrangement = Arrangement.spacedBy(2.dp),
-              modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onSwapLanguages() }
-                .padding(horizontal = 4.dp, vertical = 2.dp)
-                .testTag("btn_swap_translation_direction")
+              modifier = Modifier.padding(start = 2.dp)
             ) {
-              Text(
-                text = if (isSpanishToEnglish) "ES" else "EN",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF38BDF8),
-                fontSize = 11.5.sp
-              )
-              Icon(
-                imageVector = Icons.Default.SwapHoriz,
-                contentDescription = "Invertir dirección de traducción",
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(16.dp)
-              )
-              Text(
-                text = if (isSpanishToEnglish) "EN" else "ES",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF94A3B8),
-                fontSize = 11.5.sp
-              )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            Box(
-              modifier = Modifier.weight(1f),
-              contentAlignment = Alignment.CenterStart
-            ) {
-              if (spanishText.isEmpty()) {
-                Text(
-                  text = if (isSpanishToEnglish) "Escribe en español..." else "Escribe en inglés...",
-                  style = MaterialTheme.typography.bodyMedium,
-                  color = Color(0xFF94A3B8),
-                  fontSize = 14.5.sp,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
+              IconButton(
+                onClick = {
+                  selectedWord = null
+                  onClear()
+                },
+                modifier = Modifier
+                  .size(28.dp)
+                  .testTag("btn_clear_spanish_writer")
+              ) {
+                Icon(
+                  imageVector = Icons.Default.DeleteOutline,
+                  contentDescription = "Borrar texto",
+                  tint = Color(0xFF94A3B8),
+                  modifier = Modifier.size(18.dp)
                 )
               }
-              innerTextField()
-            }
-            if (isTranslating) {
-              CircularProgressIndicator(
-                modifier = Modifier.size(15.dp),
-                strokeWidth = 2.dp,
-                color = Color(0xFF38BDF8)
-              )
-            } else if (spanishText.isNotBlank()) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(start = 4.dp)
+              IconButton(
+                onClick = {
+                  focusManager.clearFocus()
+                  onTranslateNow()
+                },
+                modifier = Modifier
+                  .size(28.dp)
+                  .testTag("btn_trigger_translation")
               ) {
-                IconButton(
-                  onClick = {
-                    selectedWord = null
-                    onClear()
-                  },
-                  modifier = Modifier
-                    .size(26.dp)
-                    .testTag("btn_clear_spanish_writer")
-                ) {
-                  Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Limpiar escritor",
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(16.dp)
-                  )
-                }
-                IconButton(
-                  onClick = {
-                    focusManager.clearFocus()
-                    onTranslateNow()
-                  },
-                  modifier = Modifier
-                    .size(26.dp)
-                    .testTag("btn_trigger_translation")
-                ) {
-                  Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = if (isSpanishToEnglish) "Traducir al inglés" else "Traducir al español",
-                    tint = Color(0xFF38BDF8),
-                    modifier = Modifier.size(16.dp)
-                  )
-                }
+                Icon(
+                  imageVector = Icons.Default.AutoAwesome,
+                  contentDescription = if (isSpanishToEnglish) "Traducir al inglés" else "Traducir al español",
+                  tint = Color(0xFF38BDF8),
+                  modifier = Modifier.size(16.dp)
+                )
               }
             }
           }
-        }
-      )
 
-      if (onClose != null) {
-        IconButton(
-          onClick = onClose,
-          modifier = Modifier
-            .size(44.dp)
-            .background(Color(0xFF131D2E).copy(alpha = 0.88f), shape = RoundedCornerShape(12.dp))
-            .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.6f), shape = RoundedCornerShape(12.dp))
-            .testTag("btn_close_translator_card")
-        ) {
-          Icon(
-            imageVector = Icons.Default.Close,
-            contentDescription = "Cerrar traductor",
-            tint = Color(0xFFCBD5E1),
-            modifier = Modifier.size(18.dp)
-          )
+          if (onClose != null) {
+            IconButton(
+              onClick = onClose,
+              modifier = Modifier
+                .padding(start = 2.dp)
+                .size(32.dp)
+                .testTag("btn_close_translator_card")
+            ) {
+              Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Cerrar traductor",
+                tint = Color(0xFFCBD5E1),
+                modifier = Modifier.size(18.dp)
+              )
+            }
+          }
         }
       }
-    }
+    )
 
       // 2. Despliegue de la versión en inglés justo más abajo en este escritor
       AnimatedVisibility(
