@@ -61,6 +61,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
@@ -3199,6 +3200,36 @@ fun AnimatedSpeedometerIcon(
     label = "speedometer_needle_angle"
   )
 
+  // Animación infinita para emitir brillo de luz resplandeciente cerca de la aguja de velocidad
+  val infiniteTransition = rememberInfiniteTransition(label = "speedometer_glow_animation")
+  val glowPulse by infiniteTransition.animateFloat(
+    initialValue = 0.45f,
+    targetValue = 1.0f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "needle_glow_pulse"
+  )
+  val glowRadiusRatio by infiniteTransition.animateFloat(
+    initialValue = 0.85f,
+    targetValue = 1.4f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "needle_glow_radius"
+  )
+  val sparkRotation by infiniteTransition.animateFloat(
+    initialValue = 0f,
+    targetValue = 360f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 3600, easing = LinearEasing),
+      repeatMode = RepeatMode.Restart
+    ),
+    label = "needle_spark_rotation"
+  )
+
   Canvas(modifier = modifier.size(30.dp)) {
     val w = size.width
     val h = size.height
@@ -3247,7 +3278,34 @@ fun AnimatedSpeedometerIcon(
       centerDial.y + needleLength * sin(needleRad).toFloat()
     )
 
-    // Línea de la aguja
+    // AURA / RESPLANDOR DE LUZ ÉPICO EN LA AGUJA Y EN LA PUNTA (Da vida al dial)
+    // Resplandor difuso del haz de la aguja
+    drawLine(
+      color = Color(0xFF00E5FF).copy(alpha = 0.38f * glowPulse),
+      start = centerDial,
+      end = needleTip,
+      strokeWidth = 5.2.dp.toPx(),
+      cap = StrokeCap.Round
+    )
+
+    // Halo radial resplandeciente en la punta de la aguja (Efecto brillo vivo)
+    val glowRadiusPx = 6.0.dp.toPx() * glowRadiusRatio
+    drawCircle(
+      brush = Brush.radialGradient(
+        colors = listOf(
+          Color(0xFFE0FFFF).copy(alpha = 0.95f * glowPulse),
+          Color(0xFF00E5FF).copy(alpha = 0.65f * glowPulse),
+          Color(0xFF00B0FF).copy(alpha = 0.25f * glowPulse),
+          Color.Transparent
+        ),
+        center = needleTip,
+        radius = glowRadiusPx
+      ),
+      radius = glowRadiusPx,
+      center = needleTip
+    )
+
+    // Línea principal de la aguja
     drawLine(
       color = Color(0xFF00E5FF),
       start = centerDial,
@@ -3256,14 +3314,46 @@ fun AnimatedSpeedometerIcon(
       cap = StrokeCap.Round
     )
 
-    // Punta brillante en el extremo de la aguja
+    // Núcleo central blanco brillante de la aguja para alta energía
+    drawLine(
+      color = Color.White.copy(alpha = 0.65f + 0.35f * glowPulse),
+      start = centerDial,
+      end = needleTip,
+      strokeWidth = 1.0.dp.toPx(),
+      cap = StrokeCap.Round
+    )
+
+    // Micro destellos estrellados de luz giratoria ("sparkles") en la punta
+    val sparkLen = 3.6.dp.toPx() * glowPulse
+    val sparkAngles = listOf(0f, 90f, 180f, 270f)
+    for (angleDeg in sparkAngles) {
+      val totalRad = Math.toRadians((sparkRotation + angleDeg).toDouble())
+      val sparkEnd = Offset(
+        needleTip.x + sparkLen * cos(totalRad).toFloat(),
+        needleTip.y + sparkLen * sin(totalRad).toFloat()
+      )
+      drawLine(
+        color = Color(0xFFE0FFFF).copy(alpha = 0.75f * glowPulse),
+        start = needleTip,
+        end = sparkEnd,
+        strokeWidth = 1.0.dp.toPx(),
+        cap = StrokeCap.Round
+      )
+    }
+
+    // Núcleo blanco ultrabrillante en el extremo de la aguja
     drawCircle(
       color = Color.White,
-      radius = 1.8.dp.toPx(),
+      radius = 2.0.dp.toPx(),
       center = needleTip
     )
 
-    // 4. Pivote central
+    // 4. Pivote central con halo
+    drawCircle(
+      color = Color(0xFF00E5FF).copy(alpha = 0.35f * glowPulse),
+      radius = 4.8.dp.toPx(),
+      center = centerDial
+    )
     drawCircle(
       color = Color(0xFF00E5FF),
       radius = 3.4.dp.toPx(),
