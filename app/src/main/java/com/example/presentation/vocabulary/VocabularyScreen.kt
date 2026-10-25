@@ -26,6 +26,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -693,15 +697,18 @@ fun VocabularyScreen(
 
   val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-  ModalNavigationDrawer(
-    drawerState = drawerState,
-    gesturesEnabled = true,
-    drawerContent = {
-      ModalDrawerSheet(
-        drawerContainerColor = Color(0xFF0F172A),
-        drawerContentColor = Color(0xFFF8FAFC),
-        modifier = Modifier.width(300.dp)
-      ) {
+  // Bandeja lateral a la derecha (en dirección de la copa de logros)
+  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+    ModalNavigationDrawer(
+      drawerState = drawerState,
+      gesturesEnabled = true,
+      drawerContent = {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+          ModalDrawerSheet(
+            drawerContainerColor = Color(0xFF0F172A),
+            drawerContentColor = Color(0xFFF8FAFC),
+            modifier = Modifier.width(300.dp)
+          ) {
         Column(
           modifier = Modifier
             .fillMaxWidth()
@@ -849,7 +856,9 @@ fun VocabularyScreen(
         }
       }
     }
-  ) {
+  }
+) {
+  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
     Scaffold(
       modifier = modifier
         .fillMaxSize()
@@ -1594,6 +1603,8 @@ fun VocabularyScreen(
     }
   }
 }
+}
+}
 
   if (showRoadmapDialog) {
     TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
@@ -2157,6 +2168,7 @@ fun AnimatedEnglishHeader(
       count = usedWordsCount,
       celebrationTrigger = celebrationTrigger,
       onClick = onOpenProficiencyLevels,
+      onOpenDrawer = onOpenDrawer,
       modifier = Modifier
         .align(Alignment.CenterEnd)
         .padding(end = 6.dp)
@@ -2171,11 +2183,13 @@ fun AnimatedEnglishHeader(
  * de animación reactivo festivo (rebote elástico, giro festivo de trofeo, destello áureo en celebración
  * y partícula flotante ascendente "+1 🏆").
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PremiumTrophyBadge(
   count: Int,
   celebrationTrigger: Long,
   onClick: () -> Unit,
+  onOpenDrawer: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   val haptic = LocalHapticFeedback.current
@@ -2251,10 +2265,11 @@ fun PremiumTrophyBadge(
       horizontalArrangement = Arrangement.spacedBy(4.dp),
       modifier = Modifier
         .clip(RoundedCornerShape(8.dp))
-        .clickable(
+        .combinedClickable(
           interactionSource = remember { MutableInteractionSource() },
           indication = null,
-          onClick = onClick
+          onClick = onClick,
+          onLongClick = onOpenDrawer
         )
         .padding(horizontal = 4.dp, vertical = 4.dp)
         .testTag("counter_used_words_badge")
