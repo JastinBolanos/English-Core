@@ -87,8 +87,8 @@ fun PhantomZoomContainer(
       }
       .pointerInput(Unit) {
         awaitEachGesture {
-          // Espera a que haya un primer toque sin consumirlo para no afectar clics o scroll
-          awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+          // Permitir que los toques de 1 solo dedo pasen de inmediato a la lista sin esperas
+          awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
 
           var prevCentroid = Offset.Unspecified
           var prevDistance = 0f
@@ -97,7 +97,8 @@ fun PhantomZoomContainer(
           var totalMovement = 0f
 
           do {
-            val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+            // Usar PointerEventPass.Main para que el scroll y toques fluyan directamente sin retrasos
+            val event = awaitPointerEvent(pass = PointerEventPass.Main)
             val pressedPointers = event.changes.filter { it.pressed }
 
             if (pressedPointers.size >= 2) {

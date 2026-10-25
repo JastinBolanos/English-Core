@@ -1319,68 +1319,38 @@ fun VocabularyScreen(
             contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
-            when {
-              isLoading -> {
-                item(key = "loading_state") {
-                  Box(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(48.dp),
-                    contentAlignment = Alignment.Center
-                  ) {
-                    CircularProgressIndicator(
-                      color = Color(0xFFF1F5F9),
-                      strokeWidth = 3.dp,
-                      modifier = Modifier
-                        .size(36.dp)
-                        .testTag("vocabulary_loading_indicator")
-                    )
-                  }
+            if (filteredWords.isEmpty() && searchQuery.isNotBlank()) {
+              item(key = "empty_state") {
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Text(
+                    text = "No se encontraron coincidencias para \"$searchQuery\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                  )
                 }
               }
-              filteredWords.isEmpty() -> {
-                item(key = "empty_state") {
-                  Box(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(if (searchQuery.isNotEmpty()) 32.dp else 48.dp),
-                    contentAlignment = Alignment.Center
-                  ) {
-                    if (searchQuery.isNotEmpty()) {
-                      Text(
-                        text = "No se encontraron coincidencias para \"$searchQuery\"",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                      )
-                    } else {
-                      CircularProgressIndicator(
-                        color = Color(0xFFF1F5F9),
-                        strokeWidth = 3.dp,
-                        modifier = Modifier
-                          .size(36.dp)
-                          .testTag("vocabulary_loading_indicator")
-                      )
-                    }
-                  }
-                }
-              }
-              else -> {
-                itemsIndexed(
-                  items = filteredWords,
-                  key = { _, item -> item.id }
-                ) { _, word ->
-                  Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    WordHudCard(
-                      word = word,
-                      onTap = { viewModel.addWordToDraft(word) },
-                      onSpeak = { viewModel.speakWord(word) },
-                      onSpeakExample = { example -> viewModel.speakExample(word, example) },
-                      onOpenDetails = { viewModel.recordWordUsage(word) },
-                      onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null,
-                      onDelete = if (word.rank >= 2810) { { viewModel.requestDeleteCustomWord(word) } } else null
-                    )
-                  }
+            } else {
+              itemsIndexed(
+                items = filteredWords,
+                key = { _, item -> item.id },
+                contentType = { _, _ -> "word_card" }
+              ) { _, word ->
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                  WordHudCard(
+                    word = word,
+                    onTap = { viewModel.addWordToDraft(word) },
+                    onSpeak = { viewModel.speakWord(word) },
+                    onSpeakExample = { example -> viewModel.speakExample(word, example) },
+                    onOpenDetails = { viewModel.recordWordUsage(word) },
+                    onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null,
+                    onDelete = if (word.rank >= 2810) { { viewModel.requestDeleteCustomWord(word) } } else null
+                  )
                 }
               }
             }
@@ -4834,6 +4804,7 @@ private fun LiveConnectionPredictor(lastWord: Word?) {
 /**
  * 3. TARJETA HUD EN LA LISTA DE LAS 2,809 PALABRAS
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WordHudCard(
   word: Word,
@@ -4852,18 +4823,18 @@ fun WordHudCard(
     modifier = modifier
       .fillMaxWidth()
       .testTag("word_item_${word.rank}")
-      .pointerInput(word.id, word.lemma) {
-        detectTapGestures(
-          onTap = { onTap() },
-          onLongPress = {
-            val willReveal = !isRevealed
-            isRevealed = willReveal
-            if (willReveal) {
-              onOpenDetails?.invoke()
-            }
+      .combinedClickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        onClick = onTap,
+        onLongClick = {
+          val willReveal = !isRevealed
+          isRevealed = willReveal
+          if (willReveal) {
+            onOpenDetails?.invoke()
           }
-        )
-      }
+        }
+      )
       .padding(vertical = 4.dp)
   ) {
     Row(
