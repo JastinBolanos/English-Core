@@ -217,6 +217,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import com.example.R
 import com.example.domain.model.PartOfSpeech
 import com.example.domain.model.Word
@@ -704,157 +705,151 @@ fun VocabularyScreen(
       gesturesEnabled = true,
       drawerContent = {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+          val drawerWidth = LocalConfiguration.current.screenWidthDp.dp * 0.5f
           ModalDrawerSheet(
             drawerContainerColor = Color(0xFF0F172A),
             drawerContentColor = Color(0xFFF8FAFC),
-            modifier = Modifier.width(300.dp)
+            modifier = Modifier.width(drawerWidth)
           ) {
-        Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp)
-        ) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Text(
-              text = "Herramientas",
-              style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                color = Color(0xFFF8FAFC)
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 14.dp)
+            ) {
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text(
+                  text = "Herramientas",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFFF8FAFC)
+                  )
+                )
+              }
+
+              HorizontalDivider(
+                color = Color(0xFF334155).copy(alpha = 0.6f),
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
               )
-            )
+
+              Spacer(modifier = Modifier.height(4.dp))
+
+              // 1. Meta 8 Meses
+              DrawerItemRow(
+                icon = Icons.Outlined.Flag,
+                iconTint = Color(0xFF38BDF8),
+                title = "Meta 8 Meses",
+                testTag = "drawer_item_roadmap_8months",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isRoadmap8MonthsTrayOpen = true
+                }
+              )
+
+              // 2. Ruta de Aprendizaje
+              DrawerItemRow(
+                icon = Icons.Default.Explore,
+                iconTint = Color(0xFF38BDF8),
+                title = "Ruta Estudio",
+                testTag = "drawer_item_roadmap",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  showRoadmapDialog = true
+                }
+              )
+
+              // 3. Horario
+              DrawerItemRow(
+                icon = Icons.Default.Schedule,
+                iconTint = Color(0xFFFBBF24),
+                title = "Horario",
+                testTag = "drawer_item_schedule",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isDailyScheduleTrayOpen = true
+                }
+              )
+
+              // 4. Ajustes
+              DrawerItemRow(
+                icon = Icons.Outlined.Settings,
+                iconTint = Color(0xFF94A3B8),
+                title = "Ajustes",
+                testTag = "drawer_item_settings",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isSettingsTrayOpen = true
+                }
+              )
+
+              // 5. Fondos de Pantalla
+              DrawerItemRow(
+                icon = Icons.Default.Wallpaper,
+                iconTint = Color(0xFFE879F9),
+                title = "Fondos",
+                testTag = "drawer_item_wallpaper",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isWallpaperTrayOpen = true
+                }
+              )
+
+              // 6. Notas Locales
+              DrawerItemRow(
+                icon = Icons.Outlined.Description,
+                iconTint = Color(0xFFFB923C),
+                title = "Notas",
+                testTag = "drawer_item_notes",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isLocalNotesTrayOpen = true
+                }
+              )
+
+              // 7. Traductor
+              DrawerItemRow(
+                icon = Icons.Default.Translate,
+                iconTint = Color(0xFF00E5FF),
+                title = "Traductor",
+                testTag = "drawer_item_spanish_translator",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
+                }
+              )
+
+              // 8. Frases Guardadas
+              DrawerItemRow(
+                icon = Icons.Default.Bookmarks,
+                iconTint = Color(0xFFFBBF24),
+                title = "Frases",
+                testTag = "drawer_item_saved_phrases",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  isSavedPhrasesTrayOpen = true
+                }
+              )
+
+              // 9. Añadir palabra
+              DrawerItemRow(
+                icon = Icons.Default.Add,
+                iconTint = Color(0xFF34D399),
+                title = "Añadir Palabra",
+                testTag = "drawer_item_add_word",
+                onClick = {
+                  coroutineScope.launch { drawerState.close() }
+                  viewModel.openAddWordDialog()
+                }
+              )
+            }
           }
-
-        HorizontalDivider(
-          color = Color(0xFF334155).copy(alpha = 0.6f),
-          thickness = 1.dp,
-          modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // 1. Meta de 8 meses (En la cima de la lista)
-        DrawerItemRow(
-          icon = Icons.Outlined.Flag,
-          iconTint = Color(0xFF38BDF8),
-          title = "Meta de 8 Meses",
-          subtitle = "Hitos, progreso y dibujos",
-          testTag = "drawer_item_roadmap_8months",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isRoadmap8MonthsTrayOpen = true
-          }
-        )
-
-        // 2. Ruta de aprendizaje
-        DrawerItemRow(
-          icon = Icons.Default.Explore,
-          iconTint = Color(0xFF38BDF8),
-          title = "Ruta de Aprendizaje",
-          subtitle = "Brújula y fases de estudio",
-          testTag = "drawer_item_roadmap",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            showRoadmapDialog = true
-          }
-        )
-
-        // 3. Horario
-        DrawerItemRow(
-          icon = Icons.Default.Schedule,
-          iconTint = Color(0xFFFBBF24),
-          title = "Horario de Estudio",
-          subtitle = "Planificación diaria y recordatorios",
-          testTag = "drawer_item_schedule",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isDailyScheduleTrayOpen = true
-          }
-        )
-
-        // 4. Ajustes
-        DrawerItemRow(
-          icon = Icons.Outlined.Settings,
-          iconTint = Color(0xFF94A3B8),
-          title = "Ajustes y Respaldo",
-          subtitle = "Exportar, importar y configuración",
-          testTag = "drawer_item_settings",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isSettingsTrayOpen = true
-          }
-        )
-
-        // 5. Cambiar Fondo de Pantalla
-        DrawerItemRow(
-          icon = Icons.Default.Wallpaper,
-          iconTint = Color(0xFFE879F9),
-          title = "Cambiar Fondo de Pantalla",
-          subtitle = "Elegir fondo general de la app",
-          testTag = "drawer_item_wallpaper",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isWallpaperTrayOpen = true
-          }
-        )
-
-        // 5. Notas locales
-        DrawerItemRow(
-          icon = Icons.Outlined.Description,
-          iconTint = Color(0xFFFB923C),
-          title = "Notas Locales",
-          subtitle = "Apuntes y notas de aprendizaje",
-          testTag = "drawer_item_notes",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isLocalNotesTrayOpen = true
-          }
-        )
-
-        // 6. Traductor
-        DrawerItemRow(
-          icon = Icons.Default.Translate,
-          iconTint = Color(0xFF00E5FF),
-          title = "Traductor Idioma",
-          subtitle = if (isSpanishTranslatorCardVisible) "Ocultar traductor" else "Abrir traductor",
-          testTag = "drawer_item_spanish_translator",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
-          }
-        )
-
-        // 7. Frases Guardadas (creadas desde el lienzo de pruebas)
-        DrawerItemRow(
-          icon = Icons.Default.Bookmarks,
-          iconTint = Color(0xFFFBBF24),
-          title = "Frases Guardadas",
-          subtitle = "Reutilizar frases armadas (+ Lienzo)",
-          testTag = "drawer_item_saved_phrases",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            isSavedPhrasesTrayOpen = true
-          }
-        )
-
-        // 8. Añadir palabra (+) (Al final de la lista)
-        DrawerItemRow(
-          icon = Icons.Default.Add,
-          iconTint = Color(0xFF34D399),
-          title = "Añadir Palabra",
-          subtitle = "Crear nueva palabra personalizada",
-          testTag = "drawer_item_add_word",
-          onClick = {
-            coroutineScope.launch { drawerState.close() }
-            viewModel.openAddWordDialog()
-          }
-        )
-        }
-      }
     }
   }
 ) {
@@ -2332,56 +2327,65 @@ private fun DrawerItemRow(
   icon: androidx.compose.ui.graphics.vector.ImageVector,
   iconTint: Color,
   title: String,
-  subtitle: String,
   testTag: String,
+  subtitle: String? = null,
   onClick: () -> Unit
 ) {
   Surface(
     onClick = onClick,
     color = Color.Transparent,
-    shape = RoundedCornerShape(12.dp),
+    shape = RoundedCornerShape(10.dp),
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 12.dp, vertical = 2.dp)
+      .padding(horizontal = 4.dp, vertical = 2.dp)
       .testTag(testTag)
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 10.dp, vertical = 8.dp),
+        .padding(horizontal = 6.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(14.dp)
+      horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       Box(
         modifier = Modifier
-          .size(38.dp)
-          .background(iconTint.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp))
-          .border(1.dp, iconTint.copy(alpha = 0.25f), shape = RoundedCornerShape(10.dp)),
+          .size(32.dp)
+          .background(iconTint.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp))
+          .border(1.dp, iconTint.copy(alpha = 0.25f), shape = RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
       ) {
         Icon(
           imageVector = icon,
           contentDescription = null,
           tint = iconTint,
-          modifier = Modifier.size(20.dp)
+          modifier = Modifier.size(17.dp)
         )
       }
-      Column(modifier = Modifier.weight(1f)) {
+      Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.Center
+      ) {
         Text(
           text = title,
           style = MaterialTheme.typography.bodyMedium.copy(
             fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             color = Color(0xFFF8FAFC)
-          )
+          ),
+          maxLines = 1,
+          overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
-        Text(
-          text = subtitle,
-          style = MaterialTheme.typography.labelSmall.copy(
-            color = Color(0xFF64748B),
-            fontSize = 11.sp
+        if (!subtitle.isNullOrBlank()) {
+          Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall.copy(
+              color = Color(0xFF64748B),
+              fontSize = 10.5.sp
+            ),
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
           )
-        )
+        }
       }
     }
   }
