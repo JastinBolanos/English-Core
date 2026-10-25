@@ -4741,7 +4741,7 @@ fun WordHudCard(
       }
     }
 
-    // Panel de revelación Active Recall (Long Press)
+    // Panel de revelación Active Recall (Long Press / Tap bandeja)
     AnimatedVisibility(
       visible = isRevealed,
       enter = expandVertically() + fadeIn(),
@@ -4750,9 +4750,9 @@ fun WordHudCard(
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(top = 6.dp, bottom = 6.dp)
+          .padding(start = 44.dp, top = 4.dp, bottom = 6.dp, end = 8.dp)
       ) {
-        // 1. Traducción al español
+        // Traducción al español alineada uniformemente con la palabra
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -4770,41 +4770,6 @@ fun WordHudCard(
             fontWeight = FontWeight.SemiBold,
             color = Color(0xFFF8FAFC),
             fontSize = 14.5.sp
-          )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // 2. Micro-ejemplo interactivo invisible sin saturar la UI (pronuncia al tocar)
-        val cleanExample = word.microExample.replace("\"", "").trim()
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          modifier = Modifier
-            .clickable {
-              if (cleanExample.isNotBlank()) {
-                onSpeakExample?.invoke(cleanExample)
-              }
-            }
-            .padding(vertical = 2.dp)
-            .testTag("example_row_${word.rank}")
-        ) {
-          Text(
-            text = "EJEMPLO:",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF94A3B8),
-            fontSize = 11.5.sp
-          )
-          Text(
-            text = "\"$cleanExample\"",
-            style = MaterialTheme.typography.bodySmall.copy(
-              fontStyle = FontStyle.Italic,
-              textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
-            ),
-            color = Color(0xFF38BDF8),
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.Medium
           )
         }
       }
