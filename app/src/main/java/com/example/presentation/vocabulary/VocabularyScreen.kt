@@ -50,6 +50,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -707,16 +709,25 @@ fun VocabularyScreen(
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
           val drawerWidth = LocalConfiguration.current.screenWidthDp.dp * 0.5f
           ModalDrawerSheet(
-            drawerContainerColor = Color(0xFF0F172A),
+            drawerContainerColor = Color.Transparent,
             drawerContentColor = Color(0xFFF8FAFC),
-            modifier = Modifier.width(drawerWidth)
+            drawerShape = androidx.compose.ui.graphics.RectangleShape,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+            modifier = Modifier
+              .width(drawerWidth)
+              .fillMaxHeight()
           ) {
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 14.dp)
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+              EpicAuroraDrawerBackground()
+
+              Column(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .statusBarsPadding()
+                  .navigationBarsPadding()
+                  .verticalScroll(rememberScrollState())
+                  .padding(horizontal = 8.dp, vertical = 10.dp)
+              ) {
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
@@ -850,6 +861,7 @@ fun VocabularyScreen(
               )
             }
           }
+        }
     }
   }
 ) {
@@ -2390,6 +2402,132 @@ private fun DrawerItemRow(
     }
   }
 }
+
+/**
+ * Fondo animado épico con aurora boreal cromática de gradientes orbitales y efectos difusos
+ * multicolores (neón cian, magenta eléctrico, violeta cósmico y ámbar dorado) sobre base oscura.
+ */
+@Composable
+private fun EpicAuroraDrawerBackground(
+  modifier: Modifier = Modifier
+) {
+  val infiniteTransition = rememberInfiniteTransition(label = "epic_aurora_drawer_anim")
+
+  val phase1 by infiniteTransition.animateFloat(
+    initialValue = 0f,
+    targetValue = 360f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 13000, easing = LinearEasing),
+      repeatMode = RepeatMode.Restart
+    ),
+    label = "aurora_orbit_phase1"
+  )
+
+  val phase2 by infiniteTransition.animateFloat(
+    initialValue = 360f,
+    targetValue = 0f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 9000, easing = LinearEasing),
+      repeatMode = RepeatMode.Restart
+    ),
+    label = "aurora_orbit_phase2"
+  )
+
+  val phase3 by infiniteTransition.animateFloat(
+    initialValue = 0f,
+    targetValue = 360f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 17000, easing = LinearEasing),
+      repeatMode = RepeatMode.Restart
+    ),
+    label = "aurora_orbit_phase3"
+  )
+
+  Canvas(modifier = modifier.fillMaxSize()) {
+    val width = size.width
+    val height = size.height
+
+    // 1. Base oscura cósmica elegante
+    drawRect(color = Color(0xFF070B14))
+
+    // Conversión a radianes para trayectorias orbitales armónicas
+    val rad1 = Math.toRadians(phase1.toDouble())
+    val rad2 = Math.toRadians(phase2.toDouble())
+    val rad3 = Math.toRadians(phase3.toDouble())
+
+    // Orbe 1: Cian Neón y Azul Eléctrico (orbita tercio superior)
+    val orb1Center = Offset(
+      x = (width * 0.35f + kotlin.math.cos(rad1).toFloat() * width * 0.38f),
+      y = (height * 0.22f + kotlin.math.sin(rad1).toFloat() * height * 0.16f)
+    )
+    val orb1Radius = width * 1.05f
+    drawCircle(
+      brush = Brush.radialGradient(
+        colors = listOf(
+          Color(0xFF00E5FF).copy(alpha = 0.45f),
+          Color(0xFF2563EB).copy(alpha = 0.30f),
+          Color.Transparent
+        ),
+        center = orb1Center,
+        radius = orb1Radius
+      ),
+      center = orb1Center,
+      radius = orb1Radius
+    )
+
+    // Orbe 2: Magenta Neón y Púrpura Ultravioleta (orbita zona central/inferior)
+    val orb2Center = Offset(
+      x = (width * 0.65f + kotlin.math.sin(rad2).toFloat() * width * 0.35f),
+      y = (height * 0.55f + kotlin.math.cos(rad2).toFloat() * height * 0.20f)
+    )
+    val orb2Radius = width * 1.15f
+    drawCircle(
+      brush = Brush.radialGradient(
+        colors = listOf(
+          Color(0xFFE879F9).copy(alpha = 0.42f),
+          Color(0xFFA855F7).copy(alpha = 0.26f),
+          Color.Transparent
+        ),
+        center = orb2Center,
+        radius = orb2Radius
+      ),
+      center = orb2Center,
+      radius = orb2Radius
+    )
+
+    // Orbe 3: Ámbar Dorado Solar y Esmeralda Aurora (orbita zona inferior)
+    val orb3Center = Offset(
+      x = (width * 0.40f + kotlin.math.cos(rad3).toFloat() * width * 0.30f),
+      y = (height * 0.82f + kotlin.math.sin(rad3).toFloat() * height * 0.14f)
+    )
+    val orb3Radius = width * 0.95f
+    drawCircle(
+      brush = Brush.radialGradient(
+        colors = listOf(
+          Color(0xFFFBBF24).copy(alpha = 0.38f),
+          Color(0xFF10B981).copy(alpha = 0.22f),
+          Color.Transparent
+        ),
+        center = orb3Center,
+        radius = orb3Radius
+      ),
+      center = orb3Center,
+      radius = orb3Radius
+    )
+
+    // Velo cósmico translúcido / filtro frosted para legibilidad óptima de textos e iconos
+    drawRect(
+      brush = Brush.verticalGradient(
+        colors = listOf(
+          Color(0xFF070B14).copy(alpha = 0.50f),
+          Color(0xFF070B14).copy(alpha = 0.42f),
+          Color(0xFF070B14).copy(alpha = 0.58f)
+        )
+      )
+    )
+  }
+}
+
 
 
 /**
