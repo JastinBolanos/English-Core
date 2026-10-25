@@ -1598,8 +1598,33 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     assertEquals("How are you today", spokenPhrase)
 
-    // Verify translation row exists in UI
-    composeTestRule.onNodeWithTag("text_saved_phrase_trans_${phrase.id}").assertExists()
+    // Verify English phrase exists and Spanish translation is hidden in UI
+    composeTestRule.onNodeWithTag("text_saved_phrase_${phrase.id}").assertExists()
+    composeTestRule.onNodeWithTag("text_saved_phrase_trans_${phrase.id}").assertDoesNotExist()
+
+    // Test delete with confirmation dialog: click trash icon
+    composeTestRule.onNodeWithTag("btn_delete_saved_phrase_${phrase.id}").performClick()
+    composeTestRule.waitForIdle()
+
+    // Confirmation dialog must appear
+    composeTestRule.onNodeWithTag("dialog_delete_phrase_confirmation").assertExists()
+    composeTestRule.onNodeWithTag("dialog_delete_phrase_title").assertExists()
+    composeTestRule.onNodeWithTag("btn_confirm_delete_phrase").assertExists()
+    composeTestRule.onNodeWithTag("btn_cancel_delete_phrase").assertExists()
+
+    // Cancel deletion
+    composeTestRule.onNodeWithTag("btn_cancel_delete_phrase").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dialog_delete_phrase_confirmation").assertDoesNotExist()
+    assertEquals(1, storage.loadSavedPhrases().size)
+
+    // Reopen delete confirmation and confirm
+    composeTestRule.onNodeWithTag("btn_delete_saved_phrase_${phrase.id}").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("btn_confirm_delete_phrase").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("dialog_delete_phrase_confirmation").assertDoesNotExist()
+    assertEquals(0, storage.loadSavedPhrases().size)
   }
 
   @Test
@@ -2020,6 +2045,67 @@ class ExampleRobolectricTest {
     assertFalse(rejectedDelete)
 
     db.close()
+  }
+
+  @Test
+  fun `verify json backup preserves selected wallpaper and dimming alpha and restores them automatically`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val storage = com.example.data.wallpaper.WallpaperStorage(context)
+
+    // Configurar fondo activo y nivel de atenuación / tonalidad (ej. 66%)
+    val targetWallpaperId = "64_bit_computing-windows_10-water-azure-plant.jpg"
+    val targetDimAlpha = 0.66f
+    storage.setSelectedWallpaperId(targetWallpaperId)
+    storage.setWallpaperDimAlpha(targetDimAlpha)
+
+    val manager = com.example.data.wallpaper.WallpaperManager(storage)
+    assertEquals(targetDimAlpha, manager.dimAlpha.value)
+
+    // Exportar / Guardar copia completa de seguridad usando AutoBackupManager
+    val saved = com.example.data.backup.AutoBackupManager.saveFullBackup(
+      context = context,
+      wallpaperId = targetWallpaperId,
+      wallpaperDimAlpha = targetDimAlpha
+    )
+    assertTrue("Copia debe guardarse correctamente", saved)
+
+    // Cargar y parsear el archivo .json generado
+    val internalFile = java.io.File(context.filesDir, "vocabflow_backup.json")
+    assertTrue(internalFile.exists())
+    val jsonString = internalFile.readText()
+
+    assertTrue("JSON debe contener wallpaperId", jsonString.contains("wallpaperId"))
+    assertTrue("JSON debe contener activeWallpaper", jsonString.contains("activeWallpaper"))
+    assertTrue("JSON debe contener targetWallpaperId", jsonString.contains(targetWallpaperId))
+    assertTrue("JSON debe contener 0.66", jsonString.contains("0.66"))
+
+    val parsed = com.example.data.backup.AutoBackupManager.parseJsonContent(jsonString)
+    assertNotNull(parsed)
+    assertEquals(targetWallpaperId, parsed!!.wallpaperId)
+    assertNotNull(parsed.wallpaperDimAlpha)
+    assertEquals(0.66f, parsed.wallpaperDimAlpha!!, 0.01f)
+
+    // Simular una app limpia / reinstalada: limpiar SharedPreferences
+    val prefs = context.getSharedPreferences("english_wallpaper_prefs", Context.MODE_PRIVATE)
+    prefs.edit().clear().commit()
+
+    val cleanStorage = com.example.data.wallpaper.WallpaperStorage(context)
+    assertEquals("none", cleanStorage.getSelectedWallpaperId())
+    val cleanManager = com.example.data.wallpaper.WallpaperManager(cleanStorage)
+    assertEquals("none", cleanManager.selectedWallpaper.value.id)
+
+    // Restaurar automáticamente el fondo y tonalidad desde el objeto parseado
+    cleanManager.applyWallpaperSettings(parsed.wallpaperId!!, parsed.wallpaperDimAlpha)
+
+    // Verificar que el fondo y su tonalidad quedaron activos de forma automática
+    assertEquals(targetWallpaperId, cleanStorage.getSelectedWallpaperId())
+    assertEquals(0.66f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
+    assertEquals(0.66f, cleanManager.dimAlpha.value, 0.01f)
+
+    // Verificar que el usuario aún puede cambiarlo si lo desea libremente
+    cleanManager.updateDimAlpha(0.35f)
+    assertEquals(0.35f, cleanManager.dimAlpha.value, 0.01f)
+    assertEquals(0.35f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
   }
 }
 

@@ -30,6 +30,7 @@ class WallpaperManager(private val storage: WallpaperStorage) {
       it.id == savedId || it.fileName == savedId || it.id.substringBeforeLast('.') == savedId 
     } ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
     _selectedWallpaper.value = found
+    _dimAlpha.value = storage.getWallpaperDimAlpha()
   }
 
   fun selectWallpaper(item: WallpaperItem) {
@@ -41,5 +42,14 @@ class WallpaperManager(private val storage: WallpaperStorage) {
     val clamped = alpha.coerceIn(0.10f, 0.85f)
     _dimAlpha.value = clamped
     storage.setWallpaperDimAlpha(clamped)
+  }
+
+  fun applyWallpaperSettings(wallpaperId: String, dimAlpha: Float? = null) {
+    storage.setSelectedWallpaperId(wallpaperId)
+    if (dimAlpha != null) {
+      val clamped = dimAlpha.coerceIn(0.10f, 0.85f)
+      storage.setWallpaperDimAlpha(clamped)
+    }
+    refresh()
   }
 }

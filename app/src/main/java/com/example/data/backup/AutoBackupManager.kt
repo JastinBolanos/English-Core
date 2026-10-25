@@ -117,7 +117,9 @@ data class RestoredBackupData(
     val allPhrases: List<PhraseRecord> = emptyList(),
     val phraseCounts: Map<Int, Int> = emptyMap(),
     val notes: List<NoteBlock> = emptyList(),
-    val savedDraftPhrases: List<SavedDraftPhrase> = emptyList()
+    val savedDraftPhrases: List<SavedDraftPhrase> = emptyList(),
+    val wallpaperId: String? = null,
+    val wallpaperDimAlpha: Float? = null
 )
 
 /**
@@ -155,7 +157,9 @@ object AutoBackupManager {
         allNumbersDetails: List<NumberRecord> = emptyList(),
         phraseCounts: Map<Int, Int> = emptyMap(),
         allPhrasesDetails: List<PhraseRecord> = emptyList(),
-        savedDraftPhrases: List<SavedDraftPhrase> = emptyList()
+        savedDraftPhrases: List<SavedDraftPhrase> = emptyList(),
+        wallpaperId: String? = null,
+        wallpaperDimAlpha: Float? = null
     ): Boolean {
         return try {
             val rootJson = JSONObject().apply {
@@ -173,6 +177,26 @@ object AutoBackupManager {
                 put("totalAlphabetUses", alphabetCounts.values.sum())
                 put("totalNumberUses", numberCounts.values.sum())
                 put("totalPhraseUses", phraseCounts.values.sum())
+
+                // 0. Fondo de pantalla activo y tonalidad / atenuación
+                val wpStorage = com.example.data.wallpaper.WallpaperStorage(context)
+                val effectiveWallpaperId = wallpaperId ?: wpStorage.getSelectedWallpaperId()
+                val effectiveDimAlpha = wallpaperDimAlpha ?: wpStorage.getWallpaperDimAlpha()
+                put("wallpaperId", effectiveWallpaperId)
+                put("wallpaperDimAlpha", effectiveDimAlpha.toDouble())
+
+                val activeWpObj = JSONObject().apply {
+                    put("id", effectiveWallpaperId)
+                    val foundItem = wpStorage.scanAvailableWallpapers().firstOrNull { it.id == effectiveWallpaperId }
+                    if (foundItem != null) {
+                        put("title", foundItem.title)
+                        if (foundItem.fileName != null) put("fileName", foundItem.fileName)
+                        if (foundItem.assetPath != null) put("assetPath", foundItem.assetPath)
+                    }
+                    put("dimAlpha", effectiveDimAlpha.toDouble())
+                    put("dimPercentage", (effectiveDimAlpha * 100).toInt())
+                }
+                put("activeWallpaper", activeWpObj)
 
                 // 1. Array con todas las 2809+ palabras del vocabulario y sus contadores exactos
                 val wordsArray = JSONArray()
@@ -873,6 +897,26 @@ object AutoBackupManager {
             val effectiveUsedWords = if (usedWordsCount > 0) usedWordsCount else vocabCountsMap.values.count { it > 0 }
             val totalVocabUses = root.optInt("totalVocabularyUses", vocabCountsMap.values.sum())
 
+            // Fondo de pantalla activo y nivel de atenuación / tonalidad
+            var parsedWallpaperId: String? = null
+            var parsedWallpaperDimAlpha: Float? = null
+
+            if (root.has("activeWallpaper")) {
+                val wpObj = root.optJSONObject("activeWallpaper")
+                if (wpObj != null) {
+                    val id = wpObj.optString("id", "").trim()
+                    if (id.isNotBlank()) parsedWallpaperId = id
+                    if (wpObj.has("dimAlpha")) parsedWallpaperDimAlpha = wpObj.optDouble("dimAlpha").toFloat()
+                }
+            }
+            if (parsedWallpaperId == null && root.has("wallpaperId")) {
+                val id = root.optString("wallpaperId", "").trim()
+                if (id.isNotBlank()) parsedWallpaperId = id
+            }
+            if (parsedWallpaperDimAlpha == null && root.has("wallpaperDimAlpha")) {
+                parsedWallpaperDimAlpha = root.optDouble("wallpaperDimAlpha").toFloat()
+            }
+
             RestoredBackupData(
                 appName = appName,
                 version = version,
@@ -895,7 +939,9 @@ object AutoBackupManager {
                 allPhrases = phrasesList,
                 phraseCounts = phrasesMap,
                 notes = notesList,
-                savedDraftPhrases = savedDraftPhrasesList
+                savedDraftPhrases = savedDraftPhrasesList,
+                wallpaperId = parsedWallpaperId,
+                wallpaperDimAlpha = parsedWallpaperDimAlpha
             )
         } catch (_: Exception) {
             null

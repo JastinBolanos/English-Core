@@ -343,6 +343,13 @@ class VocabularyViewModel @Inject constructor(
         if (data.savedDraftPhrases.isNotEmpty()) {
           com.example.data.local.SavedPhrasesStorage(context).saveSavedPhrases(data.savedDraftPhrases)
         }
+        if (!data.wallpaperId.isNullOrBlank()) {
+          val wpStorage = com.example.data.wallpaper.WallpaperStorage(context)
+          wpStorage.setSelectedWallpaperId(data.wallpaperId)
+          if (data.wallpaperDimAlpha != null) {
+            wpStorage.setWallpaperDimAlpha(data.wallpaperDimAlpha)
+          }
+        }
         com.example.data.backup.AutoBackupManager.saveFullBackup(
           context = context,
           vocabularyWordCounts = data.vocabularyWordCounts,
@@ -352,7 +359,9 @@ class VocabularyViewModel @Inject constructor(
           alphabetCounts = data.alphabetCounts,
           numberCounts = data.numberCounts,
           phraseCounts = data.phraseCounts,
-          savedDraftPhrases = data.savedDraftPhrases
+          savedDraftPhrases = data.savedDraftPhrases,
+          wallpaperId = data.wallpaperId,
+          wallpaperDimAlpha = data.wallpaperDimAlpha
         )
         val activeWordsCount = data.vocabularyWordCounts.values.count { it > 0 }
         val totalWordUses = data.vocabularyWordCounts.values.sum()

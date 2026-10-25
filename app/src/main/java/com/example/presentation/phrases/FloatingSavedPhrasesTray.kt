@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,12 +60,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.SavedDraftPhrase
@@ -88,6 +92,7 @@ fun FloatingSavedPhrasesTray(
   val context = LocalContext.current
   val storage = remember(context) { SavedPhrasesStorage(context.applicationContext) }
   var savedPhrases by remember { mutableStateOf<List<SavedDraftPhrase>>(emptyList()) }
+  var phraseToDelete by remember { mutableStateOf<SavedDraftPhrase?>(null) }
 
   fun reloadPhrases() {
     savedPhrases = storage.loadSavedPhrases()
@@ -279,9 +284,7 @@ fun FloatingSavedPhrasesTray(
                     Toast.makeText(context, "Frase añadida al lienzo", Toast.LENGTH_SHORT).show()
                   },
                   onDelete = {
-                    storage.deletePhrase(phrase.id)
-                    reloadPhrases()
-                    Toast.makeText(context, "Frase eliminada", Toast.LENGTH_SHORT).show()
+                    phraseToDelete = phrase
                   }
                 )
               }
@@ -312,11 +315,112 @@ fun FloatingSavedPhrasesTray(
         }
       }
     }
+
+    // Diálogo de confirmación para eliminar una frase guardada
+    if (phraseToDelete != null) {
+      val targetPhrase = phraseToDelete!!
+      AlertDialog(
+        onDismissRequest = { phraseToDelete = null },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color(0xFF0F172A),
+        icon = {
+          Box(
+            modifier = Modifier
+              .size(46.dp)
+              .background(Color(0x26EF4444), shape = CircleShape),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              imageVector = Icons.Default.DeleteOutline,
+              contentDescription = null,
+              tint = Color(0xFFEF4444),
+              modifier = Modifier.size(24.dp)
+            )
+          }
+        },
+        title = {
+          Text(
+            text = "¿Eliminar frase?",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFF8FAFC),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+              .fillMaxWidth()
+              .testTag("dialog_delete_phrase_title")
+          )
+        },
+        text = {
+          Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            Text(
+              text = "¿Estás seguro de que deseas eliminar esta frase de tus guardadas? Esta acción no se puede deshacer.",
+              style = MaterialTheme.typography.bodyMedium,
+              color = Color(0xFF94A3B8),
+              textAlign = TextAlign.Center,
+              modifier = Modifier
+                .fillMaxWidth()
+                .testTag("dialog_delete_phrase_message")
+            )
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFF1E293B),
+              border = BorderStroke(1.dp, Color(0xFF334155)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = "\"${targetPhrase.phraseText}\"",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                  fontWeight = FontWeight.SemiBold,
+                  color = Color(0xFF38BDF8)
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                  .padding(horizontal = 12.dp, vertical = 8.dp)
+                  .fillMaxWidth()
+                  .testTag("dialog_delete_phrase_preview_text")
+              )
+            }
+          }
+        },
+        confirmButton = {
+          Button(
+            onClick = {
+              storage.deletePhrase(targetPhrase.id)
+              reloadPhrases()
+              phraseToDelete = null
+              Toast.makeText(context, "Frase eliminada", Toast.LENGTH_SHORT).show()
+            },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = Color(0xFFEF4444),
+              contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.testTag("btn_confirm_delete_phrase")
+          ) {
+            Text("Eliminar", fontWeight = FontWeight.Bold)
+          }
+        },
+        dismissButton = {
+          TextButton(
+            onClick = { phraseToDelete = null },
+            modifier = Modifier.testTag("btn_cancel_delete_phrase")
+          ) {
+            Text("Cancelar", color = Color(0xFF94A3B8))
+          }
+        },
+        modifier = Modifier.testTag("dialog_delete_phrase_confirmation")
+      )
+    }
   }
 }
 
 /**
  * Tarjeta individual de una frase guardada.
+ * Diseño compacto sin cajas en los botones de acción y mostrando únicamente la frase en inglés.
  */
 @Composable
 private fun SavedPhraseItemCard(
@@ -326,126 +430,89 @@ private fun SavedPhraseItemCard(
   onDelete: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  Card(
+  Surface(
     modifier = modifier
       .fillMaxWidth()
       .testTag("saved_phrase_item_${phrase.id}"),
-    shape = RoundedCornerShape(14.dp),
-    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.85f)),
-    border = BorderStroke(1.dp, Color(0xFF334155))
+    shape = RoundedCornerShape(12.dp),
+    color = Color(0xFF1E293B).copy(alpha = 0.85f),
+    border = BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.6f))
   ) {
-    Column(
+    Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(10.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp)
+        .padding(horizontal = 12.dp, vertical = 9.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Column(
-          modifier = Modifier
-            .weight(1f)
-            .padding(end = 8.dp)
-        ) {
-          Text(
-            text = phrase.phraseText,
-            style = MaterialTheme.typography.bodyLarge.copy(
-              fontWeight = FontWeight.Bold,
-              fontSize = 15.sp,
-              color = Color(0xFFF8FAFC)
-            ),
-            modifier = Modifier.testTag("text_saved_phrase_${phrase.id}")
-          )
+      Text(
+        text = phrase.phraseText,
+        style = MaterialTheme.typography.bodyMedium.copy(
+          fontWeight = FontWeight.Bold,
+          fontSize = 15.sp,
+          color = Color(0xFFF8FAFC)
+        ),
+        modifier = Modifier
+          .weight(1f)
+          .padding(end = 8.dp)
+          .testTag("text_saved_phrase_${phrase.id}")
+      )
 
-          if (phrase.spanishTranslation.isNotBlank()) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Translate,
-                contentDescription = null,
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(12.dp)
-              )
-              Text(
-                text = phrase.spanishTranslation,
-                style = MaterialTheme.typography.bodySmall.copy(
-                  color = Color(0xFF38BDF8),
-                  fontSize = 12.sp,
-                  fontWeight = FontWeight.Medium
-                ),
-                modifier = Modifier.testTag("text_saved_phrase_trans_${phrase.id}")
-              )
-            }
-          }
+      // Fila de acciones compacta sin cajas: Pronunciar (🔊), + Lienzo, Borrar (🗑️)
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+      ) {
+        IconButton(
+          onClick = onSpeak,
+          modifier = Modifier
+            .size(30.dp)
+            .testTag("btn_speak_saved_phrase_${phrase.id}")
+        ) {
+          Icon(
+            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+            contentDescription = "Escuchar pronunciación",
+            tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(18.dp)
+          )
         }
 
-        // Fila de acciones compacta en la misma tarjeta: Pronunciar (🔊), + Lienzo (botón para reutilizar), Borrar (🗑️)
         Row(
+          modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable { onAddToCanvas() }
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .testTag("btn_add_saved_to_canvas_${phrase.id}"),
           verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)
+          horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-          IconButton(
-            onClick = onSpeak,
-            modifier = Modifier
-              .size(34.dp)
-              .background(Color(0xFF0F172A), CircleShape)
-              .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.4f), CircleShape)
-              .testTag("btn_speak_saved_phrase_${phrase.id}")
-          ) {
-            Icon(
-              imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-              contentDescription = "Escuchar pronunciación",
-              tint = Color(0xFF38BDF8),
-              modifier = Modifier.size(16.dp)
-            )
-          }
+          Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Añadir al lienzo",
+            tint = Color(0xFF38BDF8),
+            modifier = Modifier.size(15.dp)
+          )
+          Text(
+            text = "Lienzo",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF38BDF8),
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+          )
+        }
 
-          Button(
-            onClick = onAddToCanvas,
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-              containerColor = Color(0xFF38BDF8).copy(alpha = 0.2f),
-              contentColor = Color(0xFF38BDF8)
-            ),
-            border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-            modifier = Modifier
-              .height(34.dp)
-              .testTag("btn_add_saved_to_canvas_${phrase.id}")
-          ) {
-            Icon(
-              imageVector = Icons.Default.Add,
-              contentDescription = null,
-              modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(
-              text = "+ Lienzo",
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold
-            )
-          }
-
-          IconButton(
-            onClick = onDelete,
-            modifier = Modifier
-              .size(34.dp)
-              .background(Color(0xFF0F172A), CircleShape)
-              .testTag("btn_delete_saved_phrase_${phrase.id}")
-          ) {
-            Icon(
-              imageVector = Icons.Default.DeleteOutline,
-              contentDescription = "Eliminar frase guardada",
-              tint = Color(0xFFEF4444),
-              modifier = Modifier.size(16.dp)
-            )
-          }
+        IconButton(
+          onClick = onDelete,
+          modifier = Modifier
+            .size(30.dp)
+            .testTag("btn_delete_saved_phrase_${phrase.id}")
+        ) {
+          Icon(
+            imageVector = Icons.Default.DeleteOutline,
+            contentDescription = "Eliminar frase guardada",
+            tint = Color(0xFFEF4444),
+            modifier = Modifier.size(18.dp)
+          )
         }
       }
     }

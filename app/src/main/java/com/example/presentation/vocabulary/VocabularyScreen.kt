@@ -93,7 +93,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -374,6 +373,14 @@ fun VocabularyScreen(
       if (restored != null) {
         viewModel.restoreFullBackup(restored, context) { _, msg ->
           backupStatusMessage = msg
+          if (restored.wallpaperId != null) {
+            activeWallpaperManager.applyWallpaperSettings(
+              wallpaperId = restored.wallpaperId,
+              dimAlpha = restored.wallpaperDimAlpha
+            )
+          } else {
+            activeWallpaperManager.refresh()
+          }
         }
       }
     }
@@ -437,6 +444,9 @@ fun VocabularyScreen(
           std.id to (phraseCounts[std.id] ?: 0)
         }
 
+        val currentWallpaperId = activeWallpaperManager.selectedWallpaper.value.id
+        val currentDimAlpha = activeWallpaperManager.dimAlpha.value
+
         val rootJson = JSONObject().apply {
           put("appName", "VocabFlow")
           put("version", 2)
@@ -447,6 +457,21 @@ fun VocabularyScreen(
           put("totalAlphabetUses", alphabetCounts.values.sum())
           put("totalNumberUses", completeNumbersCounts.values.sum())
           put("totalPhraseUses", completePhrasesCounts.values.sum())
+
+          // 0. Fondo de pantalla activo y tonalidad / atenuación
+          put("wallpaperId", currentWallpaperId)
+          put("wallpaperDimAlpha", currentDimAlpha.toDouble())
+          val activeWpObj = JSONObject().apply {
+            put("id", currentWallpaperId)
+            put("title", activeWallpaperManager.selectedWallpaper.value.title)
+            val fileName = activeWallpaperManager.selectedWallpaper.value.fileName
+            if (fileName != null) put("fileName", fileName)
+            val assetPath = activeWallpaperManager.selectedWallpaper.value.assetPath
+            if (assetPath != null) put("assetPath", assetPath)
+            put("dimAlpha", currentDimAlpha.toDouble())
+            put("dimPercentage", (currentDimAlpha * 100).toInt())
+          }
+          put("activeWallpaper", activeWpObj)
 
           // 1. Array completo de todas las palabras (2809 base + personalizadas) con sus contadores reales
           val allWordsArray = JSONArray()
@@ -588,12 +613,16 @@ fun VocabularyScreen(
           alphabetCounts = alphabetCounts,
           numberCounts = numberCounts,
           phraseCounts = phraseCounts,
-          savedDraftPhrases = currentSavedPhrases
+          savedDraftPhrases = currentSavedPhrases,
+          wallpaperId = currentWallpaperId,
+          wallpaperDimAlpha = currentDimAlpha
         )
         context.contentResolver.openOutputStream(uri)?.use { outputStream ->
           outputStream.write(rootJson.toString(2).toByteArray(Charsets.UTF_8))
         }
-        backupStatusMessage = "¡Copia exportada con éxito! ($usedWordsCount copas, ${vocabCounts.values.sum()} usos de palabras, ${allWords.size} palabras totales, ${completeAlphabetCounts.size} letras, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${currentSavedPhrases.size} frases guardadas, ${currentNotes.size} notas)"
+        val wpTitle = activeWallpaperManager.selectedWallpaper.value.title
+        val wpDimPercent = (currentDimAlpha * 100).toInt()
+        backupStatusMessage = "¡Copia exportada con éxito! (Fondo: $wpTitle $wpDimPercent%, $usedWordsCount copas, ${vocabCounts.values.sum()} usos de palabras, ${allWords.size} palabras totales, ${completeAlphabetCounts.size} letras, ${completeNumbersCounts.size} números, ${completePhrasesCounts.size} frases, ${currentSavedPhrases.size} frases guardadas, ${currentNotes.size} notas)"
       } catch (e: Exception) {
         backupStatusMessage = "Error al exportar: ${e.message}"
       }
@@ -612,6 +641,14 @@ fun VocabularyScreen(
           if (parsed != null) {
             viewModel.restoreFullBackup(parsed, context) { _, msg ->
               backupStatusMessage = msg
+              if (parsed.wallpaperId != null) {
+                activeWallpaperManager.applyWallpaperSettings(
+                  wallpaperId = parsed.wallpaperId,
+                  dimAlpha = parsed.wallpaperDimAlpha
+                )
+              } else {
+                activeWallpaperManager.refresh()
+              }
             }
           } else {
             backupStatusMessage = "Error: formato de archivo .json incompatible."
@@ -672,8 +709,7 @@ fun VocabularyScreen(
         ) {
           Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
           ) {
             Text(
               text = "Herramientas",
@@ -683,37 +719,6 @@ fun VocabularyScreen(
                 color = Color(0xFFF8FAFC)
               )
             )
-
-            // Copa con contador de palabras usadas flotando libremente sin caja
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
-              modifier = Modifier
-                .clickable {
-                  coroutineScope.launch { drawerState.close() }
-                  isProficiencyLevelsTrayOpen = true
-                }
-                .padding(horizontal = 4.dp, vertical = 4.dp)
-                .testTag("drawer_counter_used_words_badge")
-            ) {
-              Text(
-                text = "$usedWordsCount",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 15.sp,
-                  color = Color(0xFFF8FAFC)
-                ),
-                modifier = Modifier.testTag("drawer_text_used_words_count")
-              )
-              Icon(
-                imageVector = Icons.Default.EmojiEvents,
-                contentDescription = "Trofeo de palabras usadas",
-                tint = Color(0xFFFACC15),
-                modifier = Modifier
-                  .size(20.dp)
-                  .testTag("drawer_icon_trophy")
-              )
-            }
           }
 
         HorizontalDivider(
@@ -1482,6 +1487,14 @@ fun VocabularyScreen(
           if (data != null) {
             viewModel.restoreFullBackup(data, context) { _, msg ->
               backupStatusMessage = msg
+              if (data.wallpaperId != null) {
+                activeWallpaperManager.applyWallpaperSettings(
+                  wallpaperId = data.wallpaperId,
+                  dimAlpha = data.wallpaperDimAlpha
+                )
+              } else {
+                activeWallpaperManager.refresh()
+              }
             }
           } else {
             backupStatusMessage = "No se pudo leer la copia de Documentos/VocabFlow"
