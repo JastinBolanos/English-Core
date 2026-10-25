@@ -4,12 +4,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Circular soft accent plate -->
-    <path
-        android:fillColor="#1AFFFFFF"
-        android:pathData="M 54, 26 a 28,28 0 1,0 0.0001,0 Z" />
-
-    <!-- Centered bold microphone icon inside 66dp safe zone -->
+    <!-- Centered bold microphone icon inside 66dp safe zone without circular accent plate -->
     <group
         android:scaleX="2.5"
         android:scaleY="2.5"
