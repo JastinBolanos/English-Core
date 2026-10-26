@@ -30,13 +30,13 @@ object DefaultRoadmapData {
         return RoadmapConfig(
             missionTitle = "MISIÓN: INGLÉS AVANZADO",
             dateRange = "21 OCT 2026 – 21 JUN 2027",
-            hoursSummary = "3 HORAS DIARIAS • 732 HORAS TOTALES",
+            hoursSummary = "",
             milestones = listOf(
                 MilestoneItem(
                     id = "m1",
                     date = "21 OCT 2026",
                     title = "DÍA 1: El Despegue",
-                    description = "3h, primeras palabras",
+                    description = "Primeras palabras",
                     iconType = "rocket",
                     isCompleted = true
                 ),

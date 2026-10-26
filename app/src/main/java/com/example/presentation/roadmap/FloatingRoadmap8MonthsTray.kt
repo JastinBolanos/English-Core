@@ -277,15 +277,17 @@ private fun RoadmapViewContent(
                 textAlign = TextAlign.Center,
                 color = Color(0xFFCBD5E1)
             )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = config.hoursSummary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                letterSpacing = 0.4.sp,
-                textAlign = TextAlign.Center,
-                color = Color(0xFF38BDF8)
-            )
+            if (config.hoursSummary.isNotBlank() && !config.hoursSummary.contains("3 HORAS", ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = config.hoursSummary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    letterSpacing = 0.4.sp,
+                    textAlign = TextAlign.Center,
+                    color = Color(0xFF38BDF8)
+                )
+            }
         }
 
         // LÍNEA DE TIEMPO CON TODOS LOS DÍAS EN FILA Y LOS HITOS FINALES DE CADA MES
@@ -576,20 +578,6 @@ private fun RegularDayTimelineRow(
             },
             modifier = Modifier.weight(1f)
         )
-
-        // Indicador de 3 horas
-        Text(
-            text = "+3h",
-            fontSize = 10.5.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = when {
-                dayItem.isPast -> Color(0xFF10B981).copy(alpha = 0.8f)
-                dayItem.isToday -> Color(0xFF38BDF8)
-                else -> Color(0xFF475569)
-            },
-            modifier = Modifier.padding(end = 6.dp)
-        )
-
     }
 }
 

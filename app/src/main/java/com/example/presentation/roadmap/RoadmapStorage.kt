@@ -23,7 +23,8 @@ class RoadmapStorage(context: Context) {
             val root = JSONObject(jsonStr)
             val missionTitle = root.optString("missionTitle", "MISIÓN: INGLÉS AVANZADO")
             val dateRange = root.optString("dateRange", "21 OCT 2026 – 21 JUN 2027")
-            val hoursSummary = root.optString("hoursSummary", "3 HORAS DIARIAS • 732 HORAS TOTALES")
+            val rawHours = root.optString("hoursSummary", "")
+            val hoursSummary = if (rawHours.contains("3 HORAS", ignoreCase = true)) "" else rawHours
             val footerText = root.optString("footerText", "Fuerza Interna 95% / Reflejo en Vivo 5%")
 
             val milestones = mutableListOf<MilestoneItem>()

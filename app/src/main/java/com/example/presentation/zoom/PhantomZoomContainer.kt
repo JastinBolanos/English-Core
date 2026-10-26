@@ -60,12 +60,15 @@ fun PhantomZoomContainer(
         targetValue = 1f,
         animationSpec = spring(
           stiffness = Spring.StiffnessMediumLow,
-          dampingRatio = Spring.DampingRatioLowBouncy
+          dampingRatio = Spring.DampingRatioNoBouncy
         )
       ) { progress, _ ->
-        scale = startScale + (1.0f - startScale) * progress
-        offsetX = startX + (0.0f - startX) * progress
-        offsetY = startY + (0.0f - startY) * progress
+        val currentScale = (startScale + (1.0f - startScale) * progress).coerceAtLeast(1.0f)
+        scale = currentScale
+        val maxOffsetX = ((currentScale - 1f) * containerWidth / 2f).coerceAtLeast(0f)
+        val maxOffsetY = ((currentScale - 1f) * containerHeight / 2f).coerceAtLeast(0f)
+        offsetX = (startX + (0.0f - startX) * progress).coerceIn(-maxOffsetX, maxOffsetX)
+        offsetY = (startY + (0.0f - startY) * progress).coerceIn(-maxOffsetY, maxOffsetY)
       }
       scale = 1.0f
       offsetX = 0.0f
@@ -74,7 +77,7 @@ fun PhantomZoomContainer(
   }
 
   // Si está ampliado y el usuario pulsa atrás en Android, des-amplía primero
-  BackHandler(enabled = scale > 1.05f) {
+  BackHandler(enabled = scale > 1.02f) {
     animateToNormal()
   }
 
@@ -119,7 +122,8 @@ fun PhantomZoomContainer(
                 totalMovement += hypot(panDelta.x, panDelta.y)
 
                 val oldScale = scale
-                val newScale = (oldScale * zoomFactor).coerceIn(0.75f, maxScale)
+                // El zoom SOLO sirve para agrandar: escala mínima estricta de 1.0f (nunca achica la app)
+                val newScale = (oldScale * zoomFactor).coerceIn(1.0f, maxScale)
                 val scaleRatio = if (oldScale > 0.001f) newScale / oldScale else 1f
 
                 val center = Offset(containerWidth / 2f, containerHeight / 2f)
@@ -129,11 +133,12 @@ fun PhantomZoomContainer(
                 val maxOffsetX = ((newScale - 1f) * containerWidth / 2f).coerceAtLeast(0f)
                 val maxOffsetY = ((newScale - 1f) * containerHeight / 2f).coerceAtLeast(0f)
 
-                scale = newScale
-                if (newScale <= 1f) {
-                  offsetX = targetOffsetX * 0.25f
-                  offsetY = targetOffsetY * 0.25f
+                if (newScale <= 1.0001f) {
+                  scale = 1.0f
+                  offsetX = 0f
+                  offsetY = 0f
                 } else {
+                  scale = newScale
                   offsetX = targetOffsetX.coerceIn(-maxOffsetX, maxOffsetX)
                   offsetY = targetOffsetY.coerceIn(-maxOffsetY, maxOffsetY)
                 }
@@ -163,8 +168,8 @@ fun PhantomZoomContainer(
               lastTwoFingerTapTime = now
             }
 
-            // Al soltar los dedos: si quedó menor o casi igual a 1x, resetear
-            if (scale <= 1.05f) {
+            // Al soltar los dedos: si quedó en o cerca de 1.0x, asegurar reset a 1.0x
+            if (scale <= 1.02f) {
               animateToNormal()
             } else {
               // Ajustar a los límites máximos si quedó fuera
@@ -180,7 +185,10 @@ fun PhantomZoomContainer(
                   androidx.compose.animation.core.animate(
                     initialValue = 0f,
                     targetValue = 1f,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                    animationSpec = spring(
+                      stiffness = Spring.StiffnessMediumLow,
+                      dampingRatio = Spring.DampingRatioNoBouncy
+                    )
                   ) { progress, _ ->
                     offsetX = startX + (clampedX - startX) * progress
                     offsetY = startY + (clampedY - startY) * progress
