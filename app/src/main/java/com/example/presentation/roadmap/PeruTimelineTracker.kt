@@ -192,14 +192,14 @@ object PeruTimelineTracker {
             }
 
             val monthLabel = when (monthNumber) {
-                1 -> "MES 1: El Despegue y Ruta de Colores (Días 1–32)"
-                2 -> "MES 2: Independencia del Español (Días 33–62)"
-                3 -> "MES 3: Cobertura B1 100% (Días 63–93)"
-                4 -> "MES 4: Velocidad de Respuesta <2s (Días 94–124)"
-                5 -> "MES 5: Fluidez Real y Custom Words (Días 125–152)"
-                6 -> "MES 6: Automatización y Autocorrección (Días 153–183)"
-                7 -> "MES 7: Comprensión >95% y Fluidez (Días 184–213)"
-                else -> "MES 8: Umbral C1 y Graduación (Días 214–244)"
+                1 -> "MES 1: Nivel A1 (400 palabras) • Días 1–32"
+                2 -> "MES 2: Nivel A1 (800 palabras) • Días 33–62"
+                3 -> "MES 3: Nivel A2 (1,300 palabras) • Días 63–93"
+                4 -> "MES 4: Nivel A2 (1,800 palabras) • Días 94–124"
+                5 -> "MES 5: Nivel B1 (2,200 palabras) • Días 125–152"
+                6 -> "MES 6: Nivel B2 (2,500 palabras) • Días 153–183"
+                7 -> "MES 7: Nivel C1 (2,809 palabras) • Días 184–213"
+                else -> "MES 8: Nivel C2 (>2,809 palabras) • Días 214–244"
             }
 
             val isStart = false

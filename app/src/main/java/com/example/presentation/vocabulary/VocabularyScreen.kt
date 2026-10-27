@@ -300,6 +300,7 @@ fun VocabularyScreen(
   val isTranslationTrayExpanded by viewModel.isTranslationTrayExpanded.collectAsStateWithLifecycle()
   val translationState by viewModel.translationState.collectAsStateWithLifecycle()
   val selectedSyntaxFilter by viewModel.selectedSyntaxFilter.collectAsStateWithLifecycle()
+  val selectedSubCategory by viewModel.selectedSubCategory.collectAsStateWithLifecycle()
   val currentSpeechSpeed by viewModel.currentSpeechSpeed.collectAsStateWithLifecycle()
   val spanishInputText by viewModel.spanishInputText.collectAsStateWithLifecycle()
   val spanishTranslationState by viewModel.spanishTranslationState.collectAsStateWithLifecycle()
@@ -698,216 +699,57 @@ fun VocabularyScreen(
     }
   }
 
-  val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
-  // Bandeja lateral a la derecha (en dirección de la copa de logros)
-  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-    ModalNavigationDrawer(
-      drawerState = drawerState,
-      gesturesEnabled = true,
-      drawerContent = {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-          val drawerWidth = LocalConfiguration.current.screenWidthDp.dp * 0.5f
-          ModalDrawerSheet(
-            drawerContainerColor = Color.Transparent,
-            drawerContentColor = Color(0xFFF8FAFC),
-            drawerShape = androidx.compose.ui.graphics.RectangleShape,
-            windowInsets = WindowInsets(0, 0, 0, 0),
-            modifier = Modifier
-              .width(drawerWidth)
-              .fillMaxHeight()
-          ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-              EpicAuroraDrawerBackground()
-
-              Column(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .statusBarsPadding()
-                  .navigationBarsPadding()
-                  .verticalScroll(rememberScrollState())
-                  .padding(horizontal = 8.dp, vertical = 10.dp)
-              ) {
-              Row(
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-              ) {
-                Text(
-                  text = "Herramientas",
-                  style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color(0xFFF8FAFC)
-                  )
-                )
-              }
-
-              HorizontalDivider(
-                color = Color(0xFF334155).copy(alpha = 0.6f),
-                thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-              )
-
-              Spacer(modifier = Modifier.height(4.dp))
-
-              // 1. Meta 8 Meses
-              DrawerItemRow(
-                icon = Icons.Outlined.Flag,
-                iconTint = Color(0xFF38BDF8),
-                title = "Meta 8 Meses",
-                testTag = "drawer_item_roadmap_8months",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isRoadmap8MonthsTrayOpen = true
-                }
-              )
-
-              // 2. Ruta de Aprendizaje
-              DrawerItemRow(
-                icon = Icons.Default.Explore,
-                iconTint = Color(0xFF38BDF8),
-                title = "Ruta Estudio",
-                testTag = "drawer_item_roadmap",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  showRoadmapDialog = true
-                }
-              )
-
-              // 3. Horario
-              DrawerItemRow(
-                icon = Icons.Default.Schedule,
-                iconTint = Color(0xFFFBBF24),
-                title = "Horario",
-                testTag = "drawer_item_schedule",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isDailyScheduleTrayOpen = true
-                }
-              )
-
-              // 4. Ajustes
-              DrawerItemRow(
-                icon = Icons.Outlined.Settings,
-                iconTint = Color(0xFF94A3B8),
-                title = "Ajustes",
-                testTag = "drawer_item_settings",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isSettingsTrayOpen = true
-                }
-              )
-
-              // 5. Fondos de Pantalla
-              DrawerItemRow(
-                icon = Icons.Default.Wallpaper,
-                iconTint = Color(0xFFE879F9),
-                title = "Fondos",
-                testTag = "drawer_item_wallpaper",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isWallpaperTrayOpen = true
-                }
-              )
-
-              // 6. Notas Locales
-              DrawerItemRow(
-                icon = Icons.Outlined.Description,
-                iconTint = Color(0xFFFB923C),
-                title = "Notas",
-                testTag = "drawer_item_notes",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isLocalNotesTrayOpen = true
-                }
-              )
-
-              // 7. Traductor
-              DrawerItemRow(
-                icon = Icons.Default.Translate,
-                iconTint = Color(0xFF00E5FF),
-                title = "Traductor",
-                testTag = "drawer_item_spanish_translator",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible
-                }
-              )
-
-              // 8. Frases Guardadas
-              DrawerItemRow(
-                icon = Icons.Default.Bookmarks,
-                iconTint = Color(0xFFFBBF24),
-                title = "Frases",
-                testTag = "drawer_item_saved_phrases",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  isSavedPhrasesTrayOpen = true
-                }
-              )
-
-              // 9. Añadir palabra
-              DrawerItemRow(
-                icon = Icons.Default.Add,
-                iconTint = Color(0xFF34D399),
-                title = "Añadir Palabra",
-                testTag = "drawer_item_add_word",
-                onClick = {
-                  coroutineScope.launch { drawerState.close() }
-                  viewModel.openAddWordDialog()
-                }
-              )
-            }
-          }
-        }
-    }
-  }
-) {
-  CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-    Scaffold(
-      modifier = modifier
+  Scaffold(
+    modifier = modifier
+      .fillMaxSize()
+      .testTag("screen_vocabulario"),
+    containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else MaterialTheme.colorScheme.background
+  ) { innerPadding ->
+    Box(
+      modifier = Modifier
         .fillMaxSize()
-        .testTag("screen_vocabulario"),
-      containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-      Box(
-        modifier = Modifier
-          .fillMaxSize()
-          .padding(top = innerPadding.calculateTopPadding())
+        .padding(top = innerPadding.calculateTopPadding())
+    ) {
+      Column(
+        modifier = Modifier.fillMaxSize()
       ) {
+        // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
         Column(
-          modifier = Modifier.fillMaxSize()
-        ) {
-          // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
-          Column(
-            modifier = Modifier
-              .fillMaxWidth()
-              .background(
-                if (!currentWallpaper.isDefaultNone)
-                  Color.Transparent
-                else
-                  MaterialTheme.colorScheme.background
-              )
-              .padding(top = 8.dp, bottom = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-          ) {
-            // Espacio superior encima de todo: "English" centrado con menú a la izquierda, y trofeo de logros + velocidad a la derecha
-            AnimatedEnglishHeader(
-              usedWordsCount = usedWordsCount,
-              celebrationTrigger = celebrationTrigger,
-              currentSpeed = currentSpeechSpeed,
-              onToggleSpeed = { viewModel.onToggleSpeed() },
-              onOpenDrawer = {
-                coroutineScope.launch {
-                  drawerState.open()
-                }
-              },
-              onOpenProficiencyLevels = {
-                isProficiencyLevelsTrayOpen = true
-              }
+          modifier = Modifier
+            .fillMaxWidth()
+            .background(
+              if (!currentWallpaper.isDefaultNone)
+                Color.Transparent
+              else
+                MaterialTheme.colorScheme.background
             )
+            .padding(top = 8.dp, bottom = 2.dp),
+          verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+          // Espacio superior encima de todo: "English" centrado con selector de velocidad a la izquierda y trofeo de logros a la derecha
+          AnimatedEnglishHeader(
+            usedWordsCount = usedWordsCount,
+            celebrationTrigger = celebrationTrigger,
+            currentSpeed = currentSpeechSpeed,
+            onToggleSpeed = { viewModel.onToggleSpeed() },
+            onOpenDrawer = { },
+            onOpenProficiencyLevels = {
+              isProficiencyLevelsTrayOpen = true
+            }
+          )
+
+          // BARRA HORIZONTAL FLOTANTE DE HERRAMIENTAS: 9 ICONOS CON SUS FUNCIONES INTACTAS, SIN TEXTO, FLOTANDO ENTRE EL TÍTULO Y EL LIENZO DE PRUEBAS
+          FloatingToolsHorizontalBar(
+            onOpenRoadmap8Months = { isRoadmap8MonthsTrayOpen = true },
+            onOpenRoadmap = { showRoadmapDialog = true },
+            onOpenSchedule = { isDailyScheduleTrayOpen = true },
+            onOpenSettings = { isSettingsTrayOpen = true },
+            onOpenWallpaper = { isWallpaperTrayOpen = true },
+            onOpenNotes = { isLocalNotesTrayOpen = true },
+            onToggleTranslator = { isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible },
+            onOpenSavedPhrases = { isSavedPhrasesTrayOpen = true },
+            onOpenAddWord = { viewModel.openAddWordDialog() }
+          )
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
           AnimatedVisibility(
@@ -1305,7 +1147,23 @@ fun VocabularyScreen(
               onExplainFilter = { filter -> explainedFilter = filter },
               onClearFilter = { viewModel.clearSyntaxFilter() }
             )
+
+            // SEGUNDA BANDEJA HORIZONTAL ("El tipo del tipo") - Subcategorías
+            AnimatedVisibility(
+              visible = selectedSyntaxFilter != null,
+              enter = fadeIn() + expandVertically(),
+              exit = fadeOut() + shrinkVertically()
+            ) {
+              selectedSyntaxFilter?.let { filter ->
+                SubCategoryHorizontalTray(
+                  filter = filter,
+                  selectedSubCategory = selectedSubCategory,
+                  onSelectSubCategory = { subCat -> viewModel.selectSubCategory(subCat) }
+                )
+              }
+            }
           }
+
         }
 
         if (selectedSectionTab == MainSectionTab.VOCABULARY) {
@@ -1319,7 +1177,7 @@ fun VocabularyScreen(
             contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
-            if (filteredWords.isEmpty() && searchQuery.isNotBlank()) {
+            if (filteredWords.isEmpty()) {
               item(key = "empty_state") {
                 Box(
                   modifier = Modifier
@@ -1327,8 +1185,14 @@ fun VocabularyScreen(
                     .padding(32.dp),
                   contentAlignment = Alignment.Center
                 ) {
+                  val emptyText = when {
+                    searchQuery.isNotBlank() -> "No se encontraron coincidencias para \"$searchQuery\""
+                    selectedSyntaxFilter != null && (selectedSubCategory == SyntaxFilter.SUBCAT_MOST_USED || selectedSubCategory.isBlank() || selectedSubCategory == "Todos") ->
+                      "Aún no tienes palabras con usos en ${selectedSyntaxFilter?.displayName ?: "esta categoría"}.\n¡Toca o practica palabras para verlas aquí ordenadas de mayor a menor uso!"
+                    else -> "No hay palabras en esta subcategoría."
+                  }
                   Text(
-                    text = "No se encontraron coincidencias para \"$searchQuery\"",
+                    text = emptyText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1579,9 +1443,6 @@ fun VocabularyScreen(
       }
     }
   }
-}
-}
-}
 
   if (showRoadmapDialog) {
     TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
@@ -2302,201 +2163,160 @@ fun PremiumTrophyBadge(
 }
 
 /**
- * Fila individual para un elemento del menú lateral (Drawer).
+ * Barra horizontal flotante de herramientas: los 9 logos/iconos con sus funciones intactas
+ * sin textos, flotando elegantemente entre el título ("English") y el lienzo de pruebas.
  */
 @Composable
-private fun DrawerItemRow(
-  icon: androidx.compose.ui.graphics.vector.ImageVector,
-  iconTint: Color,
-  title: String,
-  testTag: String,
-  subtitle: String? = null,
-  onClick: () -> Unit
+fun FloatingToolsHorizontalBar(
+  onOpenRoadmap8Months: () -> Unit,
+  onOpenRoadmap: () -> Unit,
+  onOpenSchedule: () -> Unit,
+  onOpenSettings: () -> Unit,
+  onOpenWallpaper: () -> Unit,
+  onOpenNotes: () -> Unit,
+  onToggleTranslator: () -> Unit,
+  onOpenSavedPhrases: () -> Unit,
+  onOpenAddWord: () -> Unit,
+  modifier: Modifier = Modifier
 ) {
-  Surface(
-    onClick = onClick,
-    color = Color.Transparent,
-    shape = RoundedCornerShape(10.dp),
-    modifier = Modifier
+  val scrollState = rememberScrollState()
+
+  Box(
+    modifier = modifier
       .fillMaxWidth()
-      .padding(horizontal = 4.dp, vertical = 2.dp)
-      .testTag(testTag)
+      .padding(horizontal = 6.dp, vertical = 2.dp),
+    contentAlignment = Alignment.Center
   ) {
     Row(
       modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 6.dp, vertical = 8.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp)
+        .horizontalScroll(scrollState)
+        .padding(horizontal = 4.dp, vertical = 2.dp)
+        .testTag("floating_horizontal_tools_bar"),
+      horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      Box(
-        modifier = Modifier
-          .size(32.dp)
-          .background(iconTint.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp))
-          .border(1.dp, iconTint.copy(alpha = 0.25f), shape = RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center
-      ) {
-        Icon(
-          imageVector = icon,
-          contentDescription = null,
-          tint = iconTint,
-          modifier = Modifier.size(17.dp)
-        )
-      }
-      Column(
-        modifier = Modifier.weight(1f),
-        verticalArrangement = Arrangement.Center
-      ) {
-        Text(
-          text = title,
-          style = MaterialTheme.typography.bodyMedium.copy(
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 13.sp,
-            color = Color(0xFFF8FAFC)
-          ),
-          maxLines = 1,
-          overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-        )
-        if (!subtitle.isNullOrBlank()) {
-          Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(
-              color = Color(0xFF64748B),
-              fontSize = 10.5.sp
-            ),
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-          )
-        }
-      }
+      // 1. Meta 8 Meses
+      ToolIconButton(
+        icon = Icons.Outlined.Flag,
+        iconTint = Color(0xFF38BDF8),
+        contentDescription = "Meta 8 Meses",
+        testTag = "drawer_item_roadmap_8months",
+        onClick = onOpenRoadmap8Months
+      )
+
+      // 2. Ruta Estudio
+      ToolIconButton(
+        icon = Icons.Default.Explore,
+        iconTint = Color(0xFF38BDF8),
+        contentDescription = "Ruta Estudio",
+        testTag = "drawer_item_roadmap",
+        onClick = onOpenRoadmap
+      )
+
+      // 3. Horario
+      ToolIconButton(
+        icon = Icons.Default.Schedule,
+        iconTint = Color(0xFFFBBF24),
+        contentDescription = "Horario",
+        testTag = "drawer_item_schedule",
+        onClick = onOpenSchedule
+      )
+
+      // 4. Ajustes
+      ToolIconButton(
+        icon = Icons.Outlined.Settings,
+        iconTint = Color(0xFF94A3B8),
+        contentDescription = "Ajustes",
+        testTag = "drawer_item_settings",
+        onClick = onOpenSettings
+      )
+
+      // 5. Fondos
+      ToolIconButton(
+        icon = Icons.Default.Wallpaper,
+        iconTint = Color(0xFFE879F9),
+        contentDescription = "Fondos",
+        testTag = "drawer_item_wallpaper",
+        onClick = onOpenWallpaper
+      )
+
+      // 6. Notas
+      ToolIconButton(
+        icon = Icons.Outlined.Description,
+        iconTint = Color(0xFFFB923C),
+        contentDescription = "Notas",
+        testTag = "drawer_item_notes",
+        onClick = onOpenNotes
+      )
+
+      // 7. Traductor
+      ToolIconButton(
+        icon = Icons.Default.Translate,
+        iconTint = Color(0xFF00E5FF),
+        contentDescription = "Traductor",
+        testTag = "drawer_item_spanish_translator",
+        onClick = onToggleTranslator
+      )
+
+      // 8. Frases
+      ToolIconButton(
+        icon = Icons.Default.Bookmarks,
+        iconTint = Color(0xFFFBBF24),
+        contentDescription = "Frases",
+        testTag = "drawer_item_saved_phrases",
+        onClick = onOpenSavedPhrases
+      )
+
+      // 9. Añadir Palabra
+      ToolIconButton(
+        icon = Icons.Default.Add,
+        iconTint = Color(0xFF34D399),
+        contentDescription = "Añadir Palabra",
+        testTag = "drawer_item_add_word",
+        onClick = onOpenAddWord
+      )
     }
   }
 }
 
-/**
- * Fondo animado épico con aurora boreal cromática de gradientes orbitales y efectos difusos
- * multicolores (neón cian, magenta eléctrico, violeta cósmico y ámbar dorado) sobre base oscura.
- */
 @Composable
-private fun EpicAuroraDrawerBackground(
+private fun ToolIconButton(
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  iconTint: Color,
+  contentDescription: String,
+  testTag: String,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val infiniteTransition = rememberInfiniteTransition(label = "epic_aurora_drawer_anim")
-
-  val phase1 by infiniteTransition.animateFloat(
-    initialValue = 0f,
-    targetValue = 360f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 13000, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart
-    ),
-    label = "aurora_orbit_phase1"
-  )
-
-  val phase2 by infiniteTransition.animateFloat(
-    initialValue = 360f,
-    targetValue = 0f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 9000, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart
-    ),
-    label = "aurora_orbit_phase2"
-  )
-
-  val phase3 by infiniteTransition.animateFloat(
-    initialValue = 0f,
-    targetValue = 360f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 17000, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart
-    ),
-    label = "aurora_orbit_phase3"
-  )
-
-  Canvas(modifier = modifier.fillMaxSize()) {
-    val width = size.width
-    val height = size.height
-
-    // 1. Base oscura cósmica elegante
-    drawRect(color = Color(0xFF070B14))
-
-    // Conversión a radianes para trayectorias orbitales armónicas
-    val rad1 = Math.toRadians(phase1.toDouble())
-    val rad2 = Math.toRadians(phase2.toDouble())
-    val rad3 = Math.toRadians(phase3.toDouble())
-
-    // Orbe 1: Cian Neón y Azul Eléctrico (orbita tercio superior)
-    val orb1Center = Offset(
-      x = (width * 0.35f + kotlin.math.cos(rad1).toFloat() * width * 0.38f),
-      y = (height * 0.22f + kotlin.math.sin(rad1).toFloat() * height * 0.16f)
-    )
-    val orb1Radius = width * 1.05f
-    drawCircle(
-      brush = Brush.radialGradient(
-        colors = listOf(
-          Color(0xFF00E5FF).copy(alpha = 0.45f),
-          Color(0xFF2563EB).copy(alpha = 0.30f),
-          Color.Transparent
-        ),
-        center = orb1Center,
-        radius = orb1Radius
-      ),
-      center = orb1Center,
-      radius = orb1Radius
-    )
-
-    // Orbe 2: Magenta Neón y Púrpura Ultravioleta (orbita zona central/inferior)
-    val orb2Center = Offset(
-      x = (width * 0.65f + kotlin.math.sin(rad2).toFloat() * width * 0.35f),
-      y = (height * 0.55f + kotlin.math.cos(rad2).toFloat() * height * 0.20f)
-    )
-    val orb2Radius = width * 1.15f
-    drawCircle(
-      brush = Brush.radialGradient(
-        colors = listOf(
-          Color(0xFFE879F9).copy(alpha = 0.42f),
-          Color(0xFFA855F7).copy(alpha = 0.26f),
-          Color.Transparent
-        ),
-        center = orb2Center,
-        radius = orb2Radius
-      ),
-      center = orb2Center,
-      radius = orb2Radius
-    )
-
-    // Orbe 3: Ámbar Dorado Solar y Esmeralda Aurora (orbita zona inferior)
-    val orb3Center = Offset(
-      x = (width * 0.40f + kotlin.math.cos(rad3).toFloat() * width * 0.30f),
-      y = (height * 0.82f + kotlin.math.sin(rad3).toFloat() * height * 0.14f)
-    )
-    val orb3Radius = width * 0.95f
-    drawCircle(
-      brush = Brush.radialGradient(
-        colors = listOf(
-          Color(0xFFFBBF24).copy(alpha = 0.38f),
-          Color(0xFF10B981).copy(alpha = 0.22f),
-          Color.Transparent
-        ),
-        center = orb3Center,
-        radius = orb3Radius
-      ),
-      center = orb3Center,
-      radius = orb3Radius
-    )
-
-    // Velo cósmico translúcido / filtro frosted para legibilidad óptima de textos e iconos
-    drawRect(
-      brush = Brush.verticalGradient(
-        colors = listOf(
-          Color(0xFF070B14).copy(alpha = 0.50f),
-          Color(0xFF070B14).copy(alpha = 0.42f),
-          Color(0xFF070B14).copy(alpha = 0.58f)
-        )
+  Box(
+    modifier = modifier
+      .size(36.dp)
+      .background(
+        color = Color(0xFF0D1527).copy(alpha = 0.85f),
+        shape = RoundedCornerShape(10.dp)
       )
+      .border(
+        border = BorderStroke(1.dp, iconTint.copy(alpha = 0.35f)),
+        shape = RoundedCornerShape(10.dp)
+      )
+      .clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = androidx.compose.material3.ripple(bounded = true, radius = 20.dp),
+        onClick = onClick
+      )
+      .testTag(testTag),
+    contentAlignment = Alignment.Center
+  ) {
+    Icon(
+      imageVector = icon,
+      contentDescription = contentDescription,
+      tint = iconTint,
+      modifier = Modifier.size(19.dp)
     )
   }
 }
+
+
 
 
 
@@ -4013,6 +3833,83 @@ private fun CompassStepChip(
   }
 }
 
+/**
+ * Segunda bandeja horizontal deslizable ("El tipo del tipo").
+ * Muestra los subtipos correspondientes a la categoría principal activa.
+ * Empieza siempre con el botón 'Más Usados' (ordenado de mayor a menor conteo, excluyendo 0 usos).
+ * Utiliza exactamente el color de acento de la categoría padre seleccionada.
+ */
+@Composable
+private fun SubCategoryHorizontalTray(
+  filter: SyntaxFilter,
+  selectedSubCategory: String,
+  onSelectSubCategory: (String) -> Unit
+) {
+  val subCategories = remember(filter) { filter.getSubCategories() }
+  val accentColor = remember(filter) {
+    when (filter) {
+      SyntaxFilter.CONNECTOR -> Color(0xFFFACC15) // Amarillo
+      SyntaxFilter.SUBJECT -> Color(0xFFA855F7)   // Morado
+      SyntaxFilter.VERB -> Color(0xFF38BDF8)      // Azul
+      SyntaxFilter.NOUN -> Color(0xFF34D399)      // Verde
+      SyntaxFilter.MODIFIER -> Color(0xFFE2E8F0)  // Blanco
+    }
+  }
+
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(vertical = 2.dp)
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .horizontalScroll(rememberScrollState())
+        .padding(horizontal = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+      subCategories.forEach { subCat ->
+        val isSelected = (subCat == selectedSubCategory) ||
+          (subCat == SyntaxFilter.SUBCAT_MOST_USED && (selectedSubCategory.isBlank() || selectedSubCategory == "Todos" || selectedSubCategory == SyntaxFilter.SUBCAT_MOST_USED))
+
+        Surface(
+          onClick = { onSelectSubCategory(subCat) },
+          shape = RoundedCornerShape(12.dp),
+          color = if (isSelected) accentColor.copy(alpha = 0.22f) else Color(0x1F1E293B),
+          border = BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) accentColor else Color(0x3394A3B8)
+          ),
+          modifier = Modifier.testTag("subcat_chip_${subCat.filter { it.isLetter() }}")
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+          ) {
+            if (isSelected) {
+              Box(
+                modifier = Modifier
+                  .size(6.dp)
+                  .background(accentColor, CircleShape)
+              )
+            }
+            Text(
+              text = subCat,
+              color = if (isSelected) accentColor else Color(0xFFCBD5E1),
+              fontSize = 11.5.sp,
+              fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+              maxLines = 1,
+              softWrap = false
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
 private data class SyntaxTypeInfo(
   val title: String,
   val badgeEmoji: String,
@@ -4816,7 +4713,6 @@ fun WordHudCard(
   onDelete: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
-  var isRevealed by rememberSaveable(word.id) { mutableStateOf(false) }
   val wordColor = getWordSyntaxColor(word)
 
   Column(
@@ -4827,13 +4723,7 @@ fun WordHudCard(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
         onClick = onTap,
-        onLongClick = {
-          val willReveal = !isRevealed
-          isRevealed = willReveal
-          if (willReveal) {
-            onOpenDetails?.invoke()
-          }
-        }
+        onLongClick = onSpeak
       )
       .padding(vertical = 4.dp)
   ) {
@@ -4853,7 +4743,7 @@ fun WordHudCard(
 
       Spacer(modifier = Modifier.width(6.dp))
 
-      // Palabra, contador crudo y categoría flotando sin caja con mayor tamaño
+      // Palabra, contador crudo, traducción permanente y categoría
       Column(
         modifier = Modifier.weight(1f),
         verticalArrangement = Arrangement.Center
@@ -4879,12 +4769,39 @@ fun WordHudCard(
             modifier = Modifier.testTag("word_use_count_${word.rank}")
           )
         }
+
+        // Traducción al español PERMANENTEMENTE VISIBLE (sin bandejita ni flecha)
         Text(
-          text = word.displayCategoryLabel,
+          text = word.displaySpanishTranslation,
+          style = MaterialTheme.typography.bodyMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp
+          ),
+          color = Color(0xFFF1F5F9),
+          maxLines = 1,
+          overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+          modifier = Modifier
+            .padding(top = 1.dp)
+            .testTag("word_spanish_${word.rank}")
+        )
+
+        val categorySubcategoryLabel = remember(word) {
+          val sub = word.subcategoria
+          if (!sub.isNullOrBlank()) {
+            "${word.displayCategoryLabel} • $sub"
+          } else {
+            word.displayCategoryLabel
+          }
+        }
+        Text(
+          text = categorySubcategoryLabel,
           style = MaterialTheme.typography.labelSmall,
-          color = wordColor.copy(alpha = 0.9f),
-          fontSize = 12.sp,
-          fontWeight = FontWeight.Medium
+          color = wordColor.copy(alpha = 0.85f),
+          fontSize = 11.5.sp,
+          fontWeight = FontWeight.Medium,
+          maxLines = 1,
+          overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+          modifier = Modifier.padding(top = 1.dp)
         )
       }
 
@@ -4933,61 +4850,6 @@ fun WordHudCard(
             contentDescription = "Eliminar palabra ${word.lemma}",
             tint = Color(0xFFEF4444),
             modifier = Modifier.size(19.dp)
-          )
-        }
-      }
-
-      // Icono para desplegar bandeja de detalles (español y oración) agrandado
-      IconButton(
-        onClick = {
-          val willReveal = !isRevealed
-          isRevealed = willReveal
-          if (willReveal) {
-            onOpenDetails?.invoke()
-          }
-        },
-        modifier = Modifier
-          .size(36.dp)
-          .testTag("btn_toggle_details_${word.rank}")
-      ) {
-        Icon(
-          imageVector = if (isRevealed) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-          contentDescription = if (isRevealed) "Cerrar bandeja de ${word.lemma}" else "Abrir bandeja de ${word.lemma}",
-          tint = if (isRevealed) Color(0xFF38BDF8) else Color(0xFF64748B),
-          modifier = Modifier.size(22.dp)
-        )
-      }
-    }
-
-    // Panel de revelación Active Recall (Long Press / Tap bandeja)
-    AnimatedVisibility(
-      visible = isRevealed,
-      enter = expandVertically() + fadeIn(),
-      exit = shrinkVertically() + fadeOut()
-    ) {
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(start = 44.dp, top = 4.dp, bottom = 6.dp, end = 8.dp)
-      ) {
-        // Traducción al español alineada uniformemente con la palabra
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-          Text(
-            text = "ESPAÑOL:",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF94A3B8),
-            fontSize = 11.5.sp
-          )
-          Text(
-            text = word.displaySpanishTranslation,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFFF8FAFC),
-            fontSize = 14.5.sp
           )
         }
       }

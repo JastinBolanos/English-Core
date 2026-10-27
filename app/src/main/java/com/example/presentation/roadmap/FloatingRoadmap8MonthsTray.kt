@@ -591,55 +591,110 @@ private fun MonthEndMilestoneCard(
     isLast: Boolean,
     pulseGlow: Float
 ) {
+    val levelCode = when (dayItem.monthNumber) {
+        1, 2 -> "A1"
+        3, 4 -> "A2"
+        5 -> "B1"
+        6 -> "B2"
+        7 -> "C1"
+        else -> "C2"
+    }
+    val levelColor = when (dayItem.monthNumber) {
+        1, 2 -> Color(0xFF10B981) // Verde A1
+        3, 4 -> Color(0xFF38BDF8) // Azul A2
+        5 -> Color(0xFF6366F1)    // Indigo B1
+        6 -> Color(0xFFA855F7)    // Púrpura B2
+        7 -> Color(0xFFF59E0B)    // Ámbar C1
+        else -> Color(0xFFEAB308) // Oro C2
+    }
+    val targetWords = when (dayItem.monthNumber) {
+        1 -> "400 palabras"
+        2 -> "800 palabras"
+        3 -> "1,300 palabras"
+        4 -> "1,800 palabras"
+        5 -> "2,200 palabras"
+        6 -> "2,500 palabras"
+        7 -> "2,809 palabras"
+        else -> ">2,809 palabras"
+    }
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color(0xFF13203C),
-        border = BorderStroke(1.4.dp, if (dayItem.isCompleted) Color(0xFF10B981) else Color(0xFFFBBF24)),
-        shadowElevation = 6.dp,
+        border = BorderStroke(
+            1.2.dp,
+            if (dayItem.isCompleted) Color(0xFF10B981) else levelColor.copy(alpha = 0.7f)
+        ),
+        shadowElevation = 4.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             MinimalistDrawing(
                 iconType = milestone.iconType,
                 isCompleted = dayItem.isCompleted,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(34.dp)
             )
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Fila superior: Mes, Fecha y Badge de Nivel
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "🏆 HITO FINAL MES ${dayItem.monthNumber}",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.5.sp,
+                        text = "MES ${dayItem.monthNumber} • ${dayItem.shortDateFormatted}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
                         color = Color(0xFFFBBF24)
                     )
-                    Text(
-                        text = "• Día ${dayItem.dayNumber}",
-                        fontSize = 11.sp,
-                        color = Color(0xFF94A3B8)
-                    )
+
+                    // Badge de Nivel CEFR: A1, A2, B1, B2, C1, C2
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = levelColor.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(5.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = levelColor.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(5.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 1.5.dp)
+                    ) {
+                        Text(
+                            text = "NIVEL $levelCode",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 9.sp,
+                            color = levelColor
+                        )
+                    }
                 }
 
+                // Meta de palabras dominadas (directa y concisa)
                 Text(
-                    text = "${dayItem.dateString} | ${milestone.title}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.5.sp,
-                    color = Color(0xFFF8FAFC)
+                    text = "🎯 Meta: $targetWords dominadas",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFF1F5F9)
                 )
 
+                // Descripción breve del hito (sin redundancias ni texto cortado)
                 Text(
                     text = milestone.description,
                     fontSize = 11.sp,
-                    color = Color(0xFF38BDF8)
+                    color = Color(0xFF38BDF8),
+                    lineHeight = 14.sp
                 )
             }
 
@@ -647,7 +702,7 @@ private fun MonthEndMilestoneCard(
                 imageVector = if (dayItem.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
                 tint = if (dayItem.isCompleted) Color(0xFF10B981) else Color(0xFF64748B),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -1145,7 +1200,7 @@ private fun RoadmapEditorContent(
         OutlinedTextField(
             value = draftHoursSummary,
             onValueChange = onHoursSummaryChange,
-            label = { Text("Horas Diarias y Totales") },
+            label = { Text("Resumen de Palabras y Niveles") },
             modifier = Modifier.fillMaxWidth(),
             colors = editorTextFieldColors()
         )
@@ -1172,7 +1227,7 @@ private fun RoadmapEditorContent(
                         id = "m_${System.currentTimeMillis()}",
                         date = "FECHA",
                         title = "NUEVO HITO $newIndex",
-                        description = "Descripción y horas estimadas",
+                        description = "NIVEL ... • palabras dominadas, combinación y habla",
                         iconType = "star",
                         isCompleted = false
                     )
@@ -1251,7 +1306,7 @@ private fun RoadmapEditorContent(
                                 if (i == index) m.copy(description = newDesc) else m
                             })
                         },
-                        label = { Text("Detalle de horas / palabras / nivel") },
+                        label = { Text("Nivel / palabras dominadas / habla") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = editorTextFieldColors()
                     )

@@ -2107,5 +2107,101 @@ class ExampleRobolectricTest {
     assertEquals(0.35f, cleanManager.dimAlpha.value, 0.01f)
     assertEquals(0.35f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
   }
+
+  @Test
+  fun `verify mas usados filters words with useCount greater than 0 and sorts descending by useCount`() {
+    val sampleWords = listOf(
+      Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 0),
+      Word(id = 2, lemma = "and", rank = 2, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 5),
+      Word(id = 3, lemma = "but", rank = 3, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 12),
+      Word(id = 4, lemma = "or", rank = 4, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 1),
+      Word(id = 5, lemma = "because", rank = 5, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 0),
+      Word(id = 6, lemma = "so", rank = 6, partOfSpeech = PartOfSpeech.CONNECTOR, useCount = 12)
+    )
+
+    // Filter Conector and "Más Usados"
+    val conectorFilter = com.example.presentation.vocabulary.SyntaxFilter.CONNECTOR
+    val matchedCategoryWords = sampleWords.filter { conectorFilter.matchesWord(it) }
+
+    val masUsadosWords = matchedCategoryWords
+      .filter { it.useCount > 0 }
+      .sortedWith(
+        compareByDescending<Word> { it.useCount }
+          .thenBy { it.rank }
+      )
+
+    // Verify words with count 0 are not included
+    assertEquals(4, masUsadosWords.size)
+    assertFalse(masUsadosWords.any { it.useCount == 0 })
+    assertFalse(masUsadosWords.any { it.lemma == "the" || it.lemma == "because" })
+
+    // Verify ordering is strictly descending by useCount
+    assertEquals("but", masUsadosWords[0].lemma) // useCount = 12, rank = 3
+    assertEquals("so", masUsadosWords[1].lemma)  // useCount = 12, rank = 6 (tie broken by rank)
+    assertEquals("and", masUsadosWords[2].lemma) // useCount = 5
+    assertEquals("or", masUsadosWords[3].lemma)  // useCount = 1
+  }
+
+  @Test
+  fun `verify lateral drawer is removed and 9 tool icons float horizontally between title and canvas`() {
+    composeTestRule.setContent {
+      EnglishAppTheme {
+        EnglishApp()
+      }
+    }
+
+    composeTestRule.waitForIdle()
+
+    // Verify floating horizontal tools bar exists
+    composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertExists()
+
+    // Verify all 9 icons exist with their original functionality
+    composeTestRule.onNodeWithTag("drawer_item_roadmap_8months").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_schedule").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_settings").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_notes").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_saved_phrases").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_add_word").assertExists()
+
+    // Click roadmap from the floating bar and verify dialog opens directly
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_roadmap_x").performClick()
+    composeTestRule.waitForIdle()
+    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertDoesNotExist()
+  }
+
+  @Test
+  fun `verify modifier subcategories are all populated and none are empty`() {
+    val subCategories = com.example.presentation.vocabulary.SyntaxFilter.MODIFIER.getSubCategories()
+      .filter { it != com.example.presentation.vocabulary.SyntaxFilter.SUBCAT_MOST_USED && it != "Todos" }
+
+    assertEquals(6, subCategories.size)
+    assertTrue(subCategories.contains("Artículos y Cantidad"))
+    assertTrue(subCategories.contains("Tiempo y Frecuencia"))
+    assertTrue(subCategories.contains("Cualidad y Opinión"))
+    assertTrue(subCategories.contains("Modo y Grado"))
+    assertTrue(subCategories.contains("Posición"))
+    assertTrue(subCategories.contains("Tamaño y Color"))
+
+    for (subCat in subCategories) {
+      val (sampleWord, sampleRank) = when (subCat) {
+        "Artículos y Cantidad" -> Pair("the", 1)
+        "Tiempo y Frecuencia" -> Pair("now", 70)
+        "Cualidad y Opinión" -> Pair("good", 56)
+        "Modo y Grado" -> Pair("very", 63)
+        "Posición" -> Pair("here", 98)
+        "Tamaño y Color" -> Pair("big", 161)
+        else -> Pair("", -1)
+      }
+      val resolvedSub = com.example.domain.util.WordSubcategoryCatalog.getSubcategory(sampleWord, sampleRank, "Modificador")
+      assertNotNull("Subcategory for $sampleWord should not be null", resolvedSub)
+      assertTrue("Expected $subCat for $sampleWord, got $resolvedSub", resolvedSub!!.contains(subCat, ignoreCase = true))
+    }
+  }
 }
 

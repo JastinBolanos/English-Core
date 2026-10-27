@@ -23,8 +23,13 @@ class RoadmapStorage(context: Context) {
             val root = JSONObject(jsonStr)
             val missionTitle = root.optString("missionTitle", "MISIÓN: INGLÉS AVANZADO")
             val dateRange = root.optString("dateRange", "21 OCT 2026 – 21 JUN 2027")
+            val defaultRoadmap = DefaultRoadmapData.getDefault()
             val rawHours = root.optString("hoursSummary", "")
-            val hoursSummary = if (rawHours.contains("3 HORAS", ignoreCase = true)) "" else rawHours
+            val hoursSummary = if (rawHours.isEmpty() || rawHours.contains("horas", ignoreCase = true) || rawHours.contains("3 HORAS", ignoreCase = true)) {
+                defaultRoadmap.hoursSummary
+            } else {
+                rawHours
+            }
             val footerText = root.optString("footerText", "Fuerza Interna 95% / Reflejo en Vivo 5%")
 
             val milestones = mutableListOf<MilestoneItem>()
@@ -45,6 +50,18 @@ class RoadmapStorage(context: Context) {
                 )
             }
 
+            // Migración automática: Si los hitos guardados tienen horas legadas, +A1/+A2 o textos largos, actualizar a la nueva ruta concisa
+            val needsMigration = milestones.isEmpty() || milestones.any {
+                it.description.contains("h,", ignoreCase = true) ||
+                it.description.contains("horas", ignoreCase = true) ||
+                it.title.contains("720h", ignoreCase = true) ||
+                it.description.contains("96h", ignoreCase = true) ||
+                it.description.contains("+A1") ||
+                it.description.contains("+A2") ||
+                it.description.length > 55
+            }
+            val finalMilestones = if (needsMigration) defaultRoadmap.milestones else milestones
+
             val routines = mutableListOf<RoutineItem>()
             val routinesArray = root.optJSONArray("routines") ?: JSONArray()
             for (i in 0 until routinesArray.length()) {
@@ -58,13 +75,18 @@ class RoadmapStorage(context: Context) {
                     )
                 )
             }
+            val finalRoutines = if (routines.isEmpty() || routines.any { it.title.contains("(1h)") }) {
+                defaultRoadmap.routines
+            } else {
+                routines
+            }
 
             RoadmapConfig(
                 missionTitle = missionTitle,
                 dateRange = dateRange,
                 hoursSummary = hoursSummary,
-                milestones = if (milestones.isNotEmpty()) milestones else DefaultRoadmapData.getDefault().milestones,
-                routines = if (routines.isNotEmpty()) routines else DefaultRoadmapData.getDefault().routines,
+                milestones = finalMilestones,
+                routines = finalRoutines,
                 footerText = footerText
             )
         } catch (_: Exception) {

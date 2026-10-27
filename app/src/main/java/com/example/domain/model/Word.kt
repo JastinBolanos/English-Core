@@ -13,8 +13,19 @@ data class Word(
   val nextReviewDate: Long = 0L,
   val overrideConnectionNote: String? = null,
   val useCount: Int = 0,
-  val secondaryPartOfSpeech: PartOfSpeech? = null
+  val secondaryPartOfSpeech: PartOfSpeech? = null,
+  val subCategory: String? = null
 ) {
+  val subcategoria: String?
+    get() = resolvedSubCategory
+
+  val resolvedSubCategory: String?
+    get() = subCategory ?: com.example.domain.util.WordSubcategoryCatalog.getSubcategory(lemma, rank)
+
+  fun getSubCategoryFor(category: String?): String? {
+    return subCategory ?: com.example.domain.util.WordSubcategoryCatalog.getSubcategory(lemma, rank, category)
+  }
+
   val nextExpectedCategories: List<PartOfSpeech>
     get() = getPrimaryCategory().nextExpectedCategories
 

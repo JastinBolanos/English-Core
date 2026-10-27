@@ -42,7 +42,53 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
   MODIFIER("Modificador", "⚪");
 
   companion object {
+    const val SUBCAT_MOST_USED = "Más Usados"
     val OBJECT get() = NOUN
+  }
+
+  fun getSubCategories(): List<String> = when (this) {
+    CONNECTOR -> listOf(
+      SUBCAT_MOST_USED,
+      "Ideas y Unión",
+      "Lugar y Dirección",
+      "Relación y Compañía",
+      "Tiempo y Secuencia"
+    )
+    SUBJECT -> listOf(
+      SUBCAT_MOST_USED,
+      "Personales (Base)",
+      "Receptores (Objeto)",
+      "Posesivos",
+      "Señalar",
+      "Preguntas",
+      "Cantidades y Grupos"
+    )
+    VERB -> listOf(
+      SUBCAT_MOST_USED,
+      "Auxiliares y Poderes",
+      "Acción y Movimiento",
+      "Mente y Deseo",
+      "Comunicación",
+      "Estado y Cambio"
+    )
+    NOUN -> listOf(
+      SUBCAT_MOST_USED,
+      "Personas y Familia",
+      "Lugares y Entorno",
+      "Cosas y Comida",
+      "Tiempo y Medidas",
+      "Ideas y Vida",
+      "Cuerpo y Salud"
+    )
+    MODIFIER -> listOf(
+      SUBCAT_MOST_USED,
+      "Artículos y Cantidad",
+      "Tiempo y Frecuencia",
+      "Cualidad y Opinión",
+      "Modo y Grado",
+      "Posición",
+      "Tamaño y Color"
+    )
   }
 
   fun matchesWord(word: Word): Boolean {
@@ -56,6 +102,8 @@ enum class SyntaxFilter(val displayName: String, val colorEmoji: String) {
     }
   }
 }
+
+
 
 class VocabularyViewModel @Inject constructor(
   private val repository: VocabularyRepository,
@@ -213,7 +261,8 @@ class VocabularyViewModel @Inject constructor(
       rawPartOfSpeech = if (entry.isDecade) "número (decena)" else "número",
       spanishTranslation = "${entry.number} (${entry.phoneticSp})",
       microExample = entry.ipa,
-      useCount = newCount
+      useCount = newCount,
+      subCategory = "Artículos y Cantidad"
     )
     updateDraftWithHistory(_draftWords.value + numWord)
     _isPhraseUpdated.value = true
@@ -695,6 +744,14 @@ class VocabularyViewModel @Inject constructor(
   private val _selectedSyntaxFilter = MutableStateFlow<SyntaxFilter?>(null)
   val selectedSyntaxFilter: StateFlow<SyntaxFilter?> = _selectedSyntaxFilter.asStateFlow()
 
+  // Subcategoría activa dentro de la categoría sintáctica seleccionada (segunda bandeja)
+  private val _selectedSubCategory = MutableStateFlow(SyntaxFilter.SUBCAT_MOST_USED)
+  val selectedSubCategory: StateFlow<String> = _selectedSubCategory.asStateFlow()
+
+  fun selectSubCategory(subCategory: String) {
+    _selectedSubCategory.value = subCategory
+  }
+
   val selectedCategoryFilter: StateFlow<PartOfSpeech?> = _selectedSyntaxFilter
     .map { filter ->
       when (filter) {
@@ -826,11 +883,27 @@ class VocabularyViewModel @Inject constructor(
     words,
     _searchQuery,
     _translatedSearchQuery,
-    _selectedSyntaxFilter
-  ) { list: List<Word>, query: String, translatedQuery: String, filter: SyntaxFilter? ->
+    _selectedSyntaxFilter,
+    _selectedSubCategory
+  ) { list: List<Word>, query: String, translatedQuery: String, filter: SyntaxFilter?, subCat: String ->
     var result = list
     if (filter != null) {
       result = result.filter { filter.matchesWord(it) }
+      if (subCat == SyntaxFilter.SUBCAT_MOST_USED || subCat.isBlank() || subCat == "Todos") {
+        // En vez de poner el botón 'Todos', 'Más Usados' muestra desde las que tienen 1 hasta
+        // las que tienen un montón de conteos en su base de mayor a menor; los que tienen 0 no aparecen.
+        result = result
+          .filter { it.useCount > 0 }
+          .sortedWith(
+            compareByDescending<Word> { it.useCount }
+              .thenBy { it.rank }
+          )
+      } else {
+        result = result.filter { word ->
+          val sc = word.getSubCategoryFor(filter.displayName) ?: word.resolvedSubCategory ?: word.subCategory
+          sc != null && (sc.contains(subCat, ignoreCase = true) || subCat.contains(sc, ignoreCase = true))
+        }
+      }
     }
     if (query.isNotBlank()) {
       val trimmedQuery = query.trim().lowercase(java.util.Locale.ROOT)
@@ -912,6 +985,7 @@ class VocabularyViewModel @Inject constructor(
    */
   fun selectSyntaxFilter(filter: SyntaxFilter) {
     _selectedSyntaxFilter.value = if (_selectedSyntaxFilter.value == filter) null else filter
+    _selectedSubCategory.value = SyntaxFilter.SUBCAT_MOST_USED
   }
 
   /**
@@ -919,6 +993,7 @@ class VocabularyViewModel @Inject constructor(
    */
   fun clearSyntaxFilter() {
     _selectedSyntaxFilter.value = null
+    _selectedSubCategory.value = SyntaxFilter.SUBCAT_MOST_USED
   }
 
   fun setCategoryFilter(category: PartOfSpeech?) {
