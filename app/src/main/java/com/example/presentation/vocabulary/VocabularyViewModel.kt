@@ -636,11 +636,6 @@ class VocabularyViewModel @Inject constructor(
   private val _editingCustomWord = MutableStateFlow<Word?>(null)
   val editingCustomWord: StateFlow<Word?> = _editingCustomWord.asStateFlow()
 
-  fun openAddWordDialog() {
-    _editingCustomWord.value = null
-    _showAddWordDialog.value = true
-  }
-
   fun openEditWordDialog(word: Word) {
     if (word.rank < 2812) return
     _editingCustomWord.value = word
@@ -650,27 +645,6 @@ class VocabularyViewModel @Inject constructor(
   fun closeAddWordDialog() {
     _editingCustomWord.value = null
     _showAddWordDialog.value = false
-  }
-
-  fun addNewCustomWord(
-    word: String,
-    category: String,
-    spanishTranslation: String,
-    microExample: String
-  ) {
-    val clean = word.trim()
-    if (clean.isBlank()) return
-    viewModelScope.launch {
-      try {
-        repository.addCustomWord(
-          word = clean,
-          partOfSpeech = category,
-          spanishTranslation = spanishTranslation.trim(),
-          microExample = microExample.trim()
-        )
-        _showAddWordDialog.value = false
-      } catch (_: Exception) {}
-    }
   }
 
   fun updateExistingCustomWord(

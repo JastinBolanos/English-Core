@@ -20,7 +20,7 @@ import com.example.data.wallpaper.WallpaperItem
 @Composable
 fun AppWallpaperBackground(
   wallpaper: WallpaperItem?,
-  dimAlpha: Float = 0.40f,
+  dimAlpha: Float = 0.83f,
   modifier: Modifier = Modifier
 ) {
   if (wallpaper == null || wallpaper.isDefaultNone || wallpaper.assetPath == null) {
@@ -45,7 +45,7 @@ fun AppWallpaperBackground(
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(Color.Black.copy(alpha = dimAlpha))
+        .background(Color.Black.copy(alpha = dimAlpha.coerceIn(0.75f, 0.85f)))
     )
   }
 }

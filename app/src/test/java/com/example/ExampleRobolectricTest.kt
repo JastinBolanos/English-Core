@@ -69,15 +69,7 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("header_speed_control").assertExists()
     composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertExists()
 
-    // Open side drawer by edge swiping and click Roadmap
-    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
-      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
-    }
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertDoesNotExist()
   }
 
   @Test
@@ -268,19 +260,8 @@ class ExampleRobolectricTest {
     }
     composeTestRule.waitForIdle()
 
-    // Click Ruta item in drawer
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
-    composeTestRule.waitForIdle()
-
-    // Verify dialog opened
-    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_roadmap").assertExists()
-
-    // Click close X button to dismiss dialog
-    composeTestRule.onNodeWithTag("btn_close_roadmap_x").performClick()
-    composeTestRule.waitForIdle()
-
+    // El icono de Ruta Táctica y su diálogo fueron eliminados
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertDoesNotExist()
     composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertDoesNotExist()
   }
 
@@ -602,16 +583,13 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify custom words storage persists in json file and auto-increments rank from 2809 to 2810`() = kotlinx.coroutines.test.runTest {
+  fun `verify custom words storage does not save to json and cleans up custom_words json`() = kotlinx.coroutines.test.runTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val storage = com.example.data.local.CustomWordsStorage(context)
 
-    // Ensure clean state for test
     val jsonFile = java.io.File(context.filesDir, "custom_words.json")
-    if (jsonFile.exists()) jsonFile.delete()
-
     val record1 = com.example.data.local.CustomWordRecord(
-      rank = 2810,
+      rank = 2812,
       word = "breakthrough",
       partOfSpeech = "sustantivo",
       spanishTranslation = "avance importante",
@@ -620,27 +598,9 @@ class ExampleRobolectricTest {
 
     storage.saveCustomWord(record1)
 
-    assertTrue("El archivo custom_words.json debe existir en el almacenamiento local", jsonFile.exists())
+    assertFalse("El archivo custom_words.json NO debe existir", jsonFile.exists())
     val loaded = storage.loadCustomWords()
-    assertEquals(1, loaded.size)
-    assertEquals(2810, loaded[0].rank)
-    assertEquals("breakthrough", loaded[0].word)
-    assertEquals("avance importante", loaded[0].spanishTranslation)
-
-    // Save second custom word
-    val record2 = com.example.data.local.CustomWordRecord(
-      rank = 2811,
-      word = "resilient",
-      partOfSpeech = "modificador (adjetivo)",
-      spanishTranslation = "resiliente",
-      microExample = "stay resilient now"
-    )
-    storage.saveCustomWord(record2)
-
-    val loaded2 = storage.loadCustomWords()
-    assertEquals(2, loaded2.size)
-    assertEquals(2810, loaded2[0].rank)
-    assertEquals(2811, loaded2[1].rank)
+    assertEquals(0, loaded.size)
   }
 
   @Test
@@ -682,7 +642,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify add word fab button exists and opens add custom word dialog`() {
+  fun `verify add word button has been removed from tools bar`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -702,25 +662,8 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").performClick()
     composeTestRule.waitForIdle()
 
-    // Open side drawer by swiping and click Add Word
-    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
-      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
-    }
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("drawer_item_add_word").performScrollTo().performClick()
-    composeTestRule.waitForIdle()
-
-    // Verify dialog and preview card exist
-    composeTestRule.onNodeWithTag("dialog_add_custom_word", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("preview_custom_word_card", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("input_new_word_lemma", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("btn_save_custom_word", useUnmergedTree = true).assertExists()
-
-    // Close dialog
-    composeTestRule.onNodeWithTag("btn_close_add_word_x").performClick()
-    composeTestRule.waitForIdle()
-
-    composeTestRule.onNodeWithTag("dialog_add_custom_word").assertDoesNotExist()
+    // El botón + de añadir palabra en el vocabulario fue eliminado a petición del usuario
+    composeTestRule.onNodeWithTag("drawer_item_add_word").assertDoesNotExist()
   }
 
   @Test
@@ -1517,15 +1460,14 @@ class ExampleRobolectricTest {
     assertEquals(sampleWallpaper.id, manager.selectedWallpaper.value.id)
     assertEquals(sampleWallpaper.id, storage.getSelectedWallpaperId())
 
-    // Probar ajuste de atenuación
-    manager.updateDimAlpha(0.60f)
-    assertEquals(0.60f, manager.dimAlpha.value, 0.01f)
-    assertEquals(0.60f, storage.getWallpaperDimAlpha(), 0.01f)
+    // La atenuación se fija automáticamente en 83% (0.83f)
+    assertEquals(0.83f, manager.dimAlpha.value, 0.01f)
+    assertEquals(0.83f, storage.getWallpaperDimAlpha(), 0.01f)
 
     // Crear nueva instancia de manager simulando reinicio de la app
     val newManager = com.example.data.wallpaper.WallpaperManager(storage)
     assertEquals(sampleWallpaper.id, newManager.selectedWallpaper.value.id)
-    assertEquals(0.60f, newManager.dimAlpha.value, 0.01f)
+    assertEquals(0.83f, newManager.dimAlpha.value, 0.01f)
 
     // Revertir a predeterminado
     newManager.selectWallpaper(com.example.data.wallpaper.WallpaperStorage.DEFAULT_NONE_WALLPAPER)
@@ -1893,14 +1835,7 @@ class ExampleRobolectricTest {
     assertEquals("innovation", updated.lemma)
     assertEquals("innovación", updated.spanishTranslation)
 
-    // Verificar en custom_words.json
-    val jsonFile = java.io.File(context.filesDir, "custom_words.json")
-    assertTrue(jsonFile.exists())
-    val content = jsonFile.readText()
-    assertTrue(content.contains("innovation"))
-    assertTrue(content.contains("innovación"))
-
-    // Verificar que una palabra < 2810 rechaza ser editada
+    // Verificar que una palabra < 2812 rechaza ser editada
     val rejected = repo.updateCustomWord(
       rank = 100,
       word = "hacked",
@@ -2060,9 +1995,9 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val storage = com.example.data.wallpaper.WallpaperStorage(context)
 
-    // Configurar fondo activo y nivel de atenuación / tonalidad (ej. 66%)
+    // Configurar fondo activo y nivel de atenuación / tonalidad automática (83%)
     val targetWallpaperId = "64_bit_computing-windows_10-water-azure-plant.jpg"
-    val targetDimAlpha = 0.66f
+    val targetDimAlpha = 0.83f
     storage.setSelectedWallpaperId(targetWallpaperId)
     storage.setWallpaperDimAlpha(targetDimAlpha)
 
@@ -2085,13 +2020,13 @@ class ExampleRobolectricTest {
     assertTrue("JSON debe contener wallpaperId", jsonString.contains("wallpaperId"))
     assertTrue("JSON debe contener activeWallpaper", jsonString.contains("activeWallpaper"))
     assertTrue("JSON debe contener targetWallpaperId", jsonString.contains(targetWallpaperId))
-    assertTrue("JSON debe contener 0.66", jsonString.contains("0.66"))
+    assertTrue("JSON debe contener 0.83", jsonString.contains("0.83"))
 
     val parsed = com.example.data.backup.AutoBackupManager.parseJsonContent(jsonString)
     assertNotNull(parsed)
     assertEquals(targetWallpaperId, parsed!!.wallpaperId)
     assertNotNull(parsed.wallpaperDimAlpha)
-    assertEquals(0.66f, parsed.wallpaperDimAlpha!!, 0.01f)
+    assertEquals(0.83f, parsed.wallpaperDimAlpha!!, 0.01f)
 
     // Simular una app limpia / reinstalada: limpiar SharedPreferences
     val prefs = context.getSharedPreferences("english_wallpaper_prefs", Context.MODE_PRIVATE)
@@ -2105,15 +2040,10 @@ class ExampleRobolectricTest {
     // Restaurar automáticamente el fondo y tonalidad desde el objeto parseado
     cleanManager.applyWallpaperSettings(parsed.wallpaperId!!, parsed.wallpaperDimAlpha)
 
-    // Verificar que el fondo y su tonalidad quedaron activos de forma automática
+    // Verificar que el fondo y su tonalidad quedaron activos de forma automática en 83%
     assertEquals(targetWallpaperId, cleanStorage.getSelectedWallpaperId())
-    assertEquals(0.66f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
-    assertEquals(0.66f, cleanManager.dimAlpha.value, 0.01f)
-
-    // Verificar que el usuario aún puede cambiarlo si lo desea libremente
-    cleanManager.updateDimAlpha(0.35f)
-    assertEquals(0.35f, cleanManager.dimAlpha.value, 0.01f)
-    assertEquals(0.35f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
+    assertEquals(0.83f, cleanStorage.getWallpaperDimAlpha(), 0.01f)
+    assertEquals(0.83f, cleanManager.dimAlpha.value, 0.01f)
   }
 
   @Test
@@ -2163,24 +2093,16 @@ class ExampleRobolectricTest {
     // Verify floating horizontal tools bar exists
     composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertExists()
 
-    // Verify all 9 icons exist with their original functionality
+    // Verify all 7 icons exist with their original functionality
     composeTestRule.onNodeWithTag("drawer_item_roadmap_8months").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertDoesNotExist()
     composeTestRule.onNodeWithTag("drawer_item_schedule").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_settings").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_notes").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_spanish_translator").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_saved_phrases").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_add_word").assertExists()
-
-    // Click roadmap from the floating bar and verify dialog opens directly
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_roadmap_x").performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("tactical_roadmap_dialog").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("drawer_item_add_word").assertDoesNotExist()
   }
 
   @Test

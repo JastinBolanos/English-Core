@@ -45,11 +45,11 @@ class WallpaperStorage(private val context: Context) {
   }
 
   fun getWallpaperDimAlpha(): Float {
-    return prefs.getFloat(KEY_WALLPAPER_DIM_ALPHA, 0.40f)
+    return 0.83f
   }
 
-  fun setWallpaperDimAlpha(alpha: Float) {
-    prefs.edit().putFloat(KEY_WALLPAPER_DIM_ALPHA, alpha).apply()
+  fun setWallpaperDimAlpha(alpha: Float = 0.83f) {
+    prefs.edit().putFloat(KEY_WALLPAPER_DIM_ALPHA, 0.83f).apply()
   }
 
   /**

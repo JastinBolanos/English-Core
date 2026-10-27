@@ -88,6 +88,9 @@ interface WordDao {
   @Query("DELETE FROM words WHERE rank = :rank")
   suspend fun deleteWordByRank(rank: Int): Int
 
+  @Query("DELETE FROM words WHERE rank > :rank")
+  suspend fun deleteWordsAboveRank(rank: Int): Int
+
   @Query("DELETE FROM words")
   suspend fun clearAll()
 }

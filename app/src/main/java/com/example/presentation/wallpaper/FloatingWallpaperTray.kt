@@ -93,7 +93,6 @@ fun FloatingWallpaperTray(
 
   val wallpapers by wallpaperManager.wallpapers.collectAsStateWithLifecycle()
   val selectedWallpaper by wallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
-  val dimAlpha by wallpaperManager.dimAlpha.collectAsStateWithLifecycle()
 
   Box(
     modifier = modifier
@@ -211,51 +210,7 @@ fun FloatingWallpaperTray(
               .weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
           ) {
-            // Control de Atenuación (Dimming Slider)
-            if (!selectedWallpaper.isDefaultNone) {
-              item(key = "wallpaper_dim_slider_card") {
-                Card(
-                  modifier = Modifier.fillMaxWidth(),
-                  shape = RoundedCornerShape(12.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.6f)),
-                  border = BorderStroke(1.dp, Color(0xFF334155).copy(alpha = 0.5f))
-                ) {
-                  Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                      modifier = Modifier.fillMaxWidth(),
-                      horizontalArrangement = Arrangement.SpaceBetween,
-                      verticalAlignment = Alignment.CenterVertically
-                    ) {
-                      Text(
-                        text = "Atenuación del fondo",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                          color = Color(0xFFF1F5F9),
-                          fontWeight = FontWeight.SemiBold
-                        )
-                      )
-                      Text(
-                        text = "${(dimAlpha * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                          color = Color(0xFFE879F9),
-                          fontWeight = FontWeight.Bold
-                        )
-                      )
-                    }
-                    Slider(
-                      value = dimAlpha,
-                      onValueChange = { wallpaperManager.updateDimAlpha(it) },
-                      valueRange = 0.10f..0.85f,
-                      colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFE879F9),
-                        activeTrackColor = Color(0xFFE879F9),
-                        inactiveTrackColor = Color(0xFF334155)
-                      ),
-                      modifier = Modifier.testTag("slider_wallpaper_dim")
-                    )
-                  }
-                }
-              }
-            }
+
 
             item(key = "wallpaper_section_header") {
               Text(

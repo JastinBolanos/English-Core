@@ -59,40 +59,8 @@ class DatabaseInitializer @Inject constructor(
   suspend fun syncCustomWords() {
     try {
       val customStorage = CustomWordsStorage(context)
-      var customWords = customStorage.loadCustomWords()
-      if (customWords.isEmpty()) {
-        val backup = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
-        if (backup != null && backup.customWords.isNotEmpty()) {
-          customWords = backup.customWords
-          backup.customWords.forEach { customStorage.saveCustomWord(it) }
-        }
-      }
-      for (cw in customWords) {
-        val clean = cw.word.lowercase(Locale.ROOT).trim()
-        com.example.domain.util.WordGrammarCatalog.injectGrammarTypes(mapOf(clean to cw.partOfSpeech))
-        if (cw.spanishTranslation.isNotBlank()) {
-          WordDictionary.injectTranslations(mapOf(clean to cw.spanishTranslation))
-        }
-        if (cw.microExample.isNotBlank()) {
-          WordDictionary.injectExamples(mapOf(clean to cw.microExample))
-        }
-        val existing = wordDao.getWordByLemma(clean)
-        if (existing == null) {
-          wordDao.insertWord(
-            WordEntity(
-              rank = cw.rank,
-              word = cw.word,
-              partOfSpeech = cw.partOfSpeech,
-              interval = 0,
-              easeFactor = 2.5f,
-              nextReviewDate = 0L,
-              useCount = cw.useCount
-            )
-          )
-        } else if (cw.useCount > existing.useCount) {
-          wordDao.setUseCountByWord(clean, cw.useCount)
-        }
-      }
+      customStorage.clearStorage()
+      wordDao.deleteWordsAboveRank(2811)
     } catch (_: Exception) {}
   }
 

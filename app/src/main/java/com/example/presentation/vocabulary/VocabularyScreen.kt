@@ -394,7 +394,6 @@ fun VocabularyScreen(
       }
     }
   }
-  var showRoadmapDialog by rememberSaveable { mutableStateOf(false) }
   var explainedFilter by rememberSaveable { mutableStateOf<SyntaxFilter?>(null) }
   var currentVideoId by rememberSaveable { mutableStateOf<String?>("84kLpP7j9iQ") }
   var isVideoPlayerVisible by rememberSaveable { mutableStateOf(false) }
@@ -738,17 +737,15 @@ fun VocabularyScreen(
             }
           )
 
-          // BARRA HORIZONTAL FLOTANTE DE HERRAMIENTAS: 9 ICONOS CON SUS FUNCIONES INTACTAS, SIN TEXTO, FLOTANDO ENTRE EL TÍTULO Y EL LIENZO DE PRUEBAS
+          // BARRA HORIZONTAL FLOTANTE DE HERRAMIENTAS: 7 ICONOS CON SUS FUNCIONES INTACTAS, SIN TEXTO, FLOTANDO ENTRE EL TÍTULO Y EL LIENZO DE PRUEBAS
           FloatingToolsHorizontalBar(
             onOpenRoadmap8Months = { isRoadmap8MonthsTrayOpen = true },
-            onOpenRoadmap = { showRoadmapDialog = true },
             onOpenSchedule = { isDailyScheduleTrayOpen = true },
             onOpenSettings = { isSettingsTrayOpen = true },
             onOpenWallpaper = { isWallpaperTrayOpen = true },
             onOpenNotes = { isLocalNotesTrayOpen = true },
             onToggleTranslator = { isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible },
-            onOpenSavedPhrases = { isSavedPhrasesTrayOpen = true },
-            onOpenAddWord = { viewModel.openAddWordDialog() }
+            onOpenSavedPhrases = { isSavedPhrasesTrayOpen = true }
           )
 
           // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
@@ -1444,31 +1441,20 @@ fun VocabularyScreen(
     }
   }
 
-  if (showRoadmapDialog) {
-    TacticalRoadmapDialog(onDismiss = { showRoadmapDialog = false })
-  }
 
-  if (showAddWordDialog) {
+  if (showAddWordDialog && editingCustomWord != null) {
     AddCustomWordDialog(
       nextRank = nextRank,
       editingWord = editingCustomWord,
       onDismiss = { viewModel.closeAddWordDialog() },
       onSaveWord = { word, category, spanish, example ->
-        if (editingCustomWord != null) {
-          viewModel.updateExistingCustomWord(
-            rank = editingCustomWord!!.rank,
-            word = word,
-            category = category,
-            spanishTranslation = spanish,
-            microExample = example
-          )
-        } else {
-          viewModel.addNewCustomWord(word, category, spanish, example)
-          coroutineScope.launch {
-            val newIndex = words.size.coerceAtLeast(0)
-            listState.animateScrollToItem(newIndex)
-          }
-        }
+        viewModel.updateExistingCustomWord(
+          rank = editingCustomWord!!.rank,
+          word = word,
+          category = category,
+          spanishTranslation = spanish,
+          microExample = example
+        )
       },
       onPreviewSpeak = { text -> viewModel.speakWord(text) }
     )
@@ -1531,45 +1517,7 @@ fun YouTubeFloatingActionButton(
   }
 }
 
-/**
- * Botón Inferior de Ruta Táctica (Brújula).
- * Ubicado en la pastilla gigante baja con icono de brújula.
- */
-@Composable
-fun RoadmapFloatingActionButton(
-  isOpen: Boolean = false,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Surface(
-    onClick = onClick,
-    modifier = modifier.testTag("btn_roadmap_shortcut"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
-    shadowElevation = 0.dp
-  ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = Color(0xFF0284C7),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Default.Explore,
-            contentDescription = "Abrir Ruta Táctica",
-            tint = Color.White,
-            modifier = Modifier.size(18.dp)
-          )
-        }
-      }
-    }
-  }
-}
+
 
 /**
  * URL directa a Géminis Web (Google AI Search / Gemini Mode) para resolver cualquier consulta en vivo.
@@ -2163,20 +2111,18 @@ fun PremiumTrophyBadge(
 }
 
 /**
- * Barra horizontal flotante de herramientas: los 9 logos/iconos con sus funciones intactas
+ * Barra horizontal flotante de herramientas: 7 logos/iconos con sus funciones intactas
  * sin textos, flotando elegantemente entre el título ("English") y el lienzo de pruebas.
  */
 @Composable
 fun FloatingToolsHorizontalBar(
   onOpenRoadmap8Months: () -> Unit,
-  onOpenRoadmap: () -> Unit,
   onOpenSchedule: () -> Unit,
   onOpenSettings: () -> Unit,
   onOpenWallpaper: () -> Unit,
   onOpenNotes: () -> Unit,
   onToggleTranslator: () -> Unit,
   onOpenSavedPhrases: () -> Unit,
-  onOpenAddWord: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val scrollState = rememberScrollState()
@@ -2204,16 +2150,7 @@ fun FloatingToolsHorizontalBar(
         onClick = onOpenRoadmap8Months
       )
 
-      // 2. Ruta Estudio
-      ToolIconButton(
-        icon = Icons.Default.Explore,
-        iconTint = Color(0xFF38BDF8),
-        contentDescription = "Ruta Estudio",
-        testTag = "drawer_item_roadmap",
-        onClick = onOpenRoadmap
-      )
-
-      // 3. Horario
+      // 2. Horario
       ToolIconButton(
         icon = Icons.Default.Schedule,
         iconTint = Color(0xFFFBBF24),
@@ -2265,15 +2202,6 @@ fun FloatingToolsHorizontalBar(
         contentDescription = "Frases",
         testTag = "drawer_item_saved_phrases",
         onClick = onOpenSavedPhrases
-      )
-
-      // 9. Añadir Palabra
-      ToolIconButton(
-        icon = Icons.Default.Add,
-        iconTint = Color(0xFF34D399),
-        contentDescription = "Añadir Palabra",
-        testTag = "drawer_item_add_word",
-        onClick = onOpenAddWord
       )
     }
   }
@@ -2629,45 +2557,6 @@ fun ScrollArrowFloatingActionButton(
   }
 }
 
-/**
- * Botón Flotante Inferior de Añadir Palabra Personalizada (+).
- * Ubicado en la esquina baja justo al lado del reductor de velocidad.
- * Estética HUD oscura (fondo #101923 sin cinta y cruz '+').
- */
-@Composable
-fun AddWordFloatingActionButton(
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Surface(
-    onClick = onClick,
-    modifier = modifier.testTag("fab_add_custom_word"),
-    shape = CircleShape,
-    color = Color.Transparent,
-    border = null,
-    shadowElevation = 0.dp
-  ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = "Añadir palabra personalizada",
-            tint = Color(0xFF38BDF8),
-            modifier = Modifier.size(20.dp)
-          )
-        }
-      }
-    }
-  }
-}
 
 @Composable
 private fun CompactWordInputField(
@@ -3350,337 +3239,7 @@ fun SpeedFloatingActionButton(
   }
 }
 
-/**
 
- * Diálogo Táctico: Mapa de Ruta de Dominio del Idioma.
- * Divide con claridad quirúrgica:
- * - Sección A [ 85% ]: Lo que cubre el Laboratorio (Fuerza Interna).
- * - Sección B [ 15% ]: Lo que debes cazar afuera en la calle (Inmersión Real).
- */
-@Composable
-fun TacticalRoadmapDialog(
-  onDismiss: () -> Unit
-) {
-  Dialog(
-    onDismissRequest = onDismiss,
-    properties = DialogProperties(usePlatformDefaultWidth = false)
-  ) {
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .clickable(
-          interactionSource = remember { MutableInteractionSource() },
-          indication = null
-        ) { onDismiss() },
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = Color(0xFF0F172A),
-        border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-        shadowElevation = 10.dp,
-        modifier = Modifier
-          .fillMaxWidth(0.94f)
-          .fillMaxHeight(0.65f)
-          .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-          ) { /* Consumir clic interno */ }
-          .testTag("tactical_roadmap_dialog")
-      ) {
-        Column(
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-          verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-          // Cabecera del Mapa Táctico
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Explore,
-                contentDescription = null,
-                tint = Color(0xFF38BDF8),
-                modifier = Modifier.size(22.dp)
-              )
-              Column {
-                Text(
-                  text = "MAPA TÁCTICO: RUTA",
-                  style = MaterialTheme.typography.titleMedium,
-                  fontWeight = FontWeight.ExtraBold,
-                  color = Color(0xFFF8FAFC),
-                  fontSize = 16.sp
-                )
-                Text(
-                  text = "Estrategia de dominio y fluidez en inglés real",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = Color(0xFF94A3B8),
-                  fontSize = 11.sp
-                )
-              }
-            }
-
-            IconButton(
-              onClick = onDismiss,
-              modifier = Modifier
-                .size(26.dp)
-                .testTag("btn_close_roadmap_x")
-            ) {
-              Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Cerrar",
-                tint = Color(0xFF94A3B8),
-                modifier = Modifier.size(16.dp)
-              )
-            }
-          }
-
-        HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
-
-        // SECCIÓN A: LO QUE CUBRE ESTE LABORATORIO (FUERZA INTERNA + YOUTUBE INTEGRADO)
-        Surface(
-          shape = RoundedCornerShape(14.dp),
-          color = Color(0xFF1E293B).copy(alpha = 0.75f),
-          border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.45f)),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF064E3B),
-                border = BorderStroke(1.dp, Color(0xFF34D399))
-              ) {
-                Text(
-                  text = "95%",
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = FontWeight.ExtraBold,
-                  color = Color(0xFF34D399),
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                  fontSize = 10.sp
-                )
-              }
-              Text(
-                text = "LABORATORIO (FUERZA INTERNA)",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF34D399),
-                fontSize = 11.sp
-              )
-            }
-
-            RoadmapLabPillarItem(
-              emoji = "🟢",
-              title = "Vocabulario Nuclear (92% cobertura)",
-              description = "2,807 palabras clave (NGSL) ordenadas por frecuencia e impacto real."
-            )
-            RoadmapLabPillarItem(
-              emoji = "🟡",
-              title = "Sintaxis Posicional y Conectores",
-              description = "Estructuras directas sin traducir mentalmente palabra por palabra."
-            )
-            RoadmapLabPillarItem(
-              emoji = "🔵",
-              title = "Fonética Limpia (TTS)",
-              description = "Pronunciación nativa de cada palabra y frases armadas."
-            )
-            RoadmapLabPillarItem(
-              emoji = "🎬",
-              title = "Habla Pegada (Connected Speech)",
-              description = "Atajos de YouTube para entrenar reducciones y enlaces nativos reales."
-            )
-            RoadmapLabPillarItem(
-              emoji = "🔥",
-              title = "Jerga Callejera (Slang & Phrasal Verbs)",
-              description = "Búsqueda directa de expresiones cotidianas y phrasal verbs en contexto."
-            )
-            RoadmapLabPillarItem(
-              emoji = "🌐",
-              title = "Práctica Externa (Google Translate)",
-              description = "Práctica y contraste instantáneo de tus frases armadas."
-            )
-          }
-        }
-
-        // SECCIÓN B: LO QUE DEBES CAZAR AFUERA (REFLEJO EN VIVO)
-        Surface(
-          shape = RoundedCornerShape(14.dp),
-          color = Color(0xFF1E293B).copy(alpha = 0.75f),
-          border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.45f)),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFF78350F),
-                border = BorderStroke(1.dp, Color(0xFFFBBF24))
-              ) {
-                Text(
-                  text = "5%",
-                  style = MaterialTheme.typography.labelSmall,
-                  fontWeight = FontWeight.ExtraBold,
-                  color = Color(0xFFFBBF24),
-                  modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                  fontSize = 10.sp
-                )
-              }
-              Text(
-                text = "REFLEJO EN VIVO (MUNDO REAL)",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFFFBBF24),
-                fontSize = 11.sp
-              )
-            }
-
-            Text(
-              text = "Lo que entrenas en la vida real:",
-              style = MaterialTheme.typography.bodySmall,
-              color = Color(0xFF94A3B8),
-              fontSize = 11.sp
-            )
-
-            // Misión Externa Única
-            RoadmapExternalMissionCard(
-              icon = "⚡",
-              title = "Velocidad sin Borrador",
-              whatIs = "Responder en menos de 2 segundos sin preparar borradores.",
-              action = "Narra tu día en voz alta usando los conectores del laboratorio."
-            )
-          }
-        }
-
-        // Botón Entendido
-        Button(
-          onClick = onDismiss,
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("btn_close_roadmap"),
-          shape = RoundedCornerShape(12.dp),
-          colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF38BDF8)
-          )
-        ) {
-          Text(
-            text = "Entendido",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-          )
-        }
-      }
-    }
-  }
-}
-}
-
-@Composable
-private fun RoadmapLabPillarItem(
-  emoji: String,
-  title: String,
-  description: String
-) {
-  Row(
-    modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(10.dp),
-    verticalAlignment = Alignment.Top
-  ) {
-    Text(
-      text = emoji,
-      fontSize = 15.sp,
-      modifier = Modifier.padding(top = 1.dp)
-    )
-    Column(
-      modifier = Modifier.weight(1f),
-      verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-      Text(
-        text = title,
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.Bold,
-        color = Color(0xFFF1F5F9),
-        fontSize = 13.sp
-      )
-      Text(
-        text = description,
-        style = MaterialTheme.typography.bodySmall,
-        color = Color(0xFF94A3B8),
-        fontSize = 11.sp,
-        lineHeight = 15.sp
-      )
-    }
-  }
-}
-
-@Composable
-private fun RoadmapExternalMissionCard(
-  icon: String,
-  title: String,
-  whatIs: String,
-  action: String
-) {
-  Surface(
-    shape = RoundedCornerShape(10.dp),
-    color = Color(0xFF0F172A).copy(alpha = 0.8f),
-    border = BorderStroke(1.dp, Color(0xFF334155)),
-    modifier = Modifier.fillMaxWidth()
-  ) {
-    Column(
-      modifier = Modifier.padding(10.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-      ) {
-        Text(text = icon, fontSize = 13.sp)
-        Text(
-          text = title,
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.Bold,
-          color = Color(0xFFF8FAFC),
-          fontSize = 12.sp
-        )
-      }
-      Text(
-        text = "• Clave: $whatIs",
-        style = MaterialTheme.typography.bodySmall,
-        color = Color(0xFF94A3B8),
-        fontSize = 11.sp,
-        lineHeight = 14.sp
-      )
-      Text(
-        text = "🎯 Acción: $action",
-        style = MaterialTheme.typography.bodySmall,
-        color = Color(0xFF38BDF8),
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
-        lineHeight = 14.sp
-      )
-    }
-  }
-}
 
 /**
  * 1. EL GUIADOR SUPERIOR (La Brújula de Orden y Color - Interactivo)

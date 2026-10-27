@@ -130,10 +130,7 @@ class VocabularyRepositoryImpl @Inject constructor(
       useCount = 0
     )
 
-    // 1. Guardar en el almacenamiento JSON local del teléfono
-    customWordsStorage?.saveCustomWord(customRecord)
-
-    // 2. Inyectar en catálogos en memoria
+    // 1. Inyectar en catálogos en memoria
     WordGrammarCatalog.injectGrammarTypes(mapOf(cleanLemmaLower to partOfSpeech))
     if (spanishTranslation.isNotBlank()) {
       WordDictionary.injectTranslations(mapOf(cleanLemmaLower to spanishTranslation.trim()))
@@ -181,10 +178,7 @@ class VocabularyRepositoryImpl @Inject constructor(
       useCount = currentUseCount
     )
 
-    // 1. Guardar/actualizar en custom_words.json
-    customWordsStorage?.saveCustomWord(customRecord)
-
-    // 2. Inyectar en catálogos en memoria
+    // 1. Inyectar en catálogos en memoria
     WordGrammarCatalog.injectGrammarTypes(mapOf(cleanLemmaLower to partOfSpeech))
     if (spanishTranslation.isNotBlank()) {
       WordDictionary.injectTranslations(mapOf(cleanLemmaLower to spanishTranslation.trim()))

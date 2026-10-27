@@ -38,18 +38,14 @@ class WallpaperManager(private val storage: WallpaperStorage) {
     storage.setSelectedWallpaperId(item.id)
   }
 
-  fun updateDimAlpha(alpha: Float) {
-    val clamped = alpha.coerceIn(0.10f, 0.85f)
-    _dimAlpha.value = clamped
-    storage.setWallpaperDimAlpha(clamped)
+  fun updateDimAlpha(alpha: Float = 0.83f) {
+    _dimAlpha.value = 0.83f
+    storage.setWallpaperDimAlpha(0.83f)
   }
 
   fun applyWallpaperSettings(wallpaperId: String, dimAlpha: Float? = null) {
     storage.setSelectedWallpaperId(wallpaperId)
-    if (dimAlpha != null) {
-      val clamped = dimAlpha.coerceIn(0.10f, 0.85f)
-      storage.setWallpaperDimAlpha(clamped)
-    }
+    storage.setWallpaperDimAlpha(0.83f)
     refresh()
   }
 }
