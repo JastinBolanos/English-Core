@@ -84,7 +84,7 @@ private val CEFR_LEVELS = listOf(
         title = "Avanzado",
         subtitle = "Dominio Total (Meta de 8 Meses)",
         minWords = 2400,
-        targetWords = 2809,
+        targetWords = 2811,
         color = Color(0xFFFACC15),
         description = "Dominio operativo eficaz del idioma. Uso flexible y espontáneo en entornos profesionales, sociales y académicos sin buscar expresiones."
     )
@@ -400,7 +400,7 @@ private fun LevelCard(
             ) {
                 Text(
                     text = if (level.code == "C1") {
-                        "Meta: 2809+ palabras en dominio"
+                        "Meta: 2811+ palabras en dominio"
                     } else {
                         "Rango: ${level.minWords} – ${level.targetWords} palabras"
                     },

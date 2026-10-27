@@ -58,6 +58,8 @@ object ModifierSubcategories {
     WordSubcategoryCatalog.addModifier(1932, "sufficient", "Artículos y Cantidad")
     WordSubcategoryCatalog.addModifier(2069, "numerous", "Artículos y Cantidad")
     WordSubcategoryCatalog.addModifier(2158, "everyday", "Artículos y Cantidad")
+    WordSubcategoryCatalog.addModifier(2810, "your", "Artículos y Cantidad")
+    WordSubcategoryCatalog.addModifier(2811, "my", "Artículos y Cantidad")
   }
 
   private fun loadPosition() {

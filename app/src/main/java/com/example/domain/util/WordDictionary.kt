@@ -24,7 +24,7 @@ object WordDictionary {
    * Carga las traducciones al español de las 2809 palabras desde ngsl_translations.json
    */
   fun loadTranslationsFromContext(context: Context) {
-    if (loadedTranslations.size >= 2809) return
+    if (loadedTranslations.size >= 2811) return
     try {
       val inputStream = context.resources.openRawResource(R.raw.ngsl_translations)
       val reader = BufferedReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))
@@ -223,7 +223,8 @@ object WordDictionary {
     "people" to "gente, personas",
     "into" to "hacia dentro",
     "year" to "año",
-    "your" to "tu, su",
+    "your" to "tu",
+    "my" to "mi, mis",
     "good" to "bueno, bien",
     "some" to "algunos, algo de",
     "could" to "podría, pudo",
@@ -343,6 +344,7 @@ object WordDictionary {
     "into" to "look into this",
     "year" to "a great year",
     "your" to "save your work",
+    "my" to "this is my home",
     "good" to "have good news",
     "some" to "need some help",
     "could" to "could be better",

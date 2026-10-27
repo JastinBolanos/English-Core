@@ -100,7 +100,7 @@ data class RestoredBackupData(
     val version: Int,
     val timestamp: Long,
     val usedWordsCount: Int,
-    val totalWords: Int = 2809,
+    val totalWords: Int = 2811,
     val totalVocabularyUses: Int = 0,
     val vocabularyWordCounts: Map<String, Int> = emptyMap(),
     val customWords: List<CustomWordRecord> = emptyList(),
@@ -169,7 +169,7 @@ object AutoBackupManager {
                 val effectiveTotalWords = if (allWordsDetails.isNotEmpty()) {
                     allWordsDetails.size
                 } else {
-                    maxOf(2809, vocabularyWordCounts.size)
+                    maxOf(2811, vocabularyWordCounts.size)
                 }
                 put("totalWords", effectiveTotalWords)
                 put("usedWordsCount", usedWordsCount)
@@ -227,12 +227,12 @@ object AutoBackupManager {
                 }
                 put("vocabularyWordCounts", vocabObj)
 
-                // 3. Palabras personalizadas añadidas después de la 2809 (2810, 2811...)
+                // 3. Palabras personalizadas añadidas después de la 2811 (2812, 2813...)
                 val customArray = JSONArray()
                 val effectiveCustomWords = if (customWords.isNotEmpty()) {
                     customWords
                 } else {
-                    allWordsDetails.filter { it.rank > 2809 }.map { w ->
+                    allWordsDetails.filter { it.rank > 2811 }.map { w ->
                         CustomWordRecord(
                             rank = w.rank,
                             word = w.lemma,
@@ -640,7 +640,7 @@ object AutoBackupManager {
             val version = root.optInt("version", 2)
             val timestamp = root.optLong("exportedAt", System.currentTimeMillis())
             val usedWordsCount = root.optInt("usedWordsCount", 0)
-            val totalWords = root.optInt("totalWords", 2809)
+            val totalWords = root.optInt("totalWords", 2811)
 
             // Contadores de palabras del vocabulario
             val vocabCountsMap = mutableMapOf<String, Int>()

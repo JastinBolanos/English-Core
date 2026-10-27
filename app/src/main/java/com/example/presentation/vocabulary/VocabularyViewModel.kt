@@ -642,7 +642,7 @@ class VocabularyViewModel @Inject constructor(
   }
 
   fun openEditWordDialog(word: Word) {
-    if (word.rank < 2810) return
+    if (word.rank < 2812) return
     _editingCustomWord.value = word
     _showAddWordDialog.value = true
   }
@@ -681,7 +681,7 @@ class VocabularyViewModel @Inject constructor(
     microExample: String
   ) {
     val clean = word.trim()
-    if (clean.isBlank() || rank < 2810) return
+    if (clean.isBlank() || rank < 2812) return
     viewModelScope.launch {
       try {
         repository.updateCustomWord(
@@ -697,12 +697,12 @@ class VocabularyViewModel @Inject constructor(
     }
   }
 
-  // Estado para confirmación de eliminación de palabras personalizadas (#2810+)
+  // Estado para confirmación de eliminación de palabras personalizadas (#2812+)
   private val _wordToDelete = MutableStateFlow<Word?>(null)
   val wordToDelete: StateFlow<Word?> = _wordToDelete.asStateFlow()
 
   fun requestDeleteCustomWord(word: Word) {
-    if (word.rank < 2810) return
+    if (word.rank < 2812) return
     _wordToDelete.value = word
   }
 
@@ -712,7 +712,7 @@ class VocabularyViewModel @Inject constructor(
 
   fun confirmDeleteCustomWord() {
     val word = _wordToDelete.value ?: return
-    if (word.rank < 2810) return
+    if (word.rank < 2812) return
     viewModelScope.launch {
       try {
         repository.deleteCustomWord(word.rank)
@@ -722,7 +722,7 @@ class VocabularyViewModel @Inject constructor(
   }
 
   fun deleteCustomWord(rank: Int) {
-    if (rank < 2810) return
+    if (rank < 2812) return
     viewModelScope.launch {
       try {
         repository.deleteCustomWord(rank)
@@ -768,7 +768,7 @@ class VocabularyViewModel @Inject constructor(
   val translationState: StateFlow<TranslationState> = translationManager?.translationState
     ?: MutableStateFlow(TranslationState.Idle)
 
-  // Control global de velocidad TTS (1.0f ➔ 0.8f ➔ 0.5f ➔ 1.0f)
+  // Control global de velocidad TTS (0.3x ➔ 0.5x ➔ 0.8x ➔ 0.3x)
   val currentSpeechSpeed: StateFlow<Float> = ttsManager.currentSpeechRate
 
   fun onToggleSpeed(): Float {

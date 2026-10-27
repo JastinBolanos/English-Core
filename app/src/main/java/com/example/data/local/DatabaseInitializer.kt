@@ -23,17 +23,23 @@ class DatabaseInitializer @Inject constructor(
   suspend fun prePopulateIfNeeded() = withContext(Dispatchers.IO) {
     com.example.domain.util.WordGrammarCatalog.loadGrammarTypesFromContext(context)
     val count = wordDao.getWordCount()
-    if (count >= 2809) {
+    val hasYour = wordDao.getWordByLemma("your") != null
+    val hasMy = wordDao.getWordByLemma("my") != null
+    if (count >= 2811 && hasYour && hasMy) {
       val sampleWord1 = wordDao.getWordByLemma("the")
       val sampleWord701 = wordDao.getWordByLemma("guy")
       val sampleWord1401 = wordDao.getWordByLemma("dear")
       val sampleWord2101 = wordDao.getWordByLemma("formula")
       val sampleWord2809 = wordDao.getWordByLemma("thirst")
+      val sampleWord2810 = wordDao.getWordByLemma("your")
+      val sampleWord2811 = wordDao.getWordByLemma("my")
       val needsReload = (sampleWord1 != null && sampleWord1.partOfSpeech != "modificador (artículo)") ||
                         (sampleWord701 != null && sampleWord701.partOfSpeech != "sustantivo") ||
                         (sampleWord1401 != null && sampleWord1401.partOfSpeech != "modificador (adjetivo/interjección)/sustantivo") ||
                         (sampleWord2101 != null && sampleWord2101.partOfSpeech != "sustantivo") ||
-                        (sampleWord2809 != null && sampleWord2809.partOfSpeech != "sustantivo/verbo")
+                        (sampleWord2809 != null && sampleWord2809.partOfSpeech != "sustantivo/verbo") ||
+                        (sampleWord2810 != null && sampleWord2810.partOfSpeech != "modificador (posesivo)") ||
+                        (sampleWord2811 != null && sampleWord2811.partOfSpeech != "modificador (posesivo)")
       if (needsReload) {
         loadWordsFromCsv(preserveUseCounts = true)
       } else {

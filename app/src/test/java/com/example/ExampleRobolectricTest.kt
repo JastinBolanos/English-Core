@@ -181,11 +181,11 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify all 2809 translations load from raw json without prefixes`() {
+  fun `verify all 2811 translations load from raw json without prefixes`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     WordDictionary.loadTranslationsFromContext(context)
 
-    assertTrue("Deben cargarse 2809 traducciones", WordDictionary.getLoadedCount() >= 2809)
+    assertTrue("Deben cargarse 2811 traducciones", WordDictionary.getLoadedCount() >= 2811)
 
     val samples = listOf("word", "run", "work", "system", "problem", "understand", "challenge", "because")
     for (word in samples) {
@@ -327,7 +327,7 @@ class ExampleRobolectricTest {
     // First app launch: pre-populates words
     repo.prePopulateDatabaseIfNeeded()
     val initialCount = dao.getWordCount()
-    assertEquals("Deben cargarse exactamente 2809 palabras incluyendo 'rank'", 2809, initialCount)
+    assertEquals("Deben cargarse exactamente 2811 palabras incluyendo 'your' y 'my'", 2811, initialCount)
 
     val wordBefore = dao.getWordByLemma("the")
     assertNotNull("La palabra 'the' debe existir", wordBefore)
@@ -349,10 +349,18 @@ class ExampleRobolectricTest {
     assertNotNull(wordAfterRestart)
     assertEquals("El contador exacto (2) debe conservarse al reiniciar la app", 2, wordAfterRestart!!.useCount)
 
-    // Verify 'rank' is also preserved and count remains 2809
+    // Verify 'rank' is also preserved and count remains 2811
     val rankWord = dao.getWordByLemma("rank")
     assertNotNull("La palabra 'rank' debe estar presente", rankWord)
-    assertEquals(2809, dao.getWordCount())
+    assertEquals(2811, dao.getWordCount())
+
+    val yourWord = dao.getWordByLemma("your")
+    assertNotNull("La palabra 'your' debe estar presente con rank 2810", yourWord)
+    assertEquals(2810, yourWord!!.rank)
+
+    val myWord = dao.getWordByLemma("my")
+    assertNotNull("La palabra 'my' debe estar presente con rank 2811", myWord)
+    assertEquals(2811, myWord!!.rank)
 
     db.close()
   }
@@ -645,9 +653,9 @@ class ExampleRobolectricTest {
     val initializer = com.example.data.local.DatabaseInitializer(context, dao)
     val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
 
-    // Simulate 2809 words already present
+    // Simulate 2811 words already present
     dao.insertWord(
-      com.example.data.local.entity.WordEntity(rank = 2809, word = "thirst", partOfSpeech = "sustantivo/verbo")
+      com.example.data.local.entity.WordEntity(rank = 2811, word = "my", partOfSpeech = "modificador (posesivo)")
     )
 
     val customWord = repo.addCustomWord(
@@ -657,7 +665,7 @@ class ExampleRobolectricTest {
       microExample = "give good feedback"
     )
 
-    assertEquals("Debe asignarse automáticamente el rank #2810", 2810, customWord.rank)
+    assertEquals("Debe asignarse automáticamente el rank #2812", 2812, customWord.rank)
     assertEquals("feedback", customWord.lemma)
     assertEquals(PartOfSpeech.NOUN, customWord.partOfSpeech)
     assertEquals("retroalimentación", customWord.displaySpanishTranslation)
@@ -668,7 +676,7 @@ class ExampleRobolectricTest {
       spanishTranslation = "iterar",
       microExample = "iterate and learn"
     )
-    assertEquals("Debe asignarse automáticamente el rank #2811", 2811, secondWord.rank)
+    assertEquals("Debe asignarse automáticamente el rank #2813", 2813, secondWord.rank)
 
     db.close()
   }
@@ -1818,9 +1826,9 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify only custom words 2810 and above have edit button and words 1 to 2809 cannot be edited`() {
+  fun `verify only custom words 2812 and above have edit button and words 1 to 2811 cannot be edited`() {
     val wordCore = Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.MODIFIER)
-    val wordCustom = Word(id = 2810, lemma = "breakthrough", rank = 2810, partOfSpeech = PartOfSpeech.NOUN)
+    val wordCustom = Word(id = 2812, lemma = "breakthrough", rank = 2812, partOfSpeech = PartOfSpeech.NOUN)
 
     var editClicked = false
 
@@ -1830,12 +1838,12 @@ class ExampleRobolectricTest {
           com.example.presentation.vocabulary.WordHudCard(
             word = wordCore,
             onTap = {},
-            onEdit = if (wordCore.rank >= 2810) { {} } else null
+            onEdit = if (wordCore.rank >= 2812) { {} } else null
           )
           com.example.presentation.vocabulary.WordHudCard(
             word = wordCustom,
             onTap = {},
-            onEdit = if (wordCustom.rank >= 2810) { { editClicked = true } } else null
+            onEdit = if (wordCustom.rank >= 2812) { { editClicked = true } } else null
           )
         }
       }
@@ -1846,9 +1854,9 @@ class ExampleRobolectricTest {
     // 1. Palabra del núcleo (#1): NO debe tener botón de editar
     composeTestRule.onNodeWithTag("btn_edit_word_1").assertDoesNotExist()
 
-    // 2. Palabra personalizada (#2810): SÍ debe tener botón de editar
-    composeTestRule.onNodeWithTag("btn_edit_word_2810").assertExists()
-    composeTestRule.onNodeWithTag("btn_edit_word_2810").performClick()
+    // 2. Palabra personalizada (#2812): SÍ debe tener botón de editar
+    composeTestRule.onNodeWithTag("btn_edit_word_2812").assertExists()
+    composeTestRule.onNodeWithTag("btn_edit_word_2812").performClick()
     assertTrue("Debe invocar la acción de edición", editClicked)
   }
 

@@ -307,7 +307,7 @@ fun VocabularyScreen(
   val showAddWordDialog by viewModel.showAddWordDialog.collectAsStateWithLifecycle()
   val editingCustomWord by viewModel.editingCustomWord.collectAsStateWithLifecycle()
   val wordToDelete by viewModel.wordToDelete.collectAsStateWithLifecycle()
-  val nextRank = remember(words) { maxOf(2809, words.maxOfOrNull { it.rank } ?: 2809) + 1 }
+  val nextRank = remember(words) { maxOf(2811, words.maxOfOrNull { it.rank } ?: 2811) + 1 }
   val usedWordsCount by viewModel.usedWordsCount.collectAsStateWithLifecycle()
   val vocabularyTotalUses by viewModel.vocabularyTotalUses.collectAsStateWithLifecycle()
   val alphabetCounts by viewModel.alphabetCounts.collectAsStateWithLifecycle()
@@ -347,7 +347,7 @@ fun VocabularyScreen(
         isCloudSaving = true
         delay(350)
         val vocabCounts = allWords.associate { it.lemma to it.useCount }
-        val customWords = allWords.filter { it.rank > 2809 }.map { w ->
+        val customWords = allWords.filter { it.rank > 2811 }.map { w ->
           CustomWordRecord(
             rank = w.rank,
             word = w.lemma,
@@ -430,7 +430,7 @@ fun VocabularyScreen(
         val currentNotes = notesStorage.loadNotes()
         val allWords = viewModel.words.value
         val vocabCounts = allWords.associate { it.lemma to it.useCount }
-        val customWords = allWords.filter { it.rank > 2809 }.map { w ->
+        val customWords = allWords.filter { it.rank > 2811 }.map { w ->
           CustomWordRecord(
             rank = w.rank,
             word = w.lemma,
@@ -826,7 +826,7 @@ fun VocabularyScreen(
                   // Actualiza la copia de seguridad local automática con las frases guardadas
                   val allWords = viewModel.words.value
                   val vocabCounts = allWords.associate { it.lemma to it.useCount }
-                  val customWords = allWords.filter { it.rank > 2809 }.map { w ->
+                  val customWords = allWords.filter { it.rank > 2811 }.map { w ->
                     CustomWordRecord(
                       rank = w.rank,
                       word = w.lemma,
@@ -1125,7 +1125,7 @@ fun VocabularyScreen(
                   ) {
                     if (jumpRankInput.isEmpty()) {
                       Text(
-                        text = "1-${words.maxOfOrNull { it.rank } ?: 2809}",
+                        text = "1-${words.maxOfOrNull { it.rank } ?: 2811}",
                         style = MaterialTheme.typography.bodySmall.copy(
                           fontSize = 11.5.sp
                         ),
@@ -1212,8 +1212,8 @@ fun VocabularyScreen(
                     onSpeak = { viewModel.speakWord(word) },
                     onSpeakExample = { example -> viewModel.speakExample(word, example) },
                     onOpenDetails = { viewModel.recordWordUsage(word) },
-                    onEdit = if (word.rank >= 2810) { { viewModel.openEditWordDialog(word) } } else null,
-                    onDelete = if (word.rank >= 2810) { { viewModel.requestDeleteCustomWord(word) } } else null
+                    onEdit = if (word.rank >= 2812) { { viewModel.openEditWordDialog(word) } } else null,
+                    onDelete = if (word.rank >= 2812) { { viewModel.requestDeleteCustomWord(word) } } else null
                   )
                 }
               }
@@ -3317,7 +3317,7 @@ fun AnimatedSpeedometerIcon(
 /**
  * Botón Flotante Inferior de Velocidad TTS Global.
  * Muestra el velocímetro con aguja interactiva en tiempo real sin números en pantalla.
- * Al tocarlo, cicla inmediatamente: 1.0 -> 0.5 -> 0.3 -> 1.0.
+ * Al tocarlo, cicla inmediatamente: 0.3x -> 0.5x -> 0.8x -> 0.3x.
  */
 @Composable
 fun SpeedFloatingActionButton(
@@ -3328,7 +3328,7 @@ fun SpeedFloatingActionButton(
   val speedDesc = when {
     currentSpeed <= 0.35f -> "Velocidad baja: 0.3x"
     currentSpeed <= 0.65f -> "Velocidad media: 0.5x"
-    else -> "Velocidad normal: 1.0x"
+    else -> "Velocidad: 0.8x"
   }
 
   Surface(
@@ -4820,8 +4820,8 @@ fun WordHudCard(
         )
       }
 
-      // Icono de edición (SOLO para palabras personalizadas con rank >= 2810)
-      if (word.rank >= 2810 && onEdit != null) {
+      // Icono de edición (SOLO para palabras personalizadas con rank >= 2812)
+      if (word.rank >= 2812 && onEdit != null) {
         IconButton(
           onClick = onEdit,
           modifier = Modifier
@@ -4837,8 +4837,8 @@ fun WordHudCard(
         }
       }
 
-      // Icono de eliminar / tacho de basura (SOLO para palabras personalizadas con rank >= 2810)
-      if (word.rank >= 2810 && onDelete != null) {
+      // Icono de eliminar / tacho de basura (SOLO para palabras personalizadas con rank >= 2812)
+      if (word.rank >= 2812 && onDelete != null) {
         IconButton(
           onClick = onDelete,
           modifier = Modifier

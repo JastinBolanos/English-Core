@@ -20,27 +20,28 @@ class ExampleUnitTest {
   }
 
   @Test
-  fun testNgslCsv_ContainsExactly2809Words_IncludingWord217() {
+  fun testNgslCsv_ContainsExactly2811Words_IncludingWord217() {
     val file = File("src/main/res/raw/ngsl_stats.csv")
     if (file.exists()) {
       val lines = file.readLines().filter { it.isNotBlank() }
-      assertEquals("ngsl_stats.csv debe tener exactamente 2809 palabras", 2809, lines.size)
+      assertEquals("ngsl_stats.csv debe tener exactamente 2811 palabras", 2811, lines.size)
 
       val word217Line = lines.firstOrNull { it.startsWith("word,") }
       assertNotNull("La palabra 'word' debe estar presente en el CSV", word217Line)
       assertTrue(word217Line!!.contains("217"))
 
       assertTrue("Primera palabra debe ser 'the'", lines.first().startsWith("the,1,"))
-      assertTrue("Última palabra debe ser 'thirst'", lines.last().startsWith("thirst,2809,"))
+      assertTrue("Penúltima palabra debe ser 'your'", lines[2809].startsWith("your,2810,"))
+      assertTrue("Última palabra debe ser 'my'", lines.last().startsWith("my,2811,"))
     }
   }
 
   @Test
-  fun testNgslTranslationsJson_Has2809Entries() {
+  fun testNgslTranslationsJson_Has2811Entries() {
     val jsonFile = File("src/main/res/raw/ngsl_translations.json")
     if (jsonFile.exists()) {
       val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
-      assertEquals("ngsl_translations.json debe contener exactamente 2809 traducciones", 2809, keyCount)
+      assertEquals("ngsl_translations.json debe contener exactamente 2811 traducciones", 2811, keyCount)
     }
   }
 
@@ -250,7 +251,7 @@ class ExampleUnitTest {
     val jsonFile = File("src/main/res/raw/ngsl_grammatical_types.json")
     if (jsonFile.exists()) {
       val keyCount = jsonFile.readLines().count { it.trim().matches(Regex("\"[^\"]+\":\\s*\"[^\"]*\",?")) }
-      assertEquals("Debe contener exactamente 2809 palabras en los 4 bloques", 2809, keyCount)
+      assertEquals("Debe contener exactamente 2811 palabras en los 4 bloques", 2811, keyCount)
       val content = jsonFile.readText()
       // Bloque 1 (1 al 700)
       assertTrue(content.contains("\"the\": \"modificador (artículo)\""))
@@ -261,11 +262,13 @@ class ExampleUnitTest {
       // Bloque 3 (1401 al 2100)
       assertTrue(content.contains("\"dear\": \"modificador (adjetivo/interjección)/sustantivo\""))
       assertTrue(content.contains("\"restore\": \"verbo\""))
-      // Bloque 4 (2101 al 2809)
+      // Bloque 4 (2101 al 2811)
       assertTrue(content.contains("\"formula\": \"sustantivo\""))
       assertTrue(content.contains("\"alter\": \"verbo\""))
       assertTrue(content.contains("\"perceive\": \"verbo\""))
       assertTrue(content.contains("\"thirst\": \"sustantivo/verbo\""))
+      assertTrue(content.contains("\"your\": \"modificador (posesivo)\""))
+      assertTrue(content.contains("\"my\": \"modificador (posesivo)\""))
     }
   }
 

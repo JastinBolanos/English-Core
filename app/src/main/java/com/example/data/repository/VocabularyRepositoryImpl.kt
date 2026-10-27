@@ -118,8 +118,8 @@ class VocabularyRepositoryImpl @Inject constructor(
   ): Word {
     val cleanLemma = word.trim()
     val cleanLemmaLower = cleanLemma.lowercase(java.util.Locale.ROOT)
-    val currentMaxRank = wordDao.getMaxRank() ?: 2809
-    val nextRank = maxOf(2809, currentMaxRank) + 1
+    val currentMaxRank = wordDao.getMaxRank() ?: 2811
+    val nextRank = maxOf(2811, currentMaxRank) + 1
 
     val customRecord = com.example.data.local.CustomWordRecord(
       rank = nextRank,
@@ -164,7 +164,7 @@ class VocabularyRepositoryImpl @Inject constructor(
     spanishTranslation: String,
     microExample: String
   ): Word? {
-    if (rank < 2810) return null
+    if (rank < 2812) return null
     val cleanLemma = word.trim()
     if (cleanLemma.isBlank()) return null
     val cleanLemmaLower = cleanLemma.lowercase(java.util.Locale.ROOT)
@@ -204,7 +204,7 @@ class VocabularyRepositoryImpl @Inject constructor(
   }
 
   override suspend fun deleteCustomWord(rank: Int): Boolean {
-    if (rank < 2810) return false
+    if (rank < 2812) return false
     val existing = wordDao.getWordByRank(rank) ?: return false
     val deletedRows = wordDao.deleteWordByRank(rank)
     if (deletedRows > 0) {

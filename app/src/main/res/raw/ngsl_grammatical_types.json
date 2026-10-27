@@ -2807,5 +2807,7 @@
   "ashamed": "modificador (adjetivo)",
   "found": "verbo/sustantivo",
   "blog": "sustantivo/verbo",
-  "thirst": "sustantivo/verbo"
+  "thirst": "sustantivo/verbo",
+  "your": "modificador (posesivo)",
+  "my": "modificador (posesivo)"
 }
