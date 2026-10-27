@@ -366,7 +366,10 @@ fun VocabularyScreen(
           notes = LocalNotesStorage(context).loadNotes(),
           alphabetCounts = alphabetCounts,
           numberCounts = numberCounts,
-          phraseCounts = phraseCounts
+          phraseCounts = phraseCounts,
+          savedDraftPhrases = SavedPhrasesStorage(context).loadSavedPhrases(),
+          wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
+          wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
         )
         isCloudSaving = false
       }
@@ -603,6 +606,7 @@ fun VocabularyScreen(
               val wArr = JSONArray()
               sp.words.forEach { wArr.put(it) }
               put("words", wArr)
+              put("spanishTranslation", sp.spanishTranslation)
               put("createdAt", sp.createdAt)
             })
           }
@@ -845,7 +849,9 @@ fun VocabularyScreen(
                     alphabetCounts = alphabetCounts,
                     numberCounts = numberCounts,
                     phraseCounts = phraseCounts,
-                    savedDraftPhrases = allSavedPhrases
+                    savedDraftPhrases = allSavedPhrases,
+                    wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
+                    wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
                   )
                 }
               },

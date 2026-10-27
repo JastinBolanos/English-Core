@@ -150,14 +150,14 @@ object AutoBackupManager {
         allWordsDetails: List<Word> = emptyList(),
         customWords: List<CustomWordRecord> = emptyList(),
         usedWordsCount: Int = 0,
-        notes: List<NoteBlock> = emptyList(),
+        notes: List<NoteBlock>? = null,
         alphabetCounts: Map<String, Int> = emptyMap(),
         allAlphabetLettersDetails: List<AlphabetLetterRecord> = emptyList(),
         numberCounts: Map<Int, Int> = emptyMap(),
         allNumbersDetails: List<NumberRecord> = emptyList(),
         phraseCounts: Map<Int, Int> = emptyMap(),
         allPhrasesDetails: List<PhraseRecord> = emptyList(),
-        savedDraftPhrases: List<SavedDraftPhrase> = emptyList(),
+        savedDraftPhrases: List<SavedDraftPhrase>? = null,
         wallpaperId: String? = null,
         wallpaperDimAlpha: Float? = null
     ): Boolean {
@@ -257,8 +257,9 @@ object AutoBackupManager {
                 put("customWords", customArray)
 
                 // 4. Notas locales completas (guardando su texto y contenido íntegro)
+                val effectiveNotes = notes ?: com.example.presentation.notes.LocalNotesStorage(context).loadNotes()
                 val notesArray = JSONArray()
-                notes.forEach { n ->
+                effectiveNotes.forEach { n ->
                     notesArray.put(JSONObject().apply {
                         put("id", n.id)
                         put("text", n.text)
@@ -269,8 +270,9 @@ object AutoBackupManager {
                 put("localNotes", notesArray)
 
                 // 4.1 Frases armadas guardadas desde el lienzo de pruebas
+                val effectiveSavedPhrases = savedDraftPhrases ?: com.example.data.local.SavedPhrasesStorage(context).loadSavedPhrases()
                 val savedPhrasesArray = JSONArray()
-                savedDraftPhrases.forEach { sp ->
+                effectiveSavedPhrases.forEach { sp ->
                     savedPhrasesArray.put(JSONObject().apply {
                         put("id", sp.id)
                         put("phraseText", sp.phraseText)
@@ -451,9 +453,27 @@ object AutoBackupManager {
             val jsonString = rootJson.toString(2)
             val jsonBytes = jsonString.toByteArray(StandardCharsets.UTF_8)
 
-            // Guardar en almacenamiento interno
+            // Guardar en almacenamiento interno unificado
             val internalFile = File(context.filesDir, BACKUP_FILENAME)
-            internalFile.writeText(jsonString, StandardCharsets.UTF_8)
+            try {
+                val tempInternal = File(context.filesDir, "$BACKUP_FILENAME.tmp")
+                tempInternal.writeText(jsonString, StandardCharsets.UTF_8)
+                if (!tempInternal.renameTo(internalFile)) {
+                    internalFile.writeText(jsonString, StandardCharsets.UTF_8)
+                }
+                tempInternal.delete()
+            } catch (_: Exception) {
+                internalFile.writeText(jsonString, StandardCharsets.UTF_8)
+            }
+
+            // Eliminar archivos sueltos obsoletos de la app para mantener estricto un solo .json general
+            try {
+                File(context.filesDir, "local_notes.json").delete()
+                File(context.filesDir, "local_notes.json.tmp").delete()
+                File(context.filesDir, "saved_phrases.json").delete()
+                File(context.filesDir, "saved_phrases.json.tmp").delete()
+                File(context.filesDir, "custom_words.json").delete()
+            } catch (_: Exception) {}
 
             // Guardar en Directorio Público de Documentos (Persiste tras desinstalar la app)
             saveToPublicDocuments(context, jsonBytes)
@@ -476,15 +496,80 @@ object AutoBackupManager {
                     vocabularyWordCounts = existing.vocabularyWordCounts,
                     customWords = existing.customWords,
                     usedWordsCount = existing.usedWordsCount,
-                    notes = existing.notes,
+                    notes = existing.notes.ifEmpty { com.example.presentation.notes.LocalNotesStorage(context).loadNotes() },
                     alphabetCounts = existing.alphabetCounts,
                     numberCounts = existing.numberCounts,
-                    phraseCounts = updatedPhraseCounts
+                    phraseCounts = updatedPhraseCounts,
+                    savedDraftPhrases = existing.savedDraftPhrases.ifEmpty { com.example.data.local.SavedPhrasesStorage(context).loadSavedPhrases() },
+                    wallpaperId = existing.wallpaperId,
+                    wallpaperDimAlpha = existing.wallpaperDimAlpha
                 )
             } else {
                 saveFullBackup(
                     context = context,
-                    phraseCounts = updatedPhraseCounts
+                    phraseCounts = updatedPhraseCounts,
+                    notes = com.example.presentation.notes.LocalNotesStorage(context).loadNotes(),
+                    savedDraftPhrases = com.example.data.local.SavedPhrasesStorage(context).loadSavedPhrases()
+                )
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Sincroniza y actualiza las notas locales en el archivo .json de copia de seguridad persistido.
+     */
+    fun updateNotesInBackup(context: Context, updatedNotes: List<NoteBlock>) {
+        try {
+            val existing = loadLatestBackup(context)
+            if (existing != null) {
+                saveFullBackup(
+                    context = context,
+                    vocabularyWordCounts = existing.vocabularyWordCounts,
+                    customWords = existing.customWords,
+                    usedWordsCount = existing.usedWordsCount,
+                    notes = updatedNotes,
+                    alphabetCounts = existing.alphabetCounts,
+                    numberCounts = existing.numberCounts,
+                    phraseCounts = existing.phraseCounts,
+                    savedDraftPhrases = existing.savedDraftPhrases,
+                    wallpaperId = existing.wallpaperId,
+                    wallpaperDimAlpha = existing.wallpaperDimAlpha
+                )
+            } else {
+                saveFullBackup(
+                    context = context,
+                    notes = updatedNotes,
+                    savedDraftPhrases = emptyList()
+                )
+            }
+        } catch (_: Exception) {}
+    }
+
+    /**
+     * Sincroniza y actualiza las frases guardadas desde el lienzo en el archivo .json persistido.
+     */
+    fun updateSavedDraftPhrasesInBackup(context: Context, updatedPhrases: List<SavedDraftPhrase>) {
+        try {
+            val existing = loadLatestBackup(context)
+            if (existing != null) {
+                saveFullBackup(
+                    context = context,
+                    vocabularyWordCounts = existing.vocabularyWordCounts,
+                    customWords = existing.customWords,
+                    usedWordsCount = existing.usedWordsCount,
+                    notes = existing.notes,
+                    alphabetCounts = existing.alphabetCounts,
+                    numberCounts = existing.numberCounts,
+                    phraseCounts = existing.phraseCounts,
+                    savedDraftPhrases = updatedPhrases,
+                    wallpaperId = existing.wallpaperId,
+                    wallpaperDimAlpha = existing.wallpaperDimAlpha
+                )
+            } else {
+                saveFullBackup(
+                    context = context,
+                    notes = emptyList(),
+                    savedDraftPhrases = updatedPhrases
                 )
             }
         } catch (_: Exception) {}
@@ -848,44 +933,72 @@ object AutoBackupManager {
 
             // Notas locales con su contenido íntegro y verificado
             val notesList = mutableListOf<NoteBlock>()
-            if (root.has("localNotes")) {
-                val array = root.getJSONArray("localNotes")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    notesList.add(
-                        NoteBlock(
-                            id = obj.optString("id", java.util.UUID.randomUUID().toString()),
-                            text = obj.optString("text", ""),
-                            isCompleted = obj.optBoolean("isCompleted", false),
-                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+            val notesJsonArray = root.optJSONArray("localNotes")
+                ?: root.optJSONArray("notes")
+                ?: root.optJSONArray("local_notes")
+            if (notesJsonArray != null) {
+                for (i in 0 until notesJsonArray.length()) {
+                    val item = notesJsonArray.opt(i)
+                    if (item is JSONObject) {
+                        val id = item.optString("id", java.util.UUID.randomUUID().toString()).ifBlank { java.util.UUID.randomUUID().toString() }
+                        val text = item.optString("text", "").ifBlank {
+                            item.optString("content", "").ifBlank {
+                                item.optString("note", "")
+                            }
+                        }
+                        val isCompleted = item.optBoolean("isCompleted", false)
+                        val createdAt = item.optLong("createdAt", System.currentTimeMillis())
+                        notesList.add(
+                            NoteBlock(
+                                id = id,
+                                text = text,
+                                isCompleted = isCompleted,
+                                createdAt = createdAt
+                            )
                         )
-                    )
+                    } else if (item is String && item.isNotBlank()) {
+                        notesList.add(NoteBlock(text = item))
+                    }
                 }
             }
 
             // Frases armadas guardadas desde el lienzo de pruebas
             val savedDraftPhrasesList = mutableListOf<SavedDraftPhrase>()
-            if (root.has("savedDraftPhrases")) {
-                val array = root.getJSONArray("savedDraftPhrases")
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
+            val phrasesJsonArray = root.optJSONArray("savedDraftPhrases")
+                ?: root.optJSONArray("savedPhrases")
+                ?: root.optJSONArray("saved_phrases")
+            if (phrasesJsonArray != null) {
+                for (i in 0 until phrasesJsonArray.length()) {
+                    val obj = phrasesJsonArray.optJSONObject(i) ?: continue
                     val wordsList = mutableListOf<String>()
-                    if (obj.has("words")) {
-                        val wArr = obj.getJSONArray("words")
+                    val wArr = obj.optJSONArray("words")
+                    if (wArr != null) {
                         for (wIdx in 0 until wArr.length()) {
-                            wordsList.add(wArr.getString(wIdx))
+                            val w = wArr.optString(wIdx, "").trim()
+                            if (w.isNotBlank()) wordsList.add(w)
                         }
                     }
-                    val phraseText = obj.optString("phraseText", wordsList.joinToString(" "))
-                    val id = obj.optString("id", java.util.UUID.randomUUID().toString())
-                    val spanishTranslation = obj.optString("spanishTranslation", "")
+                    val phraseText = obj.optString("phraseText", "").ifBlank {
+                        obj.optString("text", "").ifBlank {
+                            wordsList.joinToString(" ")
+                        }
+                    }.trim()
+                    val id = obj.optString("id", java.util.UUID.randomUUID().toString()).ifBlank { java.util.UUID.randomUUID().toString() }
+                    var spanishTranslation = obj.optString("spanishTranslation", "").ifBlank {
+                        obj.optString("translation", "")
+                    }.trim()
+                    if (spanishTranslation.isBlank() && phraseText.isNotBlank()) {
+                        spanishTranslation = com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
+                    }
                     val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    if (phraseText.isNotBlank() || wordsList.isNotEmpty()) {
+                    val cleanWords = if (wordsList.isNotEmpty()) wordsList else phraseText.split("\\s+".toRegex()).filter { it.isNotBlank() }
+
+                    if (phraseText.isNotBlank() || cleanWords.isNotEmpty()) {
                         savedDraftPhrasesList.add(
                             SavedDraftPhrase(
                                 id = id,
                                 phraseText = phraseText,
-                                words = wordsList,
+                                words = cleanWords,
                                 spanishTranslation = spanishTranslation,
                                 createdAt = createdAt
                             )

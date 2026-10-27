@@ -1583,9 +1583,9 @@ class ExampleRobolectricTest {
     val storage = com.example.data.local.SavedPhrasesStorage(context)
     storage.clearAll()
 
-    val file = java.io.File(context.filesDir, "saved_phrases.json")
+    val file = java.io.File(context.filesDir, "vocabflow_backup.json")
     storage.addPhrase("that was good", listOf("that", "was", "good"))
-    assertTrue("saved_phrases.json debe existir en context.filesDir", file.exists())
+    assertTrue("vocabflow_backup.json debe existir en context.filesDir como archivo único", file.exists())
 
     val content = file.readText()
     assertTrue(content.contains("that was good"))
@@ -2132,6 +2132,135 @@ class ExampleRobolectricTest {
       assertNotNull("Subcategory for $sampleWord should not be null", resolvedSub)
       assertTrue("Expected $subCat for $sampleWord, got $resolvedSub", resolvedSub!!.contains(subCat, ignoreCase = true))
     }
+  }
+
+  @Test
+  fun `verify local notes json storage saves texts and fields without data loss`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val notesStorage = com.example.presentation.notes.LocalNotesStorage(context)
+    notesStorage.clearAll()
+
+    val masterJsonFile = java.io.File(context.filesDir, "vocabflow_backup.json")
+    val initialNotes = listOf(
+      com.example.presentation.notes.NoteBlock(
+        id = "block-1",
+        text = "Primera regla: siempre usar sujeto antes del verbo en afirmativas.",
+        isCompleted = false,
+        createdAt = 1000L
+      ),
+      com.example.presentation.notes.NoteBlock(
+        id = "block-2",
+        text = "Vocabulario de negocios: breakthrough, stakeholder, roadmap.",
+        isCompleted = true,
+        createdAt = 2000L
+      )
+    )
+
+    // Guardar lista de notas
+    notesStorage.saveNotes(initialNotes)
+
+    // 1. Verificar que el archivo único maestro vocabflow_backup.json existe en context.filesDir
+    assertTrue("vocabflow_backup.json debe existir en context.filesDir como único archivo general", masterJsonFile.exists())
+    assertTrue("vocabflow_backup.json debe tener contenido no vacío", masterJsonFile.length() > 0)
+
+    val fileContent = masterJsonFile.readText(java.nio.charset.StandardCharsets.UTF_8)
+    assertTrue("Debe contener el texto de la primera nota", fileContent.contains("Primera regla: siempre usar sujeto"))
+    assertTrue("Debe contener el texto de la segunda nota", fileContent.contains("breakthrough, stakeholder, roadmap"))
+    assertTrue("Debe contener el campo id", fileContent.contains("block-1"))
+    assertTrue("Debe contener el campo isCompleted", fileContent.contains("isCompleted"))
+    assertTrue("Debe contener el campo createdAt", fileContent.contains("createdAt"))
+
+    // Verificar que NO quedan archivos sueltos obsoletos
+    assertFalse("No debe existir local_notes.json suelto", java.io.File(context.filesDir, "local_notes.json").exists())
+
+    // 2. Cargar las notas y verificar fidelidad total de datos
+    val loadedNotes = notesStorage.loadNotes()
+    assertEquals(2, loadedNotes.size)
+    assertEquals("block-1", loadedNotes[0].id)
+    assertEquals("Primera regla: siempre usar sujeto antes del verbo en afirmativas.", loadedNotes[0].text)
+    assertFalse(loadedNotes[0].isCompleted)
+    assertEquals(1000L, loadedNotes[0].createdAt)
+
+    assertEquals("block-2", loadedNotes[1].id)
+    assertEquals("Vocabulario de negocios: breakthrough, stakeholder, roadmap.", loadedNotes[1].text)
+    assertTrue(loadedNotes[1].isCompleted)
+    assertEquals(2000L, loadedNotes[1].createdAt)
+
+    // 3. Probar actualización de texto y adición de nuevo bloque
+    val updatedNotes = loadedNotes.map {
+      if (it.id == "block-1") it.copy(text = "Texto editado de nota 1") else it
+    } + com.example.presentation.notes.NoteBlock(id = "block-3", text = "Tercer bloque nuevo")
+    notesStorage.saveNotes(updatedNotes)
+
+    val reloadedNotes = notesStorage.loadNotes()
+    assertEquals(3, reloadedNotes.size)
+    assertEquals("Texto editado de nota 1", reloadedNotes[0].text)
+    assertEquals("Tercer bloque nuevo", reloadedNotes[2].text)
+  }
+
+  @Test
+  fun `verify saved phrases json storage and auto backup manager preserve phrase texts and translations without loss`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val phrasesStorage = com.example.data.local.SavedPhrasesStorage(context)
+    phrasesStorage.clearAll()
+
+    val masterJsonFile = java.io.File(context.filesDir, "vocabflow_backup.json")
+
+    // Guardar una frase armada con palabras separadas y traducción en español
+    val phrase1 = phrasesStorage.addPhrase(
+      phraseText = "I need to learn English quickly",
+      words = listOf("I", "need", "to", "learn", "English", "quickly"),
+      spanishTranslation = "Necesito aprender inglés rápidamente"
+    )
+
+    assertTrue("vocabflow_backup.json debe existir físicamente como archivo general único", masterJsonFile.exists())
+    val jsonContent = masterJsonFile.readText(java.nio.charset.StandardCharsets.UTF_8)
+    assertTrue(jsonContent.contains("I need to learn English quickly"))
+    assertTrue(jsonContent.contains("Necesito aprender inglés rápidamente"))
+    assertTrue(jsonContent.contains("words"))
+
+    // Verificar que NO existe saved_phrases.json suelto
+    assertFalse("No debe existir saved_phrases.json suelto", java.io.File(context.filesDir, "saved_phrases.json").exists())
+
+    val loadedPhrases = phrasesStorage.loadSavedPhrases()
+    assertEquals(1, loadedPhrases.size)
+    assertEquals("I need to learn English quickly", loadedPhrases[0].phraseText)
+    assertEquals("Necesito aprender inglés rápidamente", loadedPhrases[0].spanishTranslation)
+    assertEquals(listOf("I", "need", "to", "learn", "English", "quickly"), loadedPhrases[0].words)
+
+    // Probar eliminación de frase
+    phrasesStorage.deletePhrase(phrase1.id)
+    val emptyPhrases = phrasesStorage.loadSavedPhrases()
+    assertEquals(0, emptyPhrases.size)
+
+    // Probar guardado en AutoBackupManager con notas y frases en el único archivo
+    val testNotes = listOf(
+      com.example.presentation.notes.NoteBlock(id = "n1", text = "Mi nota de prueba para backup")
+    )
+    val testPhrases = listOf(
+      com.example.data.local.SavedDraftPhrase(
+        id = "sp1",
+        phraseText = "We are going to travel tomorrow",
+        words = listOf("We", "are", "going", "to", "travel", "tomorrow"),
+        spanishTranslation = "Vamos a viajar mañana"
+      )
+    )
+
+    val backupSuccess = com.example.data.backup.AutoBackupManager.saveFullBackup(
+      context = context,
+      notes = testNotes,
+      savedDraftPhrases = testPhrases
+    )
+    assertTrue("saveFullBackup debe retornar true", backupSuccess)
+
+    val restoredData = com.example.data.backup.AutoBackupManager.loadLatestBackup(context)
+    assertNotNull("La copia restaurada no debe ser nula", restoredData)
+    assertEquals(1, restoredData!!.notes.size)
+    assertEquals("Mi nota de prueba para backup", restoredData.notes[0].text)
+    assertEquals(1, restoredData.savedDraftPhrases.size)
+    assertEquals("We are going to travel tomorrow", restoredData.savedDraftPhrases[0].phraseText)
+    assertEquals("Vamos a viajar mañana", restoredData.savedDraftPhrases[0].spanishTranslation)
+    assertEquals(listOf("We", "are", "going", "to", "travel", "tomorrow"), restoredData.savedDraftPhrases[0].words)
   }
 }
 

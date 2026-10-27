@@ -117,7 +117,7 @@ object DailyGoalsData {
             id = "goal_conversation",
             stepLabel = "Paso 4",
             categoryLabel = "Conversación",
-            title = "Objetivo 4: Conversación en Vivo 🎙️",
+            title = "Objetivo 4: Conversación en Vivo",
             description = "Conéctate con Gemini Live. Ten una charla fluida sobre el vocabulario o tema que aprendiste hoy y responde a sus preguntas de forma natural.",
             actionTextPending = "Marcar conversación completada",
             actionTextDone = "¡Charla superada!",

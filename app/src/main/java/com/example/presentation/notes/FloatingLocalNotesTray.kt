@@ -91,6 +91,7 @@ fun FloatingLocalNotesTray(
         if (noteToDelete != null) {
             noteToDelete = null
         } else {
+            storage.saveNotes(notesList.toList())
             onClose()
         }
     }
@@ -124,7 +125,10 @@ fun FloatingLocalNotesTray(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.72f))
-                .clickable { onClose() },
+                .clickable {
+                    persistChanges()
+                    onClose()
+                },
             contentAlignment = Alignment.Center
         ) {
             Surface(
@@ -207,7 +211,10 @@ fun FloatingLocalNotesTray(
                         }
 
                         IconButton(
-                            onClick = onClose,
+                            onClick = {
+                                persistChanges()
+                                onClose()
+                            },
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(

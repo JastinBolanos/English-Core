@@ -1,11 +1,11 @@
 package com.example.data.local
 
 import android.content.Context
+import com.example.data.backup.AutoBackupManager
 import com.example.domain.util.PhraseTranslator
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
@@ -20,14 +20,11 @@ data class SavedDraftPhrase(
 )
 
 /**
- * Almacenamiento persistente local en archivo JSON 'saved_phrases.json' en el almacenamiento interno de la app
- * (con sincronización y respaldo en SharedPreferences).
- * Permite guardar, cargar, reutilizar y eliminar frases armadas desde el lienzo de pruebas.
+ * Almacenamiento unificado de frases guardadas dentro del único archivo .json general de la app (vocabflow_backup.json),
+ * con caché de acceso inmediato en SharedPreferences.
+ * Centraliza todo en un solo archivo maestro para toda la aplicación.
  */
 class SavedPhrasesStorage(private val context: Context) {
-
-  private val jsonFile: File
-    get() = File(context.filesDir, "saved_phrases.json")
 
   private val prefs by lazy {
     context.getSharedPreferences("english_saved_phrases_prefs", Context.MODE_PRIVATE)
@@ -37,66 +34,42 @@ class SavedPhrasesStorage(private val context: Context) {
     private const val KEY_SAVED_PHRASES_JSON = "key_saved_draft_phrases_json"
   }
 
+  init {
+    // Migrar y limpiar archivos sueltos obsoletos si existen
+    try {
+      val legacyFile = File(context.filesDir, "saved_phrases.json")
+      if (legacyFile.exists()) {
+        val legacyText = legacyFile.readText().trim()
+        if (legacyText.isNotBlank() && legacyText != "[]" && legacyText != "null") {
+          val list = parseJsonString(legacyText)
+          if (list.isNotEmpty()) {
+            saveSavedPhrases(list)
+          }
+        }
+        legacyFile.delete()
+      }
+      File(context.filesDir, "saved_phrases.json.tmp").delete()
+    } catch (_: Exception) {}
+  }
+
   @Synchronized
   fun loadSavedPhrases(): List<SavedDraftPhrase> {
-    val file = jsonFile
-    val list = mutableListOf<SavedDraftPhrase>()
-
-    val rawJson = if (file.exists()) {
-      try {
-        file.readText(StandardCharsets.UTF_8).trim()
-      } catch (_: Exception) {
-        null
-      }
-    } else {
-      // Migración desde SharedPreferences si el archivo .json aún no existía
-      val fromPrefs = prefs.getString(KEY_SAVED_PHRASES_JSON, null)
-      if (!fromPrefs.isNullOrBlank()) {
-        try {
-          file.writeText(fromPrefs, StandardCharsets.UTF_8)
-        } catch (_: Exception) {}
-      }
-      fromPrefs
+    // 1. Cargar desde el archivo único maestro de toda la app
+    val fromBackup = AutoBackupManager.loadLatestBackup(context)
+    if (fromBackup != null) {
+      return fromBackup.savedDraftPhrases
     }
 
-    if (rawJson.isNullOrBlank()) return emptyList()
-
-    try {
-      val jsonArray = JSONArray(rawJson)
-      for (i in 0 until jsonArray.length()) {
-        val obj = jsonArray.getJSONObject(i)
-        val wordsArray = obj.optJSONArray("words")
-        val wordsList = mutableListOf<String>()
-        if (wordsArray != null) {
-          for (j in 0 until wordsArray.length()) {
-            wordsList.add(wordsArray.optString(j))
-          }
-        }
-        val text = obj.optString("phraseText", "").ifBlank {
-          wordsList.joinToString(" ")
-        }.trim()
-
-        if (text.isNotBlank()) {
-          var trans = obj.optString("spanishTranslation", "").trim()
-          if (trans.isBlank()) {
-            trans = PhraseTranslator.translatePhrase(text)
-          }
-
-          list.add(
-            SavedDraftPhrase(
-              id = obj.optString("id", UUID.randomUUID().toString()),
-              phraseText = text,
-              words = wordsList,
-              spanishTranslation = trans,
-              createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-            )
-          )
-        }
+    // 2. Si aún no se ha generado la copia maestra, consultar el caché local
+    val fromPrefs = prefs.getString(KEY_SAVED_PHRASES_JSON, null)?.trim()
+    if (!fromPrefs.isNullOrBlank() && fromPrefs != "[]" && fromPrefs != "null") {
+      val list = parseJsonString(fromPrefs)
+      if (list.isNotEmpty()) {
+        return list
       }
-    } catch (_: Exception) {
-      return emptyList()
     }
-    return list
+
+    return emptyList()
   }
 
   @Synchronized
@@ -104,20 +77,32 @@ class SavedPhrasesStorage(private val context: Context) {
     try {
       val jsonArray = JSONArray()
       phrases.forEach { item ->
+        val cleanText = item.phraseText.trim()
+        val cleanWords = if (item.words.isNotEmpty()) item.words else cleanText.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        val translation = if (item.spanishTranslation.isNotBlank()) {
+          item.spanishTranslation.trim()
+        } else {
+          PhraseTranslator.translatePhrase(cleanText)
+        }
+
         val obj = JSONObject().apply {
-          put("id", item.id)
-          put("phraseText", item.phraseText)
+          put("id", item.id.ifBlank { UUID.randomUUID().toString() })
+          put("phraseText", cleanText)
           val wArr = JSONArray()
-          item.words.forEach { wArr.put(it) }
+          cleanWords.forEach { wArr.put(it) }
           put("words", wArr)
-          put("spanishTranslation", item.spanishTranslation)
-          put("createdAt", item.createdAt)
+          put("spanishTranslation", translation)
+          put("createdAt", if (item.createdAt > 0) item.createdAt else System.currentTimeMillis())
         }
         jsonArray.put(obj)
       }
       val formattedJson = jsonArray.toString(2)
-      jsonFile.writeText(formattedJson, StandardCharsets.UTF_8)
-      prefs.edit().putString(KEY_SAVED_PHRASES_JSON, formattedJson).apply()
+
+      // Caché rápido reactivo
+      prefs.edit().putString(KEY_SAVED_PHRASES_JSON, formattedJson).commit()
+
+      // Guardado centralizado en el ÚNICO archivo .json de toda la app
+      AutoBackupManager.updateSavedDraftPhrasesInBackup(context, phrases)
     } catch (e: Exception) {
       e.printStackTrace()
     }
@@ -135,12 +120,13 @@ class SavedPhrasesStorage(private val context: Context) {
     }
 
     val completePhrase = phrase.copy(
+      id = phrase.id.ifBlank { UUID.randomUUID().toString() },
       phraseText = cleanText,
       words = cleanWords,
-      spanishTranslation = translation
+      spanishTranslation = translation,
+      createdAt = if (phrase.createdAt > 0) phrase.createdAt else System.currentTimeMillis()
     )
 
-    // Si ya existía una frase con el mismo texto, reemplazarla y colocarla al inicio
     current.removeAll { it.phraseText.equals(cleanText, ignoreCase = true) }
     current.add(0, completePhrase)
     saveSavedPhrases(current)
@@ -178,10 +164,52 @@ class SavedPhrasesStorage(private val context: Context) {
   @Synchronized
   fun clearAll() {
     try {
-      if (jsonFile.exists()) {
-        jsonFile.delete()
-      }
-      prefs.edit().remove(KEY_SAVED_PHRASES_JSON).apply()
+      prefs.edit().remove(KEY_SAVED_PHRASES_JSON).commit()
+      AutoBackupManager.updateSavedDraftPhrasesInBackup(context, emptyList())
     } catch (_: Exception) {}
+  }
+
+  private fun parseJsonString(rawJson: String): List<SavedDraftPhrase> {
+    val list = mutableListOf<SavedDraftPhrase>()
+    try {
+      val jsonArray = JSONArray(rawJson)
+      for (i in 0 until jsonArray.length()) {
+        val obj = jsonArray.optJSONObject(i) ?: continue
+        val wordsArray = obj.optJSONArray("words")
+        val wordsList = mutableListOf<String>()
+        if (wordsArray != null) {
+          for (j in 0 until wordsArray.length()) {
+            val w = wordsArray.optString(j, "").trim()
+            if (w.isNotBlank()) wordsList.add(w)
+          }
+        }
+        val text = obj.optString("phraseText", "").ifBlank {
+          obj.optString("text", "").ifBlank {
+            wordsList.joinToString(" ")
+          }
+        }.trim()
+
+        if (text.isNotBlank() || wordsList.isNotEmpty()) {
+          val cleanWords = if (wordsList.isNotEmpty()) wordsList else text.split("\\s+".toRegex()).filter { it.isNotBlank() }
+          var trans = obj.optString("spanishTranslation", "").ifBlank {
+            obj.optString("translation", "")
+          }.trim()
+          if (trans.isBlank()) {
+            trans = PhraseTranslator.translatePhrase(text)
+          }
+
+          list.add(
+            SavedDraftPhrase(
+              id = obj.optString("id", UUID.randomUUID().toString()).ifBlank { UUID.randomUUID().toString() },
+              phraseText = text,
+              words = cleanWords,
+              spanishTranslation = trans,
+              createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+            )
+          )
+        }
+      }
+    } catch (_: Exception) {}
+    return list
   }
 }
