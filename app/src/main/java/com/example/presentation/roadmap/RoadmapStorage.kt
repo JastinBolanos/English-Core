@@ -21,11 +21,12 @@ class RoadmapStorage(context: Context) {
         }
         return try {
             val root = JSONObject(jsonStr)
-            val missionTitle = root.optString("missionTitle", "MISIÓN: INGLÉS AVANZADO")
+            val rawMissionTitle = root.optString("missionTitle", "MISIÓN: INGLÉS")
+            val missionTitle = if (rawMissionTitle.contains("AVANZADO", ignoreCase = true)) "MISIÓN: INGLÉS" else rawMissionTitle
             val dateRange = root.optString("dateRange", "21 OCT 2026 – 21 JUN 2027")
             val defaultRoadmap = DefaultRoadmapData.getDefault()
             val rawHours = root.optString("hoursSummary", "")
-            val hoursSummary = if (rawHours.isEmpty() || rawHours.contains("horas", ignoreCase = true) || rawHours.contains("3 HORAS", ignoreCase = true)) {
+            val hoursSummary = if (rawHours.isEmpty() || rawHours.contains("horas", ignoreCase = true) || rawHours.contains("3 HORAS", ignoreCase = true) || rawHours.contains("C2", ignoreCase = true)) {
                 defaultRoadmap.hoursSummary
             } else {
                 rawHours
@@ -50,7 +51,7 @@ class RoadmapStorage(context: Context) {
                 )
             }
 
-            // Migración automática: Si los hitos guardados tienen horas legadas, +A1/+A2 o textos largos, actualizar a la nueva ruta concisa
+            // Migración automática: Si los hitos guardados tienen horas legadas, +A1/+A2, C2 o textos largos, actualizar a la nueva ruta concisa
             val needsMigration = milestones.isEmpty() || milestones.any {
                 it.description.contains("h,", ignoreCase = true) ||
                 it.description.contains("horas", ignoreCase = true) ||
@@ -58,7 +59,9 @@ class RoadmapStorage(context: Context) {
                 it.description.contains("96h", ignoreCase = true) ||
                 it.description.contains("+A1") ||
                 it.description.contains("+A2") ||
-                it.description.length > 55
+                it.description.length > 55 ||
+                it.title.contains("C2", ignoreCase = true) ||
+                it.description.contains("C2", ignoreCase = true)
             }
             val finalMilestones = if (needsMigration) defaultRoadmap.milestones else milestones
 

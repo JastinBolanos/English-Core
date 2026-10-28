@@ -462,8 +462,8 @@ class VocabularyViewModel @Inject constructor(
   private val _spanishInputText = MutableStateFlow("")
   val spanishInputText: StateFlow<String> = _spanishInputText.asStateFlow()
 
-  // Dirección de traducción: true = Español ➔ Inglés, false = Inglés ➔ Español
-  private val _isSpanishToEnglish = MutableStateFlow(true)
+  // Dirección de traducción: false = Inglés ➔ Español (por defecto), true = Español ➔ Inglés
+  private val _isSpanishToEnglish = MutableStateFlow(false)
   val isSpanishToEnglish: StateFlow<Boolean> = _isSpanishToEnglish.asStateFlow()
 
   private var spanishTranslationJob: kotlinx.coroutines.Job? = null

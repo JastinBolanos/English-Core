@@ -183,7 +183,8 @@ object AutoBackupManager {
                 val effectiveWallpaperId = wallpaperId ?: wpStorage.getSelectedWallpaperId()
                 val effectiveDimAlpha = wallpaperDimAlpha ?: wpStorage.getWallpaperDimAlpha()
                 put("wallpaperId", effectiveWallpaperId)
-                put("wallpaperDimAlpha", effectiveDimAlpha.toDouble())
+                val roundedDim = String.format(java.util.Locale.US, "%.2f", effectiveDimAlpha).toDouble()
+                put("wallpaperDimAlpha", roundedDim)
 
                 val activeWpObj = JSONObject().apply {
                     put("id", effectiveWallpaperId)

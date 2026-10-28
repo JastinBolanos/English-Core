@@ -28,9 +28,9 @@ data class RoadmapConfig(
 object DefaultRoadmapData {
     fun getDefault(): RoadmapConfig {
         return RoadmapConfig(
-            missionTitle = "MISIÓN: INGLÉS AVANZADO",
+            missionTitle = "MISIÓN: INGLÉS",
             dateRange = "21 OCT 2026 – 21 JUN 2027",
-            hoursSummary = "2,809+ Palabras • Niveles A1 a C2",
+            hoursSummary = "2,809+ Palabras • Niveles A1 a C1",
             milestones = listOf(
                 MilestoneItem(
                     id = "m1",
@@ -107,8 +107,8 @@ object DefaultRoadmapData {
                 MilestoneItem(
                     id = "m10",
                     date = "21 JUN 2027",
-                    title = "Graduación C2",
-                    description = "Maestría bilingüe y conversación fluida nativa.",
+                    title = "Graduación C1",
+                    description = "Maestría bilingüe y conversación fluida avanzada C1.",
                     iconType = "school",
                     isCompleted = false
                 )

@@ -22,6 +22,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,11 +31,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -77,6 +81,7 @@ fun FloatingGoogleTranslateWebTray(
     var isLoadingPage by remember { mutableStateOf(false) }
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
+    var isFullscreen by remember { mutableStateOf(false) }
 
     val configuration = LocalConfiguration.current
     // Altura del 60% de la pantalla centrada al medio según requerimiento
@@ -92,15 +97,20 @@ fun FloatingGoogleTranslateWebTray(
             isFocusable = true
             isFocusableInTouchMode = true
             isNestedScrollingEnabled = false
-            isVerticalScrollBarEnabled = true
+            isVerticalScrollBarEnabled = false
             isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_ALWAYS
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setLayerType(View.LAYER_TYPE_NONE, null)
 
             setOnTouchListener { view, event ->
-                view.parent?.requestDisallowInterceptTouchEvent(true)
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    view.requestFocus()
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                        view.requestFocus()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
                 }
                 false
             }
@@ -113,6 +123,9 @@ fun FloatingGoogleTranslateWebTray(
                 mediaPlaybackRequiresUserGesture = false
                 useWideViewPort = true
                 loadWithOverviewMode = true
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
                 allowFileAccess = false
                 allowContentAccess = false
                 cacheMode = WebSettings.LOAD_DEFAULT
@@ -147,6 +160,10 @@ fun FloatingGoogleTranslateWebTray(
                     isLoadingPage = false
                     canGoBack = view?.canGoBack() == true
                     canGoForward = view?.canGoForward() == true
+                    view?.evaluateJavascript(
+                        "(function() { if (!window.__scroll_optimized) { window.__scroll_optimized = true; var style = document.createElement('style'); style.innerHTML = 'html, body { -webkit-overflow-scrolling: touch !important; touch-action: pan-y !important; }'; document.head.appendChild(style); } })();",
+                        null
+                    )
                 }
 
                 override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -178,12 +195,16 @@ fun FloatingGoogleTranslateWebTray(
             if (currentUrl.isNullOrBlank() || currentUrl == "about:blank") {
                 persistentWebView.loadUrl(GOOGLE_TRANSLATE_WEB_URL)
             }
+        } else {
+            isFullscreen = false
         }
     }
 
     if (isOpen) {
         BackHandler {
-            if (persistentWebView.canGoBack()) {
+            if (isFullscreen) {
+                isFullscreen = false
+            } else if (persistentWebView.canGoBack()) {
                 persistentWebView.goBack()
             } else {
                 onClose()
@@ -236,125 +257,42 @@ fun FloatingGoogleTranslateWebTray(
             )
         }
 
-        // Tarjeta flotante con altura del 60% de la pantalla centrada al medio
+        // Tarjeta flotante con altura del 60% de la pantalla centrada al medio (o pantalla completa si isFullscreen)
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(totalTrayHeight)
-                .padding(horizontal = 8.dp)
-                .align(Alignment.Center)
-                .offset(y = (-36).dp)
-                .graphicsLayer {
-                    alpha = animAlpha
-                    scaleX = animScale
-                    scaleY = animScale
+            modifier = (
+                if (isFullscreen) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .height(totalTrayHeight)
+                        .padding(horizontal = 8.dp)
+                        .align(Alignment.Center)
+                        .offset(y = (-36).dp)
                 }
-                .testTag("floating_google_translate_web_tray"),
-            shape = RoundedCornerShape(16.dp),
+            )
+            .graphicsLayer {
+                alpha = animAlpha
+                scaleX = animScale
+                scaleY = animScale
+            }
+            .testTag("floating_google_translate_web_tray"),
+            shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
             color = Color(0xFF0D1524),
-            border = BorderStroke(1.2.dp, Color(0xFF1A73E8).copy(alpha = 0.85f)),
-            shadowElevation = 16.dp
+            border = if (isFullscreen) null else BorderStroke(1.2.dp, Color(0xFF1A73E8).copy(alpha = 0.85f)),
+            shadowElevation = if (isFullscreen) 0.dp else 16.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .padding(if (isFullscreen) PaddingValues(0.dp) else PaddingValues(horizontal = 6.dp, vertical = 6.dp))
             ) {
-                // Barra superior de controles: ÚNICAMENTE retroceder, avanzar y la 'X' de cierre
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Controles de navegación: retroceder y avanzar
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Botón Retroceder
-                        IconButton(
-                            onClick = {
-                                if (persistentWebView.canGoBack()) {
-                                    persistentWebView.goBack()
-                                }
-                            },
-                            enabled = canGoBack,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .testTag("btn_translate_web_back")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Retroceder",
-                                tint = if (canGoBack) Color(0xFFE2E8F0) else Color(0xFF64748B),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        // Botón Avanzar
-                        IconButton(
-                            onClick = {
-                                if (persistentWebView.canGoForward()) {
-                                    persistentWebView.goForward()
-                                }
-                            },
-                            enabled = canGoForward,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .testTag("btn_translate_web_forward")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Avanzar",
-                                tint = if (canGoForward) Color(0xFFE2E8F0) else Color(0xFF64748B),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    // Botón 'X' de cierre en esquina derecha
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF3B1212).copy(alpha = 0.9f),
-                        border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.9f)),
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clickable { onClose() }
-                            .testTag("btn_close_floating_translate_web")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Cerrar traductor web",
-                                tint = Color(0xFFFCA5A5),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Línea de progreso de carga de página
-                if (isLoadingPage) {
-                    LinearProgressIndicator(
-                        progress = { loadProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Color(0xFF1A73E8),
-                        trackColor = Color(0xFF1E293B)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
-                // Contenedor del WebView in-app ocupando el resto de la bandeja
+                // Contenedor del WebView con controles semitransparentes flotantes superpuestos
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+                        .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(10.dp))
                         .background(Color.White)
                 ) {
                     AndroidView(
@@ -369,6 +307,115 @@ fun FloatingGoogleTranslateWebTray(
                             .fillMaxSize()
                             .testTag("webview_floating_translate_web")
                     )
+
+                    // Línea de progreso de carga de página superpuesta en el borde superior
+                    if (isLoadingPage) {
+                        LinearProgressIndicator(
+                            progress = { loadProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .align(Alignment.TopCenter),
+                            color = Color(0xFF1A73E8),
+                            trackColor = Color.Transparent
+                        )
+                    }
+
+                    // Botón 'X' de cierre flotante semitransparente en la esquina superior izquierda
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable { onClose() }
+                            .testTag("btn_close_floating_translate_web")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar traductor web",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Botón Expandir / Achicar (Pantalla Completa) semitransparente en la esquina superior derecha
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable { isFullscreen = !isFullscreen }
+                            .testTag("btn_fullscreen_translate_web")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = if (isFullscreen) "Achicar pantalla" else "Pantalla completa",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Botón Flecha Atrás semitransparente en la esquina inferior izquierda
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable(enabled = canGoBack) {
+                                if (persistentWebView.canGoBack()) {
+                                    persistentWebView.goBack()
+                                }
+                            }
+                            .testTag("btn_translate_web_back")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Retroceder",
+                                tint = if (canGoBack) Color.White else Color.White.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Botón Flecha Adelante semitransparente en la esquina inferior derecha
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable(enabled = canGoForward) {
+                                if (persistentWebView.canGoForward()) {
+                                    persistentWebView.goForward()
+                                }
+                            }
+                            .testTag("btn_translate_web_forward")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Avanzar",
+                                tint = if (canGoForward) Color.White else Color.White.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

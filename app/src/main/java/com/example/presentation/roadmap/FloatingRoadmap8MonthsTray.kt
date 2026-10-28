@@ -1,6 +1,7 @@
 package com.example.presentation.roadmap
 
 import android.widget.Toast
+import com.example.ui.theme.FrederickaTheGreatFontFamily
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -181,19 +182,17 @@ fun FloatingRoadmap8MonthsTray(
             shape = RoundedCornerShape(20.dp),
             color = Color(0xFF0B132B),
             border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.5f)),
-            shadowElevation = 14.dp
+            shadowElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Barra Superior de la Bandeja Flotante (sin recargar ni lápiz de editar)
+                // Barra Superior con "English" al lado de la 'X' en la otra esquina y sin sombreado
                 RoadmapTopBar(
                     onClose = onClose
                 )
 
-                HorizontalDivider(color = Color(0xFF1E293B), thickness = 1.dp)
-
-                // Vista Oficial: Todos los datos con los 244 días en fila y los hitos finales de cada mes
+                // Vista de los días en fila de los 8 meses
                 RoadmapViewContent(
                     config = config,
                     onToggleMilestone = { /* no-op automático */ }
@@ -204,7 +203,7 @@ fun FloatingRoadmap8MonthsTray(
 }
 
 /**
- * Barra superior limpia con botón de volver y título
+ * Barra superior limpia con "English" en una esquina y la 'X' en la otra a su mismo nivel
  */
 @Composable
 private fun RoadmapTopBar(
@@ -213,11 +212,20 @@ private fun RoadmapTopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0F172A))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(Color.Transparent)
+            .padding(start = 18.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Text(
+            text = "English",
+            fontFamily = FrederickaTheGreatFontFamily,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Normal,
+            letterSpacing = 1.5.sp,
+            color = Color(0xFFE2E8F0)
+        )
+
         IconButton(
             onClick = onClose,
             modifier = Modifier
@@ -249,48 +257,11 @@ private fun RoadmapViewContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // ENCABEZADO DE LA MISIÓN (Estilo idéntico a la imagen)
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-        ) {
-            Text(
-                text = config.missionTitle,
-                fontWeight = FontWeight.Black,
-                fontSize = 20.sp,
-                letterSpacing = 0.8.sp,
-                textAlign = TextAlign.Center,
-                color = Color(0xFFF8FAFC)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = config.dateRange,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.5.sp,
-                letterSpacing = 0.5.sp,
-                textAlign = TextAlign.Center,
-                color = Color(0xFFCBD5E1)
-            )
-            if (config.hoursSummary.isNotBlank() && !config.hoursSummary.contains("3 HORAS", ignoreCase = true)) {
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = config.hoursSummary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    letterSpacing = 0.4.sp,
-                    textAlign = TextAlign.Center,
-                    color = Color(0xFF38BDF8)
-                )
-            }
-        }
-
-        // LÍNEA DE TIEMPO CON TODOS LOS DÍAS EN FILA Y LOS HITOS FINALES DE CADA MES
+        // Línea de tiempo con los días de los 8 meses en fila
         TimelineSection(
             milestones = config.milestones,
             peruStatus = peruStatus
@@ -309,13 +280,8 @@ private fun TimelineSection(
     milestones: List<MilestoneItem>,
     peruStatus: PeruTimelineStatus
 ) {
-    var selectedMonthFilter by remember { mutableStateOf<Int?>(null) } // null = Todos los 244 días en fila
     val allDays = remember(milestones, peruStatus.dayNumber) {
         PeruTimelineTracker.generateAllDays(milestones, emptySet(), peruStatus.dayNumber)
-    }
-
-    val displayedDays = remember(allDays, selectedMonthFilter) {
-        if (selectedMonthFilter == null) allDays else allDays.filter { it.monthNumber == selectedMonthFilter }
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_active_milestone")
@@ -333,72 +299,19 @@ private fun TimelineSection(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Selector rápido de meses para recorrer los 244 días
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            contentPadding = PaddingValues(vertical = 2.dp)
-        ) {
-            item {
-                FilterChip(
-                    selected = selectedMonthFilter == null,
-                    onClick = { selectedMonthFilter = null },
-                    label = { Text("Todos (244 días)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF0284C7),
-                        selectedLabelColor = Color.White,
-                        containerColor = Color(0xFF131D33),
-                        labelColor = Color(0xFF94A3B8)
-                    ),
-                    border = BorderStroke(1.dp, if (selectedMonthFilter == null) Color(0xFF38BDF8) else Color(0xFF334155))
-                )
-            }
-            items(8) { idx ->
-                val monthNum = idx + 1
-                val isSelected = selectedMonthFilter == monthNum
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { selectedMonthFilter = monthNum },
-                    label = { Text("Mes $monthNum", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = Color(0xFF0284C7),
-                        selectedLabelColor = Color.White,
-                        containerColor = Color(0xFF131D33),
-                        labelColor = Color(0xFF94A3B8)
-                    ),
-                    border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155))
-                )
-            }
-        }
-
-        // Resumen de días completados automáticamente por avance de fecha
-        val autoCompletedDaysCount = (peruStatus.dayNumber - 1).coerceIn(0, 244)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Días practicados: $autoCompletedDaysCount de 244",
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFFCBD5E1)
-            )
-        }
-
         // Lista de días en fila
         var lastSeenMonth = -1
-        displayedDays.forEachIndexed { index, dayItem ->
+        allDays.forEachIndexed { index, dayItem ->
             val showMonthHeader = dayItem.monthNumber != lastSeenMonth
             if (showMonthHeader) {
                 lastSeenMonth = dayItem.monthNumber
                 MonthSectionHeader(
                     monthLabel = dayItem.monthLabel,
-                    monthDays = displayedDays.filter { it.monthNumber == dayItem.monthNumber }
+                    monthDays = allDays.filter { it.monthNumber == dayItem.monthNumber }
                 )
             }
 
-            val isLastInView = index == displayedDays.lastIndex
+            val isLastInView = index == allDays.lastIndex
 
             if (dayItem.isMonthEndMilestone && dayItem.milestoneItem != null) {
                 // HITO FINAL DEL MES (o Meta 720h / Graduación)
@@ -595,17 +508,15 @@ private fun MonthEndMilestoneCard(
         1, 2 -> "A1"
         3, 4 -> "A2"
         5 -> "B1"
-        6 -> "B2"
-        7 -> "C1"
-        else -> "C2"
+        6, 7 -> "B2"
+        else -> "C1"
     }
     val levelColor = when (dayItem.monthNumber) {
         1, 2 -> Color(0xFF10B981) // Verde A1
         3, 4 -> Color(0xFF38BDF8) // Azul A2
         5 -> Color(0xFF6366F1)    // Indigo B1
-        6 -> Color(0xFFA855F7)    // Púrpura B2
-        7 -> Color(0xFFF59E0B)    // Ámbar C1
-        else -> Color(0xFFEAB308) // Oro C2
+        6, 7 -> Color(0xFFA855F7) // Púrpura B2
+        else -> Color(0xFFF59E0B) // Ámbar C1
     }
     val targetWords = when (dayItem.monthNumber) {
         1 -> "400 palabras"
@@ -614,8 +525,8 @@ private fun MonthEndMilestoneCard(
         4 -> "1,800 palabras"
         5 -> "2,200 palabras"
         6 -> "2,500 palabras"
-        7 -> "2,809 palabras"
-        else -> ">2,809 palabras"
+        7 -> "2,700 palabras"
+        else -> "2,809 palabras"
     }
 
     Surface(
@@ -658,7 +569,7 @@ private fun MonthEndMilestoneCard(
                         color = Color(0xFFFBBF24)
                     )
 
-                    // Badge de Nivel CEFR: A1, A2, B1, B2, C1, C2
+                    // Badge de Nivel CEFR: A1, A2, B1, B2, C1
                     Box(
                         modifier = Modifier
                             .background(

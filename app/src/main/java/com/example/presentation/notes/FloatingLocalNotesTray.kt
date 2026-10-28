@@ -96,17 +96,20 @@ fun FloatingLocalNotesTray(
         }
     }
 
-    // Cargar notas al abrir
+    // Cargar notas al abrir y posicionar la vista al inicio (arriba)
     LaunchedEffect(isOpen) {
-        notesList.clear()
-        val saved = storage.loadNotes()
-        if (saved.isNotEmpty()) {
-            notesList.addAll(saved)
-        } else {
-            // Si está vacío, iniciar con un bloque vacío listo para escribir
-            val initialBlock = NoteBlock(text = "")
-            notesList.add(initialBlock)
-            storage.saveNotes(notesList.toList())
+        if (isOpen) {
+            notesList.clear()
+            val saved = storage.loadNotes()
+            if (saved.isNotEmpty()) {
+                notesList.addAll(saved)
+            } else {
+                // Si está vacío, iniciar con un bloque vacío listo para escribir
+                val initialBlock = NoteBlock(text = "")
+                notesList.add(initialBlock)
+                storage.saveNotes(notesList.toList())
+            }
+            listState.scrollToItem(0)
         }
     }
 

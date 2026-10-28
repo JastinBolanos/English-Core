@@ -143,6 +143,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Bookmarks
 import com.example.data.local.SavedDraftPhrase
@@ -319,23 +320,13 @@ fun VocabularyScreen(
   var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
   // Disparador reactivo de celebración de logro premium cuando una palabra pasa de 0 a 1 contador
-  var previousUsedWordsCount by rememberSaveable { mutableStateOf<Int?>(null) }
   var celebrationTrigger by remember { mutableLongStateOf(0L) }
 
-  // 1. Escuchar evento inmediato desde ViewModel al tocar una palabra con contador 0
+  // Escuchar evento inmediato desde ViewModel únicamente al tocar/llamar una palabra con contador 0
   LaunchedEffect(Unit) {
     viewModel.wordMasteredCelebrationEvent.collectLatest {
       celebrationTrigger = System.currentTimeMillis()
     }
-  }
-
-  // 2. Escuchar aumento del contador de palabras usadas persistidas
-  LaunchedEffect(usedWordsCount) {
-    val prev = previousUsedWordsCount
-    if (prev != null && usedWordsCount > prev) {
-      celebrationTrigger = System.currentTimeMillis()
-    }
-    previousUsedWordsCount = usedWordsCount
   }
 
   // Auto-backup reactivo al detectar cambios en vocabulario, abecedario, números o frases
@@ -1681,7 +1672,7 @@ fun DailyScheduleFloatingActionButton(
       ) {
         Box(contentAlignment = Alignment.Center) {
           Icon(
-            imageVector = Icons.Default.Schedule,
+            painter = painterResource(R.drawable.ic_radar_sonar),
             contentDescription = "Horario de aprendizaje",
             tint = if (isOpen) Color.White else Color(0xFF38BDF8),
             modifier = Modifier
@@ -1836,45 +1827,6 @@ fun AnimatedEnglishHeader(
   onToggleSpanishTranslator: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
-  val context = LocalContext.current
-  val infiniteTransition = rememberInfiniteTransition(label = "english_light_effects")
-
-  // 1. Barrido continuo de haz de luz brillante a través de las letras
-  val shimmerOffset by infiniteTransition.animateFloat(
-    initialValue = -350f,
-    targetValue = 950f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 3200, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart
-    ),
-    label = "light_shimmer_sweep"
-  )
-
-  // 2. Resplandor pulsante / respiración suave de luz ambiental
-  val pulseGlow by infiniteTransition.animateFloat(
-    initialValue = 0.55f,
-    targetValue = 1.0f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "light_pulse_glow"
-  )
-
-  // 3. Gradiente cromático de luz viva que baña las letras grabadas de Fredericka la Grande
-  val lightBrush = Brush.linearGradient(
-    colors = listOf(
-      Color(0xFFCBD5E1),              // Tiza plateada base
-      Color(0xFF38BDF8),              // Destello celeste brillante
-      Color(0xFFFFFFFF),              // Luz pura reflectante
-      Color(0xFFFDE047),              // Chispa dorada solar
-      Color(0xFF00E5FF),              // Neón cian
-      Color(0xFFCBD5E1)               // Retorno suave
-    ),
-    start = Offset(shimmerOffset, 0f),
-    end = Offset(shimmerOffset + 260f, 0f)
-  )
-
   Box(
     modifier = modifier
       .fillMaxWidth()
@@ -1882,7 +1834,7 @@ fun AnimatedEnglishHeader(
       .testTag("header_english_space"),
     contentAlignment = Alignment.Center
   ) {
-    // Esquina superior izquierda: Selector / reductor de velocidad TTS (en lugar del botón de 3 rayas)
+    // Esquina superior izquierda: Selector / reductor de velocidad TTS
     SpeedFloatingActionButton(
       currentSpeed = currentSpeed,
       onClick = onToggleSpeed,
@@ -1892,28 +1844,7 @@ fun AnimatedEnglishHeader(
         .testTag("header_speed_control")
     )
 
-    // 1. Halo ambiental de fondo suave y difuso
-    Box(
-      modifier = Modifier
-        .size(width = 160.dp, height = 36.dp)
-        .graphicsLayer {
-          alpha = pulseGlow * 0.35f
-          scaleX = 0.95f + pulseGlow * 0.1f
-          scaleY = 0.95f + pulseGlow * 0.1f
-        }
-      .background(
-        brush = Brush.radialGradient(
-          colors = listOf(
-            Color(0xFF0284C7).copy(alpha = 0.5f),
-            Color(0xFF38BDF8).copy(alpha = 0.2f),
-            Color.Transparent
-          )
-        ),
-        shape = CircleShape
-      )
-    )
-
-    // 2. Capa de resplandor difuso detrás de la palabra "English"
+    // Título "English" estático y nítido
     Text(
       text = "English",
       fontFamily = FrederickaTheGreatFontFamily,
@@ -1921,35 +1852,12 @@ fun AnimatedEnglishHeader(
       fontWeight = FontWeight.Normal,
       letterSpacing = 2.sp,
       textAlign = TextAlign.Center,
-      color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.45f),
+      color = Color(0xFFE2E8F0),
       style = TextStyle(
         shadow = Shadow(
-          color = Color(0xFF00E5FF).copy(alpha = pulseGlow * 0.8f),
-          offset = Offset(0f, 0f),
-          blurRadius = 14f * pulseGlow
-        )
-      ),
-      modifier = Modifier.graphicsLayer {
-        alpha = pulseGlow * 0.75f
-        scaleX = 1.01f
-        scaleY = 1.01f
-      }
-    )
-
-    // 3. Capa principal del texto con tipografía Fredericka la Grande y efecto de luz en barrido
-    Text(
-      text = "English",
-      fontFamily = FrederickaTheGreatFontFamily,
-      fontSize = 27.sp,
-      fontWeight = FontWeight.Normal,
-      letterSpacing = 2.sp,
-      textAlign = TextAlign.Center,
-      style = TextStyle(
-        brush = lightBrush,
-        shadow = Shadow(
-          color = Color(0xFF38BDF8).copy(alpha = pulseGlow * 0.9f),
-          offset = Offset(0f, 1.5f),
-          blurRadius = 10f * pulseGlow
+          color = Color(0xFF38BDF8).copy(alpha = 0.35f),
+          offset = Offset(0f, 1f),
+          blurRadius = 4f
         )
       ),
       modifier = Modifier.testTag("text_english_title")
@@ -2156,9 +2064,9 @@ fun FloatingToolsHorizontalBar(
         onClick = onOpenRoadmap8Months
       )
 
-      // 2. Horario
+      // 2. Horario (Logo radar/sonar anaranjado)
       ToolIconButton(
-        icon = Icons.Default.Schedule,
+        painter = painterResource(R.drawable.ic_radar_sonar),
         iconTint = Color(0xFFFBBF24),
         contentDescription = "Horario",
         testTag = "drawer_item_schedule",
@@ -2215,7 +2123,8 @@ fun FloatingToolsHorizontalBar(
 
 @Composable
 private fun ToolIconButton(
-  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+  painter: androidx.compose.ui.graphics.painter.Painter? = null,
   iconTint: Color,
   contentDescription: String,
   testTag: String,
@@ -2241,12 +2150,21 @@ private fun ToolIconButton(
       .testTag(testTag),
     contentAlignment = Alignment.Center
   ) {
-    Icon(
-      imageVector = icon,
-      contentDescription = contentDescription,
-      tint = iconTint,
-      modifier = Modifier.size(19.dp)
-    )
+    if (painter != null) {
+      Icon(
+        painter = painter,
+        contentDescription = contentDescription,
+        tint = iconTint,
+        modifier = Modifier.size(19.dp)
+      )
+    } else if (icon != null) {
+      Icon(
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = iconTint,
+        modifier = Modifier.size(19.dp)
+      )
+    }
   }
 }
 
@@ -3030,58 +2948,19 @@ fun AnimatedSpeedometerIcon(
   val targetAngle = when {
     currentSpeed <= 0.35f -> -50f // Lo más bajo (0.3x): punta a la izquierda
     currentSpeed <= 0.65f -> 0f   // En medio (0.5x): aguja centrada verticalmente
-    else -> 50f                   // Alta velocidad (1.0x): punta hacia la derecha
+    else -> 50f                   // Alta velocidad (0.8x): punta hacia la derecha
   }
-
-  val animatedAngle by animateFloatAsState(
-    targetValue = targetAngle,
-    animationSpec = spring(
-      dampingRatio = Spring.DampingRatioMediumBouncy,
-      stiffness = Spring.StiffnessMediumLow
-    ),
-    label = "speedometer_needle_angle"
-  )
-
-  // Animación infinita para emitir brillo de luz resplandeciente cerca de la aguja de velocidad
-  val infiniteTransition = rememberInfiniteTransition(label = "speedometer_glow_animation")
-  val glowPulse by infiniteTransition.animateFloat(
-    initialValue = 0.45f,
-    targetValue = 1.0f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "needle_glow_pulse"
-  )
-  val glowRadiusRatio by infiniteTransition.animateFloat(
-    initialValue = 0.85f,
-    targetValue = 1.4f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "needle_glow_radius"
-  )
-  val sparkRotation by infiniteTransition.animateFloat(
-    initialValue = 0f,
-    targetValue = 360f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(durationMillis = 3600, easing = LinearEasing),
-      repeatMode = RepeatMode.Restart
-    ),
-    label = "needle_spark_rotation"
-  )
 
   Canvas(modifier = modifier.size(30.dp)) {
     val w = size.width
     val h = size.height
-    // Centro del dial (ligeramente hacia abajo para balancear el arco superior)
+    // Centro del dial
     val centerDial = Offset(w / 2f, h * 0.62f)
     val radius = w * 0.44f
 
-    // 1. Arco base del velocímetro (desde abajo a la izquierda hasta abajo a la derecha)
+    // 1. Arco base del velocímetro
     drawArc(
-      color = Color(0xFF00E5FF).copy(alpha = 0.45f),
+      color = Color(0xFF00E5FF).copy(alpha = 0.5f),
       startAngle = 145f,
       sweepAngle = 250f,
       useCenter = false,
@@ -3090,7 +2969,7 @@ fun AnimatedSpeedometerIcon(
       style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round)
     )
 
-    // 2. Marcas o puntos guía en las 3 posiciones clave (Bajo: -50°, Medio: 0°, Alto: +50°)
+    // 2. Marcas o puntos guía en las 3 posiciones clave
     val markAngles = listOf(-50f, 0f, 50f)
     for (markAngle in markAngles) {
       val isCurrent = (markAngle == targetAngle)
@@ -3112,42 +2991,15 @@ fun AnimatedSpeedometerIcon(
       )
     }
 
-    // 3. Aguja indicadora ("punta indicadora / aguja")
-    val needleRad = Math.toRadians((animatedAngle - 90f).toDouble())
+    // 3. Aguja indicadora fija según targetAngle (estática sin animaciones)
+    val needleRad = Math.toRadians((targetAngle - 90f).toDouble())
     val needleLength = radius * 0.88f
     val needleTip = Offset(
       centerDial.x + needleLength * cos(needleRad).toFloat(),
       centerDial.y + needleLength * sin(needleRad).toFloat()
     )
 
-    // AURA / RESPLANDOR DE LUZ ÉPICO EN LA AGUJA Y EN LA PUNTA (Da vida al dial)
-    // Resplandor difuso del haz de la aguja
-    drawLine(
-      color = Color(0xFF00E5FF).copy(alpha = 0.38f * glowPulse),
-      start = centerDial,
-      end = needleTip,
-      strokeWidth = 5.2.dp.toPx(),
-      cap = StrokeCap.Round
-    )
-
-    // Halo radial resplandeciente en la punta de la aguja (Efecto brillo vivo)
-    val glowRadiusPx = 6.0.dp.toPx() * glowRadiusRatio
-    drawCircle(
-      brush = Brush.radialGradient(
-        colors = listOf(
-          Color(0xFFE0FFFF).copy(alpha = 0.95f * glowPulse),
-          Color(0xFF00E5FF).copy(alpha = 0.65f * glowPulse),
-          Color(0xFF00B0FF).copy(alpha = 0.25f * glowPulse),
-          Color.Transparent
-        ),
-        center = needleTip,
-        radius = glowRadiusPx
-      ),
-      radius = glowRadiusPx,
-      center = needleTip
-    )
-
-    // Línea principal de la aguja
+    // Línea de la aguja limpia y nítida
     drawLine(
       color = Color(0xFF00E5FF),
       start = centerDial,
@@ -3156,46 +3008,23 @@ fun AnimatedSpeedometerIcon(
       cap = StrokeCap.Round
     )
 
-    // Núcleo central blanco brillante de la aguja para alta energía
+    // Línea interior sutil blanca
     drawLine(
-      color = Color.White.copy(alpha = 0.65f + 0.35f * glowPulse),
+      color = Color.White.copy(alpha = 0.75f),
       start = centerDial,
       end = needleTip,
       strokeWidth = 1.0.dp.toPx(),
       cap = StrokeCap.Round
     )
 
-    // Micro destellos estrellados de luz giratoria ("sparkles") en la punta
-    val sparkLen = 3.6.dp.toPx() * glowPulse
-    val sparkAngles = listOf(0f, 90f, 180f, 270f)
-    for (angleDeg in sparkAngles) {
-      val totalRad = Math.toRadians((sparkRotation + angleDeg).toDouble())
-      val sparkEnd = Offset(
-        needleTip.x + sparkLen * cos(totalRad).toFloat(),
-        needleTip.y + sparkLen * sin(totalRad).toFloat()
-      )
-      drawLine(
-        color = Color(0xFFE0FFFF).copy(alpha = 0.75f * glowPulse),
-        start = needleTip,
-        end = sparkEnd,
-        strokeWidth = 1.0.dp.toPx(),
-        cap = StrokeCap.Round
-      )
-    }
-
-    // Núcleo blanco ultrabrillante en el extremo de la aguja
+    // Núcleo blanco en la punta
     drawCircle(
       color = Color.White,
       radius = 2.0.dp.toPx(),
       center = needleTip
     )
 
-    // 4. Pivote central con halo
-    drawCircle(
-      color = Color(0xFF00E5FF).copy(alpha = 0.35f * glowPulse),
-      radius = 4.8.dp.toPx(),
-      center = centerDial
-    )
+    // 4. Pivote central
     drawCircle(
       color = Color(0xFF00E5FF),
       radius = 3.4.dp.toPx(),

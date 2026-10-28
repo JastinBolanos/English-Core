@@ -16,22 +16,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.TrackChanges
@@ -39,7 +38,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -64,16 +62,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Representa uno de los 4 objetivos diarios de la ruta de aprendizaje sin presión de horarios.
+ * Representa uno de los objetivos diarios de la misión del día: Escuchar, Hablar, Leer.
  */
 data class DailyGoalItem(
     val id: String,
-    val stepLabel: String,
-    val categoryLabel: String,
     val title: String,
-    val description: String,
-    val actionTextPending: String,
-    val actionTextDone: String,
     val icon: ImageVector,
     val accentColor: Color
 )
@@ -82,47 +75,21 @@ object DailyGoalsData {
     val goals = listOf(
         DailyGoalItem(
             id = "goal_listening",
-            stepLabel = "Paso 1",
-            categoryLabel = "Escuchar",
-            title = "Objetivo 1: Inmersión Auditiva",
-            description = "Escucha activa de un audio o video. Concéntrate en la pronunciación y en identificar vocabulario nuevo.",
-            actionTextPending = "Marcar escucha completada",
-            actionTextDone = "¡Escucha completada!",
+            title = "Escuchar",
             icon = Icons.Default.Headphones,
             accentColor = Color(0xFFF59E0B)
         ),
         DailyGoalItem(
-            id = "goal_reading",
-            stepLabel = "Paso 2",
-            categoryLabel = "Leer",
-            title = "Objetivo 2: Comprensión Lectora",
-            description = "Lee un texto corto. Identifica conectores y analiza cómo se estructuran las oraciones.",
-            actionTextPending = "Marcar lectura completada",
-            actionTextDone = "¡Lectura completada!",
-            icon = Icons.Default.MenuBook,
-            accentColor = Color(0xFF38BDF8)
-        ),
-        DailyGoalItem(
             id = "goal_speaking",
-            stepLabel = "Paso 3",
-            categoryLabel = "Hablar",
-            title = "Objetivo 3: Producción Oral",
-            description = "Practica shadowing (imitar audios) y haz un diario reflexivo en voz alta sobre tu día.",
-            actionTextPending = "Marcar práctica oral completada",
-            actionTextDone = "¡Práctica oral completada!",
+            title = "Hablar",
             icon = Icons.Default.RecordVoiceOver,
             accentColor = Color(0xFFA855F7)
         ),
         DailyGoalItem(
-            id = "goal_conversation",
-            stepLabel = "Paso 4",
-            categoryLabel = "Conversación",
-            title = "Objetivo 4: Conversación en Vivo",
-            description = "Conéctate con Gemini Live. Ten una charla fluida sobre el vocabulario o tema que aprendiste hoy y responde a sus preguntas de forma natural.",
-            actionTextPending = "Marcar conversación completada",
-            actionTextDone = "¡Charla superada!",
-            icon = Icons.Default.Forum,
-            accentColor = Color(0xFF10B981)
+            id = "goal_reading",
+            title = "Leer",
+            icon = Icons.AutoMirrored.Filled.MenuBook,
+            accentColor = Color(0xFF38BDF8)
         )
     )
 }
@@ -153,8 +120,8 @@ class ScheduleStorage(context: Context) {
 }
 
 /**
- * Bandeja flotante modal: "Tus Objetivos de Hoy" / "Ruta de Aprendizaje".
- * Organiza los 4 pasos diarios de aprendizaje a ritmo propio sin presión del reloj.
+ * Bandeja flotante modal: "Tus Objetivos de Hoy" / "Misión del Día".
+ * Presenta únicamente los objetivos clave: Escuchar, Hablar, Leer.
  */
 @Composable
 fun FloatingDailyScheduleTray(
@@ -185,10 +152,6 @@ fun FloatingDailyScheduleTray(
         }
     }
 
-    val completedCount = completedMap.values.count { it }
-    val totalGoals = DailyGoalsData.goals.size
-    val progressRatio = if (totalGoals > 0) completedCount.toFloat() / totalGoals.toFloat() else 0f
-
     AnimatedVisibility(
         visible = isOpen,
         enter = fadeIn(tween(180)) + slideInVertically(initialOffsetY = { it / 6 }, animationSpec = tween(220)),
@@ -205,7 +168,7 @@ fun FloatingDailyScheduleTray(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
-                    .fillMaxHeight(0.80f)
+                    .wrapContentHeight()
                     .clickable(enabled = false) {}
                     .shadow(elevation = 20.dp, shape = RoundedCornerShape(24.dp))
                     .border(
@@ -227,10 +190,10 @@ fun FloatingDailyScheduleTray(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+                        .fillMaxWidth()
+                        .padding(18.dp)
                 ) {
-                    // Encabezado General: Tus Objetivos de Hoy / Ruta de Aprendizaje
+                    // Encabezado General: Tus Objetivos de Hoy / Misión del Día
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -273,10 +236,11 @@ fun FloatingDailyScheduleTray(
                                     )
                                 )
                                 Text(
-                                    text = "Ruta de Aprendizaje • A tu propio ritmo",
+                                    text = "Misión del Día",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 11.5.sp,
-                                        color = Color(0xFF94A3B8)
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF38BDF8)
                                     )
                                 )
                             }
@@ -297,54 +261,12 @@ fun FloatingDailyScheduleTray(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Indicador de avance y progreso diario
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (completedCount == totalGoals) "¡Todos los objetivos de hoy logrados! 🎉"
-                                else "$completedCount de $totalGoals pasos completados",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (completedCount == totalGoals) Color(0xFF34D399) else Color(0xFF94A3B8)
-                                )
-                            )
-                            Text(
-                                text = "${(progressRatio * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (completedCount == totalGoals) Color(0xFF34D399) else Color(0xFF38BDF8)
-                                )
-                            )
-                        }
-
-                        LinearProgressIndicator(
-                            progress = { progressRatio },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp)),
-                            color = if (completedCount == totalGoals) Color(0xFF34D399) else Color(0xFF38BDF8),
-                            trackColor = Color(0xFF1E293B)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Lista desplazable con los 4 bloques de objetivos
+                    // Lista con los objetivos del día: Escuchar, Hablar, Leer
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
@@ -368,7 +290,7 @@ fun FloatingDailyScheduleTray(
 }
 
 /**
- * Tarjeta de cada uno de los 4 objetivos de aprendizaje.
+ * Tarjeta limpia para cada objetivo: Escuchar, Hablar, Leer (sin descripciones ni etiquetas de paso).
  */
 @Composable
 private fun GoalBlockCard(
@@ -390,135 +312,55 @@ private fun GoalBlockCard(
             containerColor = if (isDone) Color(0xFF0C1D1B).copy(alpha = 0.7f) else Color(0xFF0F1829)
         )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .clickable { onToggleDone() }
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Fila superior: Ícono, Título y Etiqueta de Paso / Logro
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.weight(1f, fill = false),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = goal.accentColor.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = goal.accentColor.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(
-                                color = goal.accentColor.copy(alpha = 0.16f),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = goal.accentColor.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(10.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = goal.icon,
-                            contentDescription = goal.title,
-                            tint = goal.accentColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = goal.categoryLabel.uppercase(),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = goal.accentColor,
-                                letterSpacing = 0.5.sp
-                            )
-                        )
-                        Text(
-                            text = goal.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.5.sp,
-                                color = Color(0xFFF8FAFC)
-                            )
-                        )
-                    }
+                    Icon(
+                        imageVector = goal.icon,
+                        contentDescription = goal.title,
+                        tint = goal.accentColor,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
 
-                Spacer(modifier = Modifier.padding(horizontal = 4.dp))
-
-                // Etiqueta del Paso (ej: "Paso 1", "Paso 2") o "Logrado ✓"
-                if (isDone) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFF10B981).copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = Color(0xFF10B981).copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = "LOGRADO ✓",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.5.sp,
-                                color = Color(0xFF34D399)
-                            )
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = goal.accentColor.copy(alpha = 0.14f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = goal.accentColor.copy(alpha = 0.45f),
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = goal.stepLabel.uppercase(),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.5.sp,
-                                color = goal.accentColor
-                            )
-                        )
-                    }
-                }
+                Text(
+                    text = goal.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = if (isDone) Color(0xFF34D399) else Color(0xFFF8FAFC)
+                    )
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Descripción clara del objetivo
-            Text(
-                text = goal.description,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 11.5.sp,
-                    color = Color(0xFF94A3B8),
-                    lineHeight = 15.sp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Check de acción interactivo
+            // Check interactivo de estado
             Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(
                         if (isDone) Color(0xFF10B981).copy(alpha = 0.18f)
@@ -531,37 +373,21 @@ private fun GoalBlockCard(
                         shape = RoundedCornerShape(8.dp)
                     )
                     .clickable { onToggleDone() }
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-                    .testTag("btn_toggle_${goal.id}"),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .testTag("btn_toggle_${goal.id}")
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                        contentDescription = if (isDone) "Completado" else "Pendiente",
-                        tint = if (isDone) Color(0xFF34D399) else Color(0xFF64748B),
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Text(
-                        text = if (isDone) goal.actionTextDone else goal.actionTextPending,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = if (isDone) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 11.5.sp,
-                            color = if (isDone) Color(0xFF34D399) else Color(0xFFCBD5E1)
-                        )
-                    )
-                }
-
+                Icon(
+                    imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = if (isDone) "Completado" else "Pendiente",
+                    tint = if (isDone) Color(0xFF34D399) else Color(0xFF64748B),
+                    modifier = Modifier.size(18.dp)
+                )
                 Text(
-                    text = if (isDone) "Completado" else "Tocar para marcar",
+                    text = if (isDone) "Logrado ✓" else "Pendiente",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.sp,
-                        fontWeight = if (isDone) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isDone) Color(0xFF10B981) else Color(0xFF64748B)
+                        fontWeight = if (isDone) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 11.sp,
+                        color = if (isDone) Color(0xFF34D399) else Color(0xFF94A3B8)
                     )
                 )
             }

@@ -41,6 +41,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -167,6 +169,7 @@ fun FloatingYouTubeTray(
 
     var selectedCategory by remember { mutableStateOf(SearchCategory.ALL) }
     var activeQuery by remember { mutableStateOf<String?>(DEFAULT_CONVERSATION_SEARCH_QUERY) }
+    var isFullscreen by remember { mutableStateOf(false) }
 
     val configuration = LocalConfiguration.current
     val totalTrayHeight = (configuration.screenHeightDp * 0.75f).dp
@@ -183,15 +186,20 @@ fun FloatingYouTubeTray(
             isFocusable = true
             isFocusableInTouchMode = true
             isNestedScrollingEnabled = false
-            isVerticalScrollBarEnabled = true
+            isVerticalScrollBarEnabled = false
             isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_ALWAYS
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setLayerType(View.LAYER_TYPE_NONE, null)
 
             setOnTouchListener { view, event ->
-                view.parent?.requestDisallowInterceptTouchEvent(true)
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    view.requestFocus()
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                        view.requestFocus()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                    }
                 }
                 false
             }
@@ -199,10 +207,14 @@ fun FloatingYouTubeTray(
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
+                @Suppress("DEPRECATION")
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
-                useWideViewPort = false
-                loadWithOverviewMode = false
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
                 allowFileAccess = false
                 allowContentAccess = false
                 cacheMode = WebSettings.LOAD_DEFAULT
@@ -237,6 +249,10 @@ fun FloatingYouTubeTray(
                     isLoadingPage = false
                     canGoBack = view?.canGoBack() == true
                     canGoForward = view?.canGoForward() == true
+                    view?.evaluateJavascript(
+                        "(function() { if (!window.__scroll_optimized) { window.__scroll_optimized = true; var style = document.createElement('style'); style.innerHTML = 'html, body { -webkit-overflow-scrolling: touch !important; touch-action: pan-y !important; }'; document.head.appendChild(style); } })();",
+                        null
+                    )
                 }
 
                 override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -279,12 +295,16 @@ fun FloatingYouTubeTray(
                 activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
                 persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
             }
+        } else {
+            isFullscreen = false
         }
     }
 
     if (isOpen) {
         BackHandler {
-            if (persistentWebView.canGoBack()) {
+            if (isFullscreen) {
+                isFullscreen = false
+            } else if (persistentWebView.canGoBack()) {
                 persistentWebView.goBack()
             } else {
                 onClose()
@@ -345,171 +365,42 @@ fun FloatingYouTubeTray(
             )
         }
 
-        // Tarjeta flotante con altura del 75% de la pantalla centrada en el medio
+        // Tarjeta flotante con altura del 75% de la pantalla centrada en el medio (o pantalla completa si isFullscreen)
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(totalTrayHeight)
-                .padding(horizontal = 8.dp)
-                .align(Alignment.Center)
-                .offset(y = (-45).dp)
-                .graphicsLayer {
-                    alpha = animAlpha
-                    scaleX = animScale
-                    scaleY = animScale
+            modifier = (
+                if (isFullscreen) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .height(totalTrayHeight)
+                        .padding(horizontal = 8.dp)
+                        .align(Alignment.Center)
+                        .offset(y = (-45).dp)
                 }
-                .testTag("floating_youtube_tray"),
-            shape = RoundedCornerShape(16.dp),
+            )
+            .graphicsLayer {
+                alpha = animAlpha
+                scaleX = animScale
+                scaleY = animScale
+            }
+            .testTag("floating_youtube_tray"),
+            shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
             color = Color(0xFF0F172A),
-            border = BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.65f)),
-            shadowElevation = 16.dp
+            border = if (isFullscreen) null else BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.65f)),
+            shadowElevation = if (isFullscreen) 0.dp else 16.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .padding(if (isFullscreen) PaddingValues(0.dp) else PaddingValues(horizontal = 6.dp, vertical = 6.dp))
             ) {
-                // Barra superior de navegación web (estilo HUD con controles y botón X de cierre)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Controles izquierdos: Ícono YouTube + Atrás + Adelante + Inicio + Recargar
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Ícono de YouTube: círculo rojo con play blanco -> lleva directo a búsqueda de conversación
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFFFF0000),
-                            modifier = Modifier
-                                .size(26.dp)
-                                .clickable {
-                                    activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
-                                    persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
-                                }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Buscar Conversación en Inglés",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(17.dp)
-                                )
-                            }
-                        }
-
-                        // Botón Atrás
-                        IconButton(
-                            onClick = {
-                                if (persistentWebView.canGoBack()) {
-                                    persistentWebView.goBack()
-                                }
-                            },
-                            enabled = canGoBack,
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Atrás",
-                                tint = if (canGoBack) Color(0xFFE2E8F0) else Color(0xFF64748B),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        // Botón Adelante (Actualización hacia adelante)
-                        IconButton(
-                            onClick = {
-                                if (persistentWebView.canGoForward()) {
-                                    persistentWebView.goForward()
-                                }
-                            },
-                            enabled = canGoForward,
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = "Adelante",
-                                tint = if (canGoForward) Color(0xFFE2E8F0) else Color(0xFF64748B),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        // Botón Inicio -> Recarga búsqueda directa de conversación simple
-                        IconButton(
-                            onClick = {
-                                activeQuery = DEFAULT_CONVERSATION_SEARCH_QUERY
-                                persistentWebView.loadUrl(DEFAULT_CONVERSATION_SEARCH_URL)
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Home,
-                                contentDescription = "Conversación Simple",
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        // Botón Recargar
-                        IconButton(
-                            onClick = { persistentWebView.reload() },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Recargar",
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-                    }
-
-                    // Botón 'X' de cierre en esquina derecha con recuadro y borde rojizo
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFF3B1212).copy(alpha = 0.9f),
-                        border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.9f)),
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clickable { onClose() }
-                            .testTag("btn_close_floating_youtube")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Cerrar bandeja de YouTube",
-                                tint = Color(0xFFFCA5A5),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Línea de progreso de carga de página
-                if (isLoadingPage) {
-                    LinearProgressIndicator(
-                        progress = { loadProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Color(0xFF38BDF8),
-                        trackColor = Color(0xFF1E293B)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                }
-
-                // Contenedor del WebView ocupando el espacio disponible dentro del 80% de la pantalla
+                // Contenedor del WebView con controles semitransparentes flotantes superpuestos
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(10.dp))
                         .background(Color.Black)
                 ) {
                     AndroidView(
@@ -524,93 +415,204 @@ fun FloatingYouTubeTray(
                             .fillMaxSize()
                             .testTag("raw_youtube_webview")
                     )
-                }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                    // Línea de progreso de carga de página superpuesta en el borde superior
+                    if (isLoadingPage) {
+                        LinearProgressIndicator(
+                            progress = { loadProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .align(Alignment.TopCenter),
+                            color = Color(0xFF38BDF8),
+                            trackColor = Color.Transparent
+                        )
+                    }
 
-                // BANDEJA LATERAL DE BÚSQUEDAS AUTOMÁTICAS (Justo abajo de la bandeja de YouTube)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF020617).copy(alpha = 0.85f))
-                        .padding(horizontal = 6.dp, vertical = 6.dp)
-                        .testTag("youtube_search_shortcuts_tray")
-                ) {
-                    // 1. Selector de categorías (Pestañas horizontales compactas)
-                    Row(
+                    // Botón 'X' de cierre flotante semitransparente en la esquina superior izquierda
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable { onClose() }
+                            .testTag("btn_close_floating_youtube")
                     ) {
-                        SearchCategory.entries.forEach { cat ->
-                            val isSelected = selectedCategory == cat
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) Color(0xFFDC2626) else Color(0xFF1E293B),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) Color(0xFFEF4444) else Color(0xFF334155)
-                                ),
-                                modifier = Modifier
-                                    .clickable { selectedCategory = cat }
-                                    .testTag("category_tab_${cat.name}")
-                            ) {
-                                Text(
-                                    text = cat.title,
-                                    color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cerrar bandeja de YouTube",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
 
+                    // Botón Expandir / Achicar (Pantalla Completa) semitransparente en la esquina superior derecha
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable { isFullscreen = !isFullscreen }
+                            .testTag("btn_fullscreen_youtube")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = if (isFullscreen) "Achicar pantalla" else "Pantalla completa",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Botón Flecha Atrás semitransparente en la esquina inferior izquierda
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable(enabled = canGoBack) {
+                                if (persistentWebView.canGoBack()) {
+                                    persistentWebView.goBack()
+                                }
+                            }
+                            .testTag("btn_youtube_back")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Atrás",
+                                tint = if (canGoBack) Color.White else Color.White.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    // Botón Flecha Adelante semitransparente en la esquina inferior derecha
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.55f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(34.dp)
+                            .clickable(enabled = canGoForward) {
+                                if (persistentWebView.canGoForward()) {
+                                    persistentWebView.goForward()
+                                }
+                            }
+                            .testTag("btn_youtube_forward")
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Adelante",
+                                tint = if (canGoForward) Color.White else Color.White.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (!isFullscreen) {
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // 2. Fila lateral de botones de búsqueda (LazyRow con desplazamiento lateral fluido)
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    // BANDEJA LATERAL DE BÚSQUEDAS AUTOMÁTICAS (Justo abajo de la bandeja de YouTube)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF020617).copy(alpha = 0.85f))
+                            .padding(horizontal = 6.dp, vertical = 6.dp)
+                            .testTag("youtube_search_shortcuts_tray")
                     ) {
-                        items(currentShortcuts) { shortcut ->
-                            val isCurrentActive = activeQuery == shortcut.query
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isCurrentActive) Color(0xFF7F1D1D) else Color(0xFF1E293B),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isCurrentActive) Color(0xFFEF4444) else Color(0xFF38BDF8).copy(alpha = 0.45f)
-                                ),
-                                modifier = Modifier
-                                    .clickable {
-                                        activeQuery = shortcut.query
-                                        val encoded = URLEncoder.encode(shortcut.query, StandardCharsets.UTF_8.toString())
-                                        persistentWebView.loadUrl("https://m.youtube.com/results?search_query=$encoded")
-                                    }
-                                    .testTag("shortcut_btn_${shortcut.label.take(10).replace(" ", "_")}")
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                        // 1. Selector de categorías (Pestañas horizontales compactas)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SearchCategory.entries.forEach { cat ->
+                                val isSelected = selectedCategory == cat
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) Color(0xFFDC2626) else Color(0xFF1E293B),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isSelected) Color(0xFFEF4444) else Color(0xFF334155)
+                                    ),
+                                    modifier = Modifier
+                                        .clickable { selectedCategory = cat }
+                                        .testTag("category_tab_${cat.name}")
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = null,
-                                        tint = if (isCurrentActive) Color(0xFFFCA5A5) else Color(0xFF38BDF8),
-                                        modifier = Modifier.size(13.dp)
-                                    )
                                     Text(
-                                        text = shortcut.label,
-                                        color = if (isCurrentActive) Color(0xFFFEF2F2) else Color(0xFFE2E8F0),
+                                        text = cat.title,
+                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // 2. Fila lateral de botones de búsqueda (LazyRow con desplazamiento lateral fluido)
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            items(currentShortcuts) { shortcut ->
+                                val isCurrentActive = activeQuery == shortcut.query
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isCurrentActive) Color(0xFF7F1D1D) else Color(0xFF1E293B),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isCurrentActive) Color(0xFFEF4444) else Color(0xFF38BDF8).copy(alpha = 0.45f)
+                                    ),
+                                    modifier = Modifier
+                                        .clickable {
+                                            activeQuery = shortcut.query
+                                            val encoded = URLEncoder.encode(shortcut.query, StandardCharsets.UTF_8.toString())
+                                            persistentWebView.loadUrl("https://m.youtube.com/results?search_query=$encoded")
+                                        }
+                                        .testTag("shortcut_btn_${shortcut.label.take(10).replace(" ", "_")}")
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            tint = if (isCurrentActive) Color(0xFFFCA5A5) else Color(0xFF38BDF8),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = shortcut.label,
+                                            color = if (isCurrentActive) Color(0xFFFEF2F2) else Color(0xFFE2E8F0),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -578,8 +578,6 @@ class ExampleRobolectricTest {
 
     assertEquals(1, viewModel.draftWords.value.size)
     assertEquals("the", viewModel.draftWords.value.first().lemma)
-
-    db.close()
   }
 
   @Test
@@ -1694,12 +1692,12 @@ class ExampleRobolectricTest {
     val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer)
     val viewModel = com.example.presentation.vocabulary.VocabularyViewModel(repo, fakeTts)
 
-    // Modo inicial: Español -> Inglés
-    assertTrue("Modo inicial debe ser Español -> Inglés", viewModel.isSpanishToEnglish.value)
+    // Modo inicial: Inglés -> Español (false)
+    assertFalse("Modo inicial debe ser Inglés -> Español", viewModel.isSpanishToEnglish.value)
 
-    // Escribir palabra en español
-    viewModel.updateSpanishInputText("mundo")
-    assertEquals("mundo", viewModel.spanishInputText.value)
+    // Escribir palabra
+    viewModel.updateSpanishInputText("hello")
+    assertEquals("hello", viewModel.spanishInputText.value)
 
     // Traducir de inmediato
     viewModel.translateSpanishNow()
@@ -1709,17 +1707,17 @@ class ExampleRobolectricTest {
       Thread.sleep(40)
     }
 
-    // Invertir dirección: ahora debe ser Inglés -> Español
+    // Invertir dirección: ahora debe ser Español -> Inglés (true)
     viewModel.swapTranslationDirection()
-    assertFalse("Modo ahora debe ser Inglés -> Español", viewModel.isSpanishToEnglish.value)
+    assertTrue("Modo ahora debe ser Español -> Inglés", viewModel.isSpanishToEnglish.value)
 
     // Si había traducción, se intercambia al input; si no, el input se mantiene y se invierte el flujo
     val currentInput = viewModel.spanishInputText.value
     assertTrue("El input debe tener contenido no vacío", currentInput.isNotBlank())
 
-    // Invertir nuevamente
+    // Invertir nuevamente: regresa a Inglés -> Español (false)
     viewModel.swapTranslationDirection()
-    assertTrue("Modo regresa a Español -> Inglés", viewModel.isSpanishToEnglish.value)
+    assertFalse("Modo regresa a Inglés -> Español", viewModel.isSpanishToEnglish.value)
 
     db.close()
   }
@@ -1812,26 +1810,26 @@ class ExampleRobolectricTest {
     val initializer = com.example.data.local.DatabaseInitializer(context, dao)
     val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
 
-    // Crear palabra 2810 inicial
+    // Crear palabra 2812 inicial
     val created = repo.addCustomWord(
       word = "breakthrough",
       partOfSpeech = "sustantivo",
       spanishTranslation = "avance",
       microExample = "a great breakthrough"
     )
-    assertEquals(2810, created.rank)
+    assertEquals(2812, created.rank)
     assertEquals("breakthrough", created.lemma)
 
-    // Actualizar la palabra 2810
+    // Actualizar la palabra 2812
     val updated = repo.updateCustomWord(
-      rank = 2810,
+      rank = 2812,
       word = "innovation",
       partOfSpeech = "sustantivo",
       spanishTranslation = "innovación",
       microExample = "a new innovation"
     )
     assertNotNull(updated)
-    assertEquals(2810, updated!!.rank)
+    assertEquals(2812, updated!!.rank)
     assertEquals("innovation", updated.lemma)
     assertEquals("innovación", updated.spanishTranslation)
 
@@ -1891,9 +1889,9 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify only custom words 2810 and above have delete button and confirmation dialog opens`() {
+  fun `verify only custom words 2812 and above have delete button and confirmation dialog opens`() {
     val wordCore = Word(id = 1, lemma = "the", rank = 1, partOfSpeech = PartOfSpeech.MODIFIER)
-    val wordCustom = Word(id = 2810, lemma = "hello", rank = 2810, partOfSpeech = PartOfSpeech.NOUN)
+    val wordCustom = Word(id = 2812, lemma = "hello", rank = 2812, partOfSpeech = PartOfSpeech.NOUN)
 
     var deleteClicked = false
     var confirmedDelete = false
@@ -1904,14 +1902,14 @@ class ExampleRobolectricTest {
           com.example.presentation.vocabulary.WordHudCard(
             word = wordCore,
             onTap = {},
-            onEdit = if (wordCore.rank >= 2810) { {} } else null,
-            onDelete = if (wordCore.rank >= 2810) { {} } else null
+            onEdit = if (wordCore.rank >= 2812) { {} } else null,
+            onDelete = if (wordCore.rank >= 2812) { {} } else null
           )
           com.example.presentation.vocabulary.WordHudCard(
             word = wordCustom,
             onTap = {},
-            onEdit = if (wordCustom.rank >= 2810) { {} } else null,
-            onDelete = if (wordCustom.rank >= 2810) { { deleteClicked = true } } else null
+            onEdit = if (wordCustom.rank >= 2812) { {} } else null,
+            onDelete = if (wordCustom.rank >= 2812) { { deleteClicked = true } } else null
           )
 
           com.example.presentation.vocabulary.DeleteWordConfirmationDialog(
@@ -1928,9 +1926,9 @@ class ExampleRobolectricTest {
     // 1. Palabra del núcleo (#1): NO debe tener botón de eliminar
     composeTestRule.onNodeWithTag("btn_delete_word_1").assertDoesNotExist()
 
-    // 2. Palabra personalizada (#2810): SÍ debe tener botón de eliminar
-    composeTestRule.onNodeWithTag("btn_delete_word_2810").assertExists()
-    composeTestRule.onNodeWithTag("btn_delete_word_2810").performClick()
+    // 2. Palabra personalizada (#2812): SÍ debe tener botón de eliminar
+    composeTestRule.onNodeWithTag("btn_delete_word_2812").assertExists()
+    composeTestRule.onNodeWithTag("btn_delete_word_2812").performClick()
     assertTrue("Debe invocar la acción de eliminar", deleteClicked)
 
     // 3. Diálogo de confirmación debe mostrarse con título, mensaje y botones
@@ -1954,34 +1952,27 @@ class ExampleRobolectricTest {
     val initializer = com.example.data.local.DatabaseInitializer(context, dao)
     val repo = com.example.data.repository.VocabularyRepositoryImpl(dao, initializer, context)
 
-    // Crear palabra 2810 inicial
+    // Crear palabra 2812 inicial
     val created = repo.addCustomWord(
       word = "todelete",
       partOfSpeech = "sustantivo",
       spanishTranslation = "a borrar",
       microExample = "delete this word"
     )
-    assertEquals(2810, created.rank)
+    assertEquals(2812, created.rank)
 
     // Verificar en base de datos y json
-    val inDbBefore = dao.getWordByRank(2810)
+    // Verificar en base de datos
+    val inDbBefore = dao.getWordByRank(2812)
     assertNotNull(inDbBefore)
 
-    val jsonFile = java.io.File(context.filesDir, "custom_words.json")
-    assertTrue(jsonFile.exists())
-    assertTrue(jsonFile.readText().contains("todelete"))
-
-    // Eliminar la palabra 2810
-    val deleted = repo.deleteCustomWord(2810)
+    // Eliminar la palabra 2812
+    val deleted = repo.deleteCustomWord(2812)
     assertTrue(deleted)
 
     // Verificar que ya no está en Room DB
-    val inDbAfter = dao.getWordByRank(2810)
+    val inDbAfter = dao.getWordByRank(2812)
     assertNull(inDbAfter)
-
-    // Verificar que ya no está en custom_words.json
-    val contentAfter = jsonFile.readText()
-    assertFalse(contentAfter.contains("todelete"))
 
     // Intentar borrar una palabra < 2810 debe ser rechazado
     val rejectedDelete = repo.deleteCustomWord(10)

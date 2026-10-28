@@ -198,8 +198,8 @@ object PeruTimelineTracker {
                 4 -> "MES 4: Nivel A2 (1,800 palabras) • Días 94–124"
                 5 -> "MES 5: Nivel B1 (2,200 palabras) • Días 125–152"
                 6 -> "MES 6: Nivel B2 (2,500 palabras) • Días 153–183"
-                7 -> "MES 7: Nivel C1 (2,809 palabras) • Días 184–213"
-                else -> "MES 8: Nivel C2 (>2,809 palabras) • Días 214–244"
+                7 -> "MES 7: Nivel B2 (2,700 palabras) • Días 184–213"
+                else -> "MES 8: Nivel C1 (2,809 palabras) • Días 214–244"
             }
 
             val isStart = false

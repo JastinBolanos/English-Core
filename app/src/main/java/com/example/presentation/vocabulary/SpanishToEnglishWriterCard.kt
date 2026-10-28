@@ -89,7 +89,7 @@ fun SpanishToEnglishWriterCard(
   onSpeakEnglish: (String) -> Unit,
   onAddToCanvas: (String) -> Unit,
   onWordClick: (String) -> Unit = {},
-  isSpanishToEnglish: Boolean = true,
+  isSpanishToEnglish: Boolean = false,
   onSwapLanguages: () -> Unit = {},
   onClose: (() -> Unit)? = null,
   modifier: Modifier = Modifier
@@ -110,7 +110,7 @@ fun SpanishToEnglishWriterCard(
       .testTag("spanish_english_writer_card"),
     verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {
-    // 1. Bandeja de traducción integrada: selector de idioma + input de texto + acciones (borrar tacho, traducir) + botón X de cierre integrado sin caja exterior
+    // 1. Bandeja de traducción integrada: icono translate + selector de idioma + input de texto + acciones + botón X
     BasicTextField(
       value = spanishText,
       onValueChange = onSpanishTextChanged,
@@ -142,7 +142,7 @@ fun SpanishToEnglishWriterCard(
             .padding(start = 10.dp, end = 6.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
-          // Mini botón selector/inversor de dirección de traducción (Google Translate style)
+          // Mini botón selector/inversor de dirección de traducción (Google Translate style): EN ⇄ ES
           Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -333,7 +333,7 @@ fun SpanishToEnglishWriterCard(
                 ) {
                   // Icono de volumen (sin caja, sin texto)
                   IconButton(
-                    onClick = { onSpeakEnglish(englishText) },
+                    onClick = { onSpeakEnglish(if (isSpanishToEnglish) englishText else spanishText) },
                     modifier = Modifier
                       .size(30.dp)
                       .testTag("btn_speak_english_translation")
