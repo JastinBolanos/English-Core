@@ -105,8 +105,6 @@ fun SpanishToEnglishWriterCard(
 
   Column(
     modifier = modifier
-      .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 1.dp)
       .testTag("spanish_english_writer_card"),
     verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {

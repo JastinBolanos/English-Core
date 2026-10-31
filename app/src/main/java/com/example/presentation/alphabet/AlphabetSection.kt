@@ -112,11 +112,11 @@ enum class AlphabetFilter {
 @Composable
 fun AlphabetListSection(
     letterCounts: Map<String, Int> = emptyMap(),
+    searchQuery: String = "",
     onSpeakLetter: (AlphabetLetter) -> Unit,
     onAddLetterToCanvas: (AlphabetLetter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var searchQuery by rememberSaveable { mutableStateOf("") }
     val allLetters = remember { englishAlphabetCatalog }
     val displayedLetters = remember(searchQuery) {
         if (searchQuery.isBlank()) {
@@ -137,109 +137,22 @@ fun AlphabetListSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("alphabet_list_view"),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 260.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Buscador de letras con lupa adecuada y palabra fantasma 'Buscar'
-        item(key = "alphabet_search_control") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.White,
-                        fontSize = 13.sp
-                    ),
-                    cursorBrush = SolidColor(Color.White),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("input_search_alphabet"),
-                    decorationBox = { innerTextField ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp)
-                                .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
-                                .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
-                                .padding(horizontal = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Buscar",
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                modifier = Modifier.weight(1f),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "Buscar",
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = Color(0xFF64748B),
-                                            fontSize = 13.sp
-                                        )
-                                    )
-                                }
-                                innerTextField()
-                            }
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Limpiar búsqueda",
-                                        tint = Color(0xFF94A3B8),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                )
-            }
-        }
-
-        if (displayedLetters.isEmpty()) {
-            item(key = "empty_alphabet_search") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No se encontraron coincidencias para \"$searchQuery\"",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        } else {
-            // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)
-            itemsIndexed(
-                items = displayedLetters,
-                key = { _, item -> item.letter }
-            ) { index, item ->
-                val count = letterCounts[item.letter] ?: 0
-                AlphabetLetterRowItem(
-                    index = index + 1,
-                    letterItem = item,
-                    count = count,
-                    onListen = { onSpeakLetter(item) },
-                    onAddToCanvas = { onAddLetterToCanvas(item) }
-                )
-            }
+        // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)
+        itemsIndexed(
+            items = displayedLetters,
+            key = { _, item -> item.letter }
+        ) { index, item ->
+            val count = letterCounts[item.letter] ?: 0
+            AlphabetLetterRowItem(
+                index = index + 1,
+                letterItem = item,
+                count = count,
+                onListen = { onSpeakLetter(item) },
+                onAddToCanvas = { onAddLetterToCanvas(item) }
+            )
         }
     }
 }

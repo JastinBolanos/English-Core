@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -20,9 +22,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -69,8 +74,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 /**
- * Bandeja flotante de Notas Locales minimalista y simple.
- * Muestra bloques de texto en fila con un botón '+' al fondo para añadir más bloques.
+ * Bandeja lateral de Notas Locales minimalista y simple.
+ * Se despliega lateralmente desde el borde izquierdo de la pantalla.
  */
 @Composable
 fun FloatingLocalNotesTray(
@@ -120,47 +125,47 @@ fun FloatingLocalNotesTray(
 
     AnimatedVisibility(
         visible = isOpen,
-        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 6 }),
-        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 6 }),
+        enter = fadeIn() + slideInHorizontally(initialOffsetX = { -it }),
+        exit = fadeOut() + slideOutHorizontally(targetOffsetX = { -it }),
         modifier = modifier
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.72f))
+                .background(Color.Black.copy(alpha = 0.50f))
                 .clickable {
                     persistChanges()
                     onClose()
                 },
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopStart
         ) {
+            val trayShape = RoundedCornerShape(
+                bottomStart = 0.dp,
+                bottomEnd = 24.dp,
+                topStart = 0.dp,
+                topEnd = 0.dp
+            )
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .fillMaxHeight(0.68f)
+                    .fillMaxHeight(0.75f)
+                    .fillMaxWidth(0.85f)
+                    .widthIn(max = 420.dp)
+                    .align(Alignment.TopStart)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {}
-                    .shadow(elevation = 20.dp, shape = RoundedCornerShape(24.dp))
-                    .border(
-                        width = 1.2.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF38BDF8).copy(alpha = 0.70f),
-                                Color(0xFF818CF8).copy(alpha = 0.50f),
-                                Color(0xFF38BDF8).copy(alpha = 0.35f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    .clip(RoundedCornerShape(24.dp)),
-                color = Color(0xFF0B132B).copy(alpha = 0.96f)
+                    .shadow(elevation = 20.dp, shape = trayShape)
+                    .clip(trayShape),
+                shape = trayShape,
+                border = null,
+                color = Color(0xFF0B132B).copy(alpha = 0.98f)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     // Header minimalista
                     Row(

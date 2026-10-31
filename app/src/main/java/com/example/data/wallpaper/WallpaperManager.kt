@@ -25,11 +25,17 @@ class WallpaperManager(private val storage: WallpaperStorage) {
     val list = storage.scanAvailableWallpapers()
     _wallpapers.value = list
 
-    val savedId = storage.getSelectedWallpaperId()
-    val found = list.find { 
-      it.id == savedId || it.fileName == savedId || it.id.substringBeforeLast('.') == savedId 
-    } ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
-    _selectedWallpaper.value = found
+    // Si existe una imagen en la carpeta del proyecto ('wallpaper/'), la usa automáticamente como fondo
+    val projectWp = storage.getProjectFolderWallpaper()
+    if (projectWp != null) {
+      _selectedWallpaper.value = projectWp
+    } else {
+      val savedId = storage.getSelectedWallpaperId()
+      val found = list.find { 
+        it.id == savedId || it.fileName == savedId || it.id.substringBeforeLast('.') == savedId 
+      } ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
+      _selectedWallpaper.value = found
+    }
     _dimAlpha.value = storage.getWallpaperDimAlpha()
   }
 

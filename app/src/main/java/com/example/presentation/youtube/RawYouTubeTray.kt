@@ -348,28 +348,35 @@ fun FloatingYouTubeTray(
             ) {
                 onClose()
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
-        // Bandeja flotante de YouTube (diseño flotante tipo tarjeta centrada con bordes redondeados y sombra)
+        // Bandeja flotante de YouTube (anclada a la parte superior, 65% de alto, pegada a las paredes sin borde)
+        val trayShape = RoundedCornerShape(
+            bottomStart = if (isFullscreen) 0.dp else 20.dp,
+            bottomEnd = if (isFullscreen) 0.dp else 20.dp,
+            topStart = 0.dp,
+            topEnd = 0.dp
+        )
         Surface(
             modifier = Modifier
-                .fillMaxWidth(if (isFullscreen) 1f else 0.94f)
-                .fillMaxHeight(if (isFullscreen) 1f else 0.82f)
+                .fillMaxWidth()
+                .fillMaxHeight(if (isFullscreen) 1f else 0.65f)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {}
-                .clip(RoundedCornerShape(if (isFullscreen) 0.dp else 22.dp))
+                .clip(trayShape)
                 .testTag("floating_youtube_tray"),
-            shape = RoundedCornerShape(if (isFullscreen) 0.dp else 22.dp),
-            border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.50f)),
+            shape = trayShape,
+            border = null,
             shadowElevation = 20.dp,
             color = Color(0xFF0F172A).copy(alpha = 0.98f)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
             ) {
                 // Contenedor del WebView con controles semitransparentes flotantes superpuestos
                 Box(

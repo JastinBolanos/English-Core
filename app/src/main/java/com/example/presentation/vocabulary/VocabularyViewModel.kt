@@ -884,34 +884,46 @@ class VocabularyViewModel @Inject constructor(
       val cleanTranslated = translatedQuery.trim().lowercase(java.util.Locale.ROOT)
         .removePrefix("to ").trim()
 
-      val isNativeEnglish = result.any { it.lemma.equals(trimmedQuery, ignoreCase = true) }
-
-      if (isNativeEnglish || cleanTranslated.isBlank()) {
+      val numericRank = trimmedQuery.toIntOrNull()
+      if (numericRank != null) {
         val matches = result.filter { word ->
-          word.lemma.contains(trimmedQuery, ignoreCase = true) ||
-            (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true)) ||
-            (trimmedQuery == "is" && word.lemma.equals("be", ignoreCase = true)) ||
-            (trimmedQuery == "are" && word.lemma.equals("be", ignoreCase = true)) ||
-            (trimmedQuery == "was" && word.lemma.equals("be", ignoreCase = true)) ||
-            (trimmedQuery == "were" && word.lemma.equals("be", ignoreCase = true)) ||
-            (trimmedQuery.endsWith("ing") && trimmedQuery.length > 3 && word.lemma.equals(trimmedQuery.dropLast(3), ignoreCase = true)) ||
-            (trimmedQuery.endsWith("ed") && trimmedQuery.length > 2 && word.lemma.equals(trimmedQuery.dropLast(2), ignoreCase = true)) ||
-            word.displaySpanishTranslation.contains(trimmedQuery, ignoreCase = true)
+          word.rank == numericRank || word.rank.toString().startsWith(trimmedQuery)
         }
         result = matches.sortedWith(
           compareBy(
-            { word ->
-              val isExact = word.lemma.equals(trimmedQuery, ignoreCase = true) ||
-                (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true))
-              if (isExact) 0 else 1
-            },
-            { word ->
-              if (word.lemma.startsWith(trimmedQuery, ignoreCase = true)) 0 else 1
-            },
+            { word -> if (word.rank == numericRank) 0 else 1 },
             { word -> word.rank }
           )
         )
       } else {
+        val isNativeEnglish = result.any { it.lemma.equals(trimmedQuery, ignoreCase = true) }
+
+        if (isNativeEnglish || cleanTranslated.isBlank()) {
+          val matches = result.filter { word ->
+            word.lemma.contains(trimmedQuery, ignoreCase = true) ||
+              (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmedQuery == "is" && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmedQuery == "are" && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmedQuery == "was" && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmedQuery == "were" && word.lemma.equals("be", ignoreCase = true)) ||
+              (trimmedQuery.endsWith("ing") && trimmedQuery.length > 3 && word.lemma.equals(trimmedQuery.dropLast(3), ignoreCase = true)) ||
+              (trimmedQuery.endsWith("ed") && trimmedQuery.length > 2 && word.lemma.equals(trimmedQuery.dropLast(2), ignoreCase = true)) ||
+              word.displaySpanishTranslation.contains(trimmedQuery, ignoreCase = true)
+          }
+          result = matches.sortedWith(
+            compareBy(
+              { word ->
+                val isExact = word.lemma.equals(trimmedQuery, ignoreCase = true) ||
+                  (trimmedQuery == "am" && word.lemma.equals("be", ignoreCase = true))
+                if (isExact) 0 else 1
+              },
+              { word ->
+                if (word.lemma.startsWith(trimmedQuery, ignoreCase = true)) 0 else 1
+              },
+              { word -> word.rank }
+            )
+          )
+        } else {
         // Modo traducción interna de español a inglés (ej: "estar" -> "be" en primera fila)
         val translatedTokens = cleanTranslated.split(Regex("[^a-zA-Z']+")).filter { it.isNotBlank() }
 
@@ -947,8 +959,9 @@ class VocabularyViewModel @Inject constructor(
         )
       }
     }
-    result
-  }.stateIn(
+  }
+  result
+}.stateIn(
     scope = viewModelScope,
     started = SharingStarted.WhileSubscribed(5000),
     initialValue = emptyList()

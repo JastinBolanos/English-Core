@@ -26,6 +26,7 @@ class WallpaperStorage(private val context: Context) {
     private const val KEY_SELECTED_WALLPAPER_ID = "selected_wallpaper_id"
     private const val KEY_WALLPAPER_DIM_ALPHA = "wallpaper_dim_alpha"
     const val ASSET_WALLPAPERS_DIR = "wallpapers"
+    const val PROJECT_WALLPAPER_DIR = "wallpaper"
 
     val DEFAULT_NONE_WALLPAPER = WallpaperItem(
       id = "none",
@@ -50,6 +51,36 @@ class WallpaperStorage(private val context: Context) {
 
   fun setWallpaperDimAlpha(alpha: Float = 0.83f) {
     prefs.edit().putFloat(KEY_WALLPAPER_DIM_ALPHA, 0.83f).apply()
+  }
+
+  /**
+   * Detecta y devuelve la imagen ubicada en la carpeta del proyecto 'app/src/main/assets/wallpaper/'.
+   * Si el usuario cambia o reemplaza la imagen dentro de esa carpeta, la aplicación la carga automáticamente.
+   */
+  fun getProjectFolderWallpaper(): WallpaperItem? {
+    try {
+      val assetManager = context.assets
+      val fileList = assetManager.list(PROJECT_WALLPAPER_DIR) ?: emptyArray()
+      val validExtensions = setOf("jpg", "jpeg", "png", "webp")
+      val imageFiles = fileList.filter { name ->
+        val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        validExtensions.contains(ext)
+      }.sorted()
+
+      val firstImage = imageFiles.firstOrNull()
+      if (firstImage != null) {
+        return WallpaperItem(
+          id = "project_wallpaper_$firstImage",
+          title = "Fondo del Proyecto ($firstImage)",
+          fileName = firstImage,
+          assetPath = "$PROJECT_WALLPAPER_DIR/$firstImage",
+          isDefaultNone = false
+        )
+      }
+    } catch (_: Exception) {
+      // Manejo seguro ante cualquier error
+    }
+    return null
   }
 
   /**

@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -19,9 +21,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -92,47 +98,50 @@ fun FloatingSettingsBackupTray(
         modifier = modifier
             .fillMaxSize()
             .testTag("floating_settings_backup_tray_overlay"),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopEnd
     ) {
         // Fondo semi-transparente que oscurece el fondo y permite cerrar al tocar fuera
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.65f))
+                .background(Color.Black.copy(alpha = 0.50f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { onClose() }
         )
 
-        // Contenedor flotante centrado con estética cyber-minimalista oscura
+        // Contenedor lateral anclado al borde derecho de la pantalla
         AnimatedVisibility(
             visible = isOpen,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 6 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 6 })
+            enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
+            exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
+            modifier = Modifier.align(Alignment.TopEnd)
         ) {
+            val trayShape = RoundedCornerShape(
+                bottomStart = 24.dp,
+                bottomEnd = 0.dp,
+                topStart = 0.dp,
+                topEnd = 0.dp
+            )
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .fillMaxHeight(0.65f)
-                    .shadow(16.dp, shape = RoundedCornerShape(20.dp))
+                    .fillMaxHeight(0.75f)
+                    .fillMaxWidth(0.85f)
+                    .widthIn(max = 420.dp)
+                    .align(Alignment.TopEnd)
+                    .shadow(16.dp, shape = trayShape)
+                    .clip(trayShape)
                     .testTag("floating_settings_backup_dialog"),
-                shape = RoundedCornerShape(20.dp),
+                shape = trayShape,
                 color = Color(0xFF0F172A),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.2.dp,
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0xFF38BDF8).copy(alpha = 0.8f),
-                            Color(0xFF0284C7).copy(alpha = 0.3f)
-                        )
-                    )
-                )
+                border = null
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(20.dp)
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                         .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -162,23 +171,14 @@ fun FloatingSettingsBackupTray(
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
-                            Column {
-                                Text(
-                                    text = "Ajustes y Datos",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 17.sp,
-                                        color = Color(0xFFF8FAFC)
-                                    )
+                            Text(
+                                text = "Ajustes y Datos",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 17.sp,
+                                    color = Color(0xFFF8FAFC)
                                 )
-                                Text(
-                                    text = "Copia de seguridad local (.json)",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF94A3B8)
-                                    )
-                                )
-                            }
+                            )
                         }
 
                         IconButton(
@@ -196,23 +196,7 @@ fun FloatingSettingsBackupTray(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Resumen de estado actual del usuario (6 MÓDULOS)
-                    Text(
-                        text = "ESTADO ACTUAL DE TU PROGRESO (6 MÓDULOS)",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp,
-                            color = Color(0xFF64748B),
-                            letterSpacing = 1.sp
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // FILA 1: Copas Ganadas (🏆) y Usos de Vocabulario (📚)
                     Row(
@@ -491,6 +475,64 @@ fun FloatingSettingsBackupTray(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Tarjeta destacada para consultar Niveles de Dominio y Copas (CEFR)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = onOpenProficiencyLevels != null) {
+                                onOpenProficiencyLevels?.invoke()
+                            }
+                            .testTag("banner_proficiency_trophies_settings"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF131D33)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color(0xFFFACC15).copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(text = "🏆", fontSize = 22.sp)
+                                Column {
+                                    Text(
+                                        text = "Niveles de Dominio (Copas)",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.5.sp,
+                                            color = Color(0xFFFACC15)
+                                        )
+                                    )
+                                    Text(
+                                        text = "Toca para abrir tu desglose CEFR (A1 - C2)",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Abrir ➔",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFFFDE047)
+                            )
+                        }
+                    }
+
                     // Mensaje de estado (éxito o aviso)
                     if (statusMessage != null) {
                         Spacer(modifier = Modifier.height(14.dp))
@@ -612,18 +654,6 @@ fun FloatingSettingsBackupTray(
                     }
 
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Nota al pie técnica
-                    Text(
-                        text = "Persistencia: Archivo guardado en Documentos/VocabFlow/ (permanece en tu teléfono incluso si desinstalas la app).",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
-                            color = Color(0xFF64748B),
-                            textAlign = TextAlign.Center
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
                 }
             }
         }

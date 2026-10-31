@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,12 +26,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
@@ -43,6 +47,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -170,21 +175,22 @@ enum class NumbersFilterCategory(val label: String) {
 @Composable
 fun NumbersSection(
     numberCounts: Map<Int, Int> = emptyMap(),
+    searchQuery: String = "",
     onSpeakNumber: (NumberEntry) -> Unit,
     onAddNumberToCanvas: (NumberEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
-    val filteredList = remember(searchQuery) {
-        val query = searchQuery.trim().lowercase()
-        if (query.isBlank()) {
-            NumbersCatalog.allNumbers
+    val allNumbers = remember { NumbersCatalog.allNumbers }
+    val displayedNumbers = remember(searchQuery, allNumbers) {
+        if (searchQuery.isBlank()) {
+            allNumbers
         } else {
-            NumbersCatalog.allNumbers.filter { entry ->
-                entry.number.toString().contains(query) ||
-                    entry.word.lowercase().contains(query) ||
-                    entry.phoneticSp.lowercase().contains(query)
+            val q = searchQuery.trim().lowercase()
+            allNumbers.filter { entry ->
+                entry.number.toString().contains(q) ||
+                entry.word.lowercase().contains(q) ||
+                entry.phoneticSp.lowercase().contains(q) ||
+                entry.ipa.lowercase().contains(q)
             }
         }
     }
@@ -194,75 +200,11 @@ fun NumbersSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("numbers_1_to_100_list"),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 260.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Buscador rápido sin texto fantasma
-        item(key = "numbers_controls") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("input_search_numbers"),
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar",
-                            tint = Color(0xFF38BDF8),
-                            modifier = Modifier.size(21.dp)
-                        )
-                    },
-                    placeholder = {
-                        Text(
-                            text = "Buscar",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 13.5.sp,
-                                color = Color(0xFF64748B)
-                            )
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { searchQuery = "" },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "Limpiar",
-                                    tint = Color(0xFF94A3B8),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Search
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color(0xFF1E293B).copy(alpha = 0.5f),
-                        focusedBorderColor = Color(0xFF38BDF8),
-                        unfocusedBorderColor = Color(0xFF334155).copy(alpha = 0.7f),
-                        focusedTextColor = Color(0xFFF8FAFC),
-                        unfocusedTextColor = Color(0xFFF8FAFC)
-                    )
-                )
-            }
-        }
-
         // Listado de los números sin caja, separados por línea fina (igual que vocabulario y abecedario)
-        items(filteredList, key = { it.number }) { item ->
+        items(displayedNumbers, key = { it.number }) { item ->
             val count = numberCounts[item.number] ?: 0
             NumberRowItem(
                 entry = item,

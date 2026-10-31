@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -98,7 +99,7 @@ fun FloatingWallpaperTray(
     modifier = modifier
       .fillMaxSize()
       .testTag("floating_wallpaper_tray_overlay"),
-    contentAlignment = Alignment.Center
+    contentAlignment = Alignment.TopCenter
   ) {
     // Fondo oscurecido para enfocar la bandeja flotante y cerrar al tocar fuera
     Box(
@@ -111,34 +112,34 @@ fun FloatingWallpaperTray(
         ) { onClose() }
     )
 
-    // Contenedor flotante centrado con estética cyber-oscura
+    // Contenedor flotante anclado a la parte superior (65% de alto, pared a pared, sin borde)
     AnimatedVisibility(
       visible = isOpen,
-      enter = fadeIn() + slideInVertically(initialOffsetY = { it / 6 }),
-      exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 6 })
+      enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+      exit = fadeOut() + slideOutVertically(targetOffsetY = { -it })
     ) {
+      val trayShape = RoundedCornerShape(
+        bottomStart = 20.dp,
+        bottomEnd = 20.dp,
+        topStart = 0.dp,
+        topEnd = 0.dp
+      )
       Surface(
         modifier = Modifier
-          .fillMaxWidth(0.92f)
-          .fillMaxHeight(0.78f)
-          .shadow(16.dp, shape = RoundedCornerShape(20.dp))
+          .fillMaxWidth()
+          .fillMaxHeight(0.75f)
+          .shadow(16.dp, shape = trayShape)
+          .clip(trayShape)
           .testTag("floating_wallpaper_dialog"),
-        shape = RoundedCornerShape(20.dp),
+        shape = trayShape,
         color = Color(0xFF0F172A),
-        border = BorderStroke(
-          1.2.dp,
-          Brush.verticalGradient(
-            listOf(
-              Color(0xFFE879F9).copy(alpha = 0.8f),
-              Color(0xFF8B5CF6).copy(alpha = 0.4f)
-            )
-          )
-        )
+        border = null
       ) {
         Column(
           modifier = Modifier
             .fillMaxSize()
-            .padding(18.dp),
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
           horizontalAlignment = Alignment.CenterHorizontally
         ) {
           // Barra superior con Icono, Título y Botón Cerrar X

@@ -109,7 +109,7 @@ fun ProficiencyLevelsTray(
         modifier = modifier
             .fillMaxSize()
             .testTag("proficiency_levels_tray_overlay"),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         // Fondo semi-transparente oscurecido
         Box(
@@ -122,25 +122,33 @@ fun ProficiencyLevelsTray(
                 ) { onClose() }
         )
 
-        // Contenedor flotante centrado con diseño limpio y sobrio
+        // Contenedor flotante anclado a la parte superior (65% de alto, pared a pared, sin borde)
+        val trayShape = RoundedCornerShape(
+            bottomStart = 20.dp,
+            bottomEnd = 20.dp,
+            topStart = 0.dp,
+            topEnd = 0.dp
+        )
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.65f)
+                .fillMaxWidth()
+                .fillMaxHeight(0.75f)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { /* no-op: interceptar toques */ }
-                .shadow(elevation = 16.dp, shape = RoundedCornerShape(22.dp))
+                .shadow(elevation = 16.dp, shape = trayShape)
+                .clip(trayShape)
                 .testTag("proficiency_levels_tray_surface"),
-            shape = RoundedCornerShape(22.dp),
+            shape = trayShape,
             color = Color(0xFF0F172A),
-            border = BorderStroke(1.dp, Color(0xFF1E293B))
+            border = null
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 // CABECERA: Título con trofeo y botón cerrar
                 Row(

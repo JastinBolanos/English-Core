@@ -25,12 +25,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -257,7 +259,13 @@ fun FloatingGoogleTranslateWebTray(
             )
         }
 
-        // Tarjeta flotante con altura del 60% de la pantalla centrada al medio (o pantalla completa si isFullscreen)
+        // Tarjeta flotante anclada a la parte superior (65% de alto, pared a pared, sin borde)
+        val trayShape = RoundedCornerShape(
+            bottomStart = if (isFullscreen) 0.dp else 20.dp,
+            bottomEnd = if (isFullscreen) 0.dp else 20.dp,
+            topStart = 0.dp,
+            topEnd = 0.dp
+        )
         Surface(
             modifier = (
                 if (isFullscreen) {
@@ -265,10 +273,8 @@ fun FloatingGoogleTranslateWebTray(
                 } else {
                     Modifier
                         .fillMaxWidth()
-                        .height(totalTrayHeight)
-                        .padding(horizontal = 8.dp)
-                        .align(Alignment.Center)
-                        .offset(y = (-36).dp)
+                        .fillMaxHeight(0.65f)
+                        .align(Alignment.TopCenter)
                 }
             )
             .graphicsLayer {
@@ -276,16 +282,18 @@ fun FloatingGoogleTranslateWebTray(
                 scaleX = animScale
                 scaleY = animScale
             }
+            .clip(trayShape)
             .testTag("floating_google_translate_web_tray"),
-            shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
+            shape = trayShape,
             color = Color(0xFF0D1524),
-            border = if (isFullscreen) null else BorderStroke(1.2.dp, Color(0xFF1A73E8).copy(alpha = 0.85f)),
+            border = null,
             shadowElevation = if (isFullscreen) 0.dp else 16.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (isFullscreen) PaddingValues(0.dp) else PaddingValues(horizontal = 6.dp, vertical = 6.dp))
+                    .statusBarsPadding()
+                    .padding(if (isFullscreen) PaddingValues(0.dp) else PaddingValues(horizontal = 4.dp, vertical = 4.dp))
             ) {
                 // Contenedor del WebView con controles semitransparentes flotantes superpuestos
                 Box(

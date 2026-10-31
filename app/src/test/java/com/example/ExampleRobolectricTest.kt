@@ -66,8 +66,9 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("btn_alarm_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_gemini_shortcut").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_open_side_drawer").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("header_speed_control").assertExists()
-    composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertExists()
+    composeTestRule.onNodeWithTag("header_speed_control").assertDoesNotExist()
+    // Trophy icon was moved inside settings tray as requested
+    composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertDoesNotExist()
 
     composeTestRule.onNodeWithTag("drawer_item_roadmap").assertDoesNotExist()
   }
@@ -266,7 +267,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify speed floating action button exists and cycles speed rate`() {
+  fun `verify speed floating action button is removed and system maintains slow speech rate`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -275,24 +276,14 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Assert speed button exists in header
-    val speedNode = composeTestRule.onNodeWithTag("header_speed_control")
-    speedNode.assertExists()
+    // Assert speed button is removed per user request
+    composeTestRule.onNodeWithTag("header_speed_control").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("speed_controller_box").assertDoesNotExist()
 
-    // Click to cycle to 0.5
-    speedNode.performClick()
-    composeTestRule.waitForIdle()
-    speedNode.assertExists()
-
-    // Click to cycle to 0.3
-    speedNode.performClick()
-    composeTestRule.waitForIdle()
-    speedNode.assertExists()
-
-    // Click to cycle back to 1.0
-    speedNode.performClick()
-    composeTestRule.waitForIdle()
-    speedNode.assertExists()
+    // Assert system retains slow speech rate (0.3f)
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val tts = com.example.di.TtsModule.provideTtsManager(context)
+    assertEquals(0.3f, tts.currentSpeechRate.value, 0.01f)
   }
 
   @Test
@@ -670,25 +661,12 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Button in bottom dock exists
-    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
-
-    // Click YouTube button to open floating YouTube tray
-    composeTestRule.onNodeWithTag("fab_youtube_toggle").performClick()
-    composeTestRule.waitForIdle()
-
-    // Verify YouTube floating tray and controls exist
-    composeTestRule.onNodeWithTag("floating_youtube_tray").assertExists()
-    composeTestRule.onNodeWithTag("raw_youtube_webview").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_floating_youtube").assertExists()
-
-    // Close YouTube
-    composeTestRule.onNodeWithTag("btn_close_floating_youtube").performClick()
-    composeTestRule.waitForIdle()
+    // YouTube button was removed per user request
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertDoesNotExist()
   }
 
   @Test
-  fun `verify english title is removed from top and achievement badge is in bottom dock`() {
+  fun `verify english title is removed from top and achievement badge is inside settings`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -698,9 +676,7 @@ class ExampleRobolectricTest {
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("text_english_title").assertDoesNotExist()
     composeTestRule.onNodeWithTag("header_english_space").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("counter_used_words_badge", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("text_used_words_count", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("icon_trophy", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("lateral_settings_trigger_tab").assertExists()
   }
 
   @Test
@@ -812,12 +788,11 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("study_stopwatch_container").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("bottom_actions_tray").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
+    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertExists()
     composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_open_local_notes").assertExists()
+    composeTestRule.onNodeWithTag("lateral_notes_trigger_tab").assertExists()
   }
 
   @Test
@@ -1420,8 +1395,9 @@ class ExampleRobolectricTest {
     val storage = com.example.data.wallpaper.WallpaperStorage(context)
     val manager = com.example.data.wallpaper.WallpaperManager(storage)
 
-    // Inicialmente opción predeterminada
-    assertEquals("none", manager.selectedWallpaper.value.id)
+    // Inicialmente opción predeterminada o fondo del proyecto
+    val defaultWpId = storage.getProjectFolderWallpaper()?.id ?: "none"
+    assertEquals(defaultWpId, manager.selectedWallpaper.value.id)
 
     val sampleWallpaper = manager.wallpapers.value.first { !it.isDefaultNone }
     manager.selectWallpaper(sampleWallpaper)
@@ -1434,7 +1410,8 @@ class ExampleRobolectricTest {
 
     // Crear nueva instancia de manager simulando reinicio de la app
     val newManager = com.example.data.wallpaper.WallpaperManager(storage)
-    assertEquals(sampleWallpaper.id, newManager.selectedWallpaper.value.id)
+    val expectedOnRestart = storage.getProjectFolderWallpaper()?.id ?: sampleWallpaper.id
+    assertEquals(expectedOnRestart, newManager.selectedWallpaper.value.id)
     assertEquals(0.83f, newManager.dimAlpha.value, 0.01f)
 
     // Revertir a predeterminado
@@ -1996,7 +1973,8 @@ class ExampleRobolectricTest {
     val cleanStorage = com.example.data.wallpaper.WallpaperStorage(context)
     assertEquals("none", cleanStorage.getSelectedWallpaperId())
     val cleanManager = com.example.data.wallpaper.WallpaperManager(cleanStorage)
-    assertEquals("none", cleanManager.selectedWallpaper.value.id)
+    val defaultCleanWpId = cleanStorage.getProjectFolderWallpaper()?.id ?: "none"
+    assertEquals(defaultCleanWpId, cleanManager.selectedWallpaper.value.id)
 
     // Restaurar automáticamente el fondo y tonalidad desde el objeto parseado
     cleanManager.applyWallpaperSettings(parsed.wallpaperId!!, parsed.wallpaperDimAlpha)
@@ -2054,17 +2032,17 @@ class ExampleRobolectricTest {
     // Verify top tools bar was cleaned up
     composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertDoesNotExist()
 
-    // Verify bottom dock has the 6 tools and lateral handle exists
-    composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
-    composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertExists()
-    composeTestRule.onNodeWithTag("header_speed_control").assertExists()
+    // Verify bottom dock and lateral tabs
+    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertExists()
+    composeTestRule.onNodeWithTag("header_speed_control").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_open_local_notes").assertExists()
-    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("drawer_item_saved_phrases").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_settings").assertExists()
+    composeTestRule.onNodeWithTag("lateral_notes_trigger_tab").assertExists()
+    composeTestRule.onNodeWithTag("lateral_settings_trigger_tab").assertExists()
+    // Saved phrases and wallpaper buttons were removed per user request
+    composeTestRule.onNodeWithTag("drawer_item_saved_phrases").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertDoesNotExist()
     composeTestRule.onNodeWithTag("drawer_item_add_word").assertDoesNotExist()
     composeTestRule.onNodeWithTag("youtube_lateral_handle").assertDoesNotExist()
   }

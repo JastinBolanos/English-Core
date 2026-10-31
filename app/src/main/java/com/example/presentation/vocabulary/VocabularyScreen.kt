@@ -54,6 +54,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -399,6 +403,9 @@ fun VocabularyScreen(
   val listState = rememberLazyListState()
   val coroutineScope = rememberCoroutineScope()
   var jumpRankInput by rememberSaveable { mutableStateOf("") }
+  var alphabetSearchQuery by rememberSaveable { mutableStateOf("") }
+  var numbersSearchQuery by rememberSaveable { mutableStateOf("") }
+  var phrasesSearchQuery by rememberSaveable { mutableStateOf("") }
 
   var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGeminiWebTrayOpen by rememberSaveable { mutableStateOf(false) }
@@ -697,12 +704,12 @@ fun VocabularyScreen(
     containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else MaterialTheme.colorScheme.background
   ) { innerPadding ->
     Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(top = innerPadding.calculateTopPadding())
+      modifier = Modifier.fillMaxSize()
     ) {
       Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(top = innerPadding.calculateTopPadding())
       ) {
         // BANDEJA FIJA: Brújula sintáctica, traductor, lienzo de pruebas y buscadores (siempre visibles)
         Column(
@@ -719,107 +726,9 @@ fun VocabularyScreen(
         ) {
 
 
-          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - SIEMPRE VISIBLE
-          SpanishToEnglishWriterCard(
-            spanishText = spanishInputText,
-            onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
-            onTranslateNow = { viewModel.translateSpanishNow() },
-            onClear = { viewModel.clearSpanishTranslator() },
-            translationState = spanishTranslationState,
-            onSpeakEnglish = { viewModel.speakWord(it) },
-            onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
-            isSpanishToEnglish = isSpanishToEnglish,
-            onSwapLanguages = { viewModel.swapTranslationDirection() },
-            onClose = null,
-            onWordClick = { word ->
-              if (jumpRankInput.isNotEmpty()) {
-                jumpRankInput = ""
-              }
-              viewModel.clearSyntaxFilter()
-              viewModel.updateSearchQuery(word)
-              viewModel.recordWordUsage(word)
-              coroutineScope.launch {
-                listState.scrollToItem(0)
-              }
-            }
-          )
 
-          // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-          // Siempre visible y disponible arriba permanentemente
-          DraftScratchpadHeader(
-            draftWords = draftWords,
-            canUndoDraft = canUndoDraft,
-            canRedoDraft = canRedoDraft,
-            onUndo = { viewModel.undoDraft() },
-            onRedo = { viewModel.redoDraft() },
-            isPhraseUpdated = isPhraseUpdated,
-            isTranslationTrayExpanded = isTranslationTrayExpanded,
-            translationState = translationState,
-            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
-            onTranslate = { viewModel.toggleTranslationTray() },
-            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
-            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
-            onMoveRight = { index -> viewModel.moveWordRight(index) },
-            onPlayPhrase = { viewModel.playFullDraftPhrase() },
-            onClearDraft = { viewModel.clearDraft() },
-            onSavePhrase = {
-              if (draftWords.isNotEmpty()) {
-                val savedStorage = SavedPhrasesStorage(context)
-                val phraseText = draftWords.joinToString(" ") { it.lemma }
-                val wordsList = draftWords.map { it.lemma }
-                val translation = (translationState as? TranslationState.Success)?.translation
-                  ?.takeIf { it.isNotBlank() }
-                  ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
-                val newSavedPhrase = SavedDraftPhrase(
-                  id = java.util.UUID.randomUUID().toString(),
-                  phraseText = phraseText,
-                  words = wordsList,
-                  spanishTranslation = translation,
-                  createdAt = System.currentTimeMillis()
-                )
-                savedStorage.addSavedPhrase(newSavedPhrase)
-                Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
 
-                // Actualiza la copia de seguridad local automática con las frases guardadas
-                val allWords = viewModel.words.value
-                val vocabCounts = allWords.associate { it.lemma to it.useCount }
-                val customWords = allWords.filter { it.rank > 2811 }.map { w ->
-                  CustomWordRecord(
-                    rank = w.rank,
-                    word = w.lemma,
-                    partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
-                    spanishTranslation = w.spanishTranslation,
-                    microExample = w.microExample,
-                    useCount = w.useCount
-                  )
-                }
-                val currentNotes = LocalNotesStorage(context).loadNotes()
-                val allSavedPhrases = savedStorage.loadSavedPhrases()
-                AutoBackupManager.saveFullBackup(
-                  context = context,
-                  vocabularyWordCounts = vocabCounts,
-                  allWordsDetails = allWords,
-                  customWords = customWords,
-                  usedWordsCount = usedWordsCount,
-                  notes = currentNotes,
-                  alphabetCounts = alphabetCounts,
-                  numberCounts = numberCounts,
-                  phraseCounts = phraseCounts,
-                  savedDraftPhrases = allSavedPhrases,
-                  wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
-                  wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
-                )
-              }
-            },
-            onSpeakWord = { word -> viewModel.speakWord(word) }
-          )
-
-          // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
-          // Botones de solo texto con su rayita baja que lo señala (Vocabulario, Abecedario en el medio, Frases)
-          // Y engranaje flotante minimalista pegado a la pared derecha
-          // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
-          // 1. Icono de nube flotante reactivo SIN CAJA a la izquierda (CenterStart)
-          // 2. Pestañas de solo texto con rayita baja (Vocabulario, Abecedario, Números, Frases)
+          // SELECTOR DE PESTAÑAS (Vocabulario, Abecedario, Números, Frases) - EN LA PARTE SUPERIOR
           BoxWithConstraints(
             modifier = Modifier.fillMaxWidth()
           ) {
@@ -830,167 +739,164 @@ fun VocabularyScreen(
               modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(tabsScrollState)
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(horizontal = 10.dp, vertical = 2.dp)
                 .testTag("tab_selector_vocabulario_abecedario_frases"),
               horizontalArrangement = if (isOverflowing) Arrangement.Start else Arrangement.Center,
               verticalAlignment = Alignment.CenterVertically
             ) {
-            // 1. Botón de solo texto "Vocabulario" con su rayita baja
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.VOCABULARY }
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-                .testTag("tab_vocabulario_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-              Text(
-                text = "Vocabulario",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.SemiBold,
-                  fontSize = 16.sp,
-                  color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
-                )
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Box(
+              // 1. Botón de solo texto "Vocabulario" con su rayita baja
+              Column(
                 modifier = Modifier
-                  .width(48.dp)
-                  .height(3.5.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.VOCABULARY }
+                  .padding(horizontal = 6.dp, vertical = 2.dp)
+                  .testTag("tab_vocabulario_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Vocabulario",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.VOCABULARY) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                   )
-              )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // 2. Botón de solo texto "Abecedario" con su rayita baja
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.ALPHABET }
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-                .testTag("tab_abecedario_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-              Text(
-                text = "Abecedario",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.ALPHABET) FontWeight.Bold else FontWeight.SemiBold,
-                  fontSize = 16.sp,
-                  color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Box(
-                modifier = Modifier
-                  .width(46.dp)
-                  .height(3.5.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
-                  )
-              )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // 3. Botón de solo texto "Números" con su rayita baja (1 al 100)
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.NUMBERS }
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-                .testTag("tab_numeros_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-              Text(
-                text = "Números",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.NUMBERS) FontWeight.Bold else FontWeight.SemiBold,
-                  fontSize = 16.sp,
-                  color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                Spacer(modifier = Modifier.height(2.5.dp))
+                Box(
+                  modifier = Modifier
+                    .width(48.dp)
+                    .height(3.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.VOCABULARY) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(2.dp)
+                    )
                 )
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Box(
+              }
+
+              Spacer(modifier = Modifier.width(6.dp))
+
+              // 2. Botón de solo texto "Abecedario" con su rayita baja
+              Column(
                 modifier = Modifier
-                  .width(42.dp)
-                  .height(3.5.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.ALPHABET }
+                  .padding(horizontal = 6.dp, vertical = 2.dp)
+                  .testTag("tab_abecedario_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Abecedario",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.ALPHABET) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                   )
-              )
-            }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // 4. Botón de solo texto "Frases" con su rayita baja
-            Column(
-              modifier = Modifier
-                .clickable(
-                  interactionSource = remember { MutableInteractionSource() },
-                  indication = null
-                ) { selectedSectionTab = MainSectionTab.PHRASES }
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-                .testTag("tab_frases_btn"),
-              horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-              Text(
-                text = "Frases",
-                style = MaterialTheme.typography.titleMedium.copy(
-                  fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.SemiBold,
-                  fontSize = 16.sp,
-                  color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                 )
-              )
-              Spacer(modifier = Modifier.height(3.dp))
-              Box(
+                Spacer(modifier = Modifier.height(2.5.dp))
+                Box(
+                  modifier = Modifier
+                    .width(46.dp)
+                    .height(3.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.ALPHABET) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(2.dp)
+                    )
+                )
+              }
+
+              Spacer(modifier = Modifier.width(6.dp))
+
+              // 3. Botón de solo texto "Números" con su rayita baja (1 al 100)
+              Column(
                 modifier = Modifier
-                  .width(36.dp)
-                  .height(3.5.dp)
-                  .background(
-                    color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.NUMBERS }
+                  .padding(horizontal = 6.dp, vertical = 2.dp)
+                  .testTag("tab_numeros_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Números",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.NUMBERS) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color(0xFF94A3B8)
                   )
-              )
+                )
+                Spacer(modifier = Modifier.height(2.5.dp))
+                Box(
+                  modifier = Modifier
+                    .width(42.dp)
+                    .height(3.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.NUMBERS) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(2.dp)
+                    )
+                )
+              }
+
+              Spacer(modifier = Modifier.width(6.dp))
+
+              // 4. Botón de solo texto "Frases" con su rayita baja
+              Column(
+                modifier = Modifier
+                  .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                  ) { selectedSectionTab = MainSectionTab.PHRASES }
+                  .padding(horizontal = 6.dp, vertical = 2.dp)
+                  .testTag("tab_frases_btn"),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                Text(
+                  text = "Frases",
+                  style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (selectedSectionTab == MainSectionTab.PHRASES) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                  )
+                )
+                Spacer(modifier = Modifier.height(2.5.dp))
+                Box(
+                  modifier = Modifier
+                    .width(36.dp)
+                    .height(3.dp)
+                    .background(
+                      color = if (selectedSectionTab == MainSectionTab.PHRASES) Color(0xFF38BDF8) else Color.Transparent,
+                      shape = RoundedCornerShape(2.dp)
+                    )
+                )
+              }
             }
           }
-        }
 
           if (selectedSectionTab == MainSectionTab.VOCABULARY) {
-            // FILA DE BUSCADORES DE PALABRAS Y SALTO NUMÉRICO (# 1-2809) - Mismo alto que el traductor (34dp)
+            // BANDEJA DE BÚSQUEDA DIVIDIDA: CAJA GRANDE (TEXTO "Buscar") Y CAJA PEQUEÑA (NÚMERO "Nº")
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 1.dp),
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+              horizontalArrangement = Arrangement.spacedBy(8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              // Buscador de texto tradicional (Filtro) - Altura aumentada a 42dp con lupa adecuada y palabra fantasma 'Buscar'
+              // 1. CAJA GRANDE: Búsqueda de palabra normal con texto fantasma "Buscar"
               BasicTextField(
                 value = searchQuery,
-                onValueChange = {
-                  if (it.isNotEmpty() && jumpRankInput.isNotEmpty()) {
-                    jumpRankInput = ""
-                  }
-                  viewModel.updateSearchQuery(it)
+                onValueChange = { input ->
+                  viewModel.updateSearchQuery(input)
                 },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                   color = Color.White,
-                  fontSize = 13.sp
+                  fontSize = 13.5.sp
                 ),
-                cursorBrush = SolidColor(Color.White),
+                cursorBrush = SolidColor(Color(0xFF38BDF8)),
                 modifier = Modifier
                   .weight(1f)
                   .testTag("search_word_input"),
@@ -998,17 +904,17 @@ fun VocabularyScreen(
                   Row(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(42.dp)
-                      .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
-                      .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                      .height(36.dp)
+                      .background(Color(0xFF1E293B).copy(alpha = 0.55f), shape = RoundedCornerShape(10.dp))
+                      .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                   ) {
                     Icon(
                       imageVector = Icons.Default.Search,
-                      contentDescription = "Buscar",
-                      tint = Color(0xFF94A3B8),
-                      modifier = Modifier.size(20.dp)
+                      contentDescription = "Buscar palabra",
+                      tint = Color(0xFF38BDF8),
+                      modifier = Modifier.size(17.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(
@@ -1020,7 +926,7 @@ fun VocabularyScreen(
                           text = "Buscar",
                           style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF64748B),
-                            fontSize = 13.sp
+                            fontSize = 12.5.sp
                           )
                         )
                       }
@@ -1035,7 +941,7 @@ fun VocabularyScreen(
                           imageVector = Icons.Default.Close,
                           contentDescription = "Limpiar búsqueda",
                           tint = Color(0xFF94A3B8),
-                          modifier = Modifier.size(16.dp)
+                          modifier = Modifier.size(15.dp)
                         )
                       }
                     }
@@ -1043,55 +949,78 @@ fun VocabularyScreen(
                 }
               )
 
-              // Mini-Buscador de Salto Numérico (#) (Teletransporte sin filtrar) - Altura aumentada a 42dp (ancho intacto)
+              // 2. CAJA PEQUEÑA: Búsqueda por numeraje con texto fantasma "Nº"
               BasicTextField(
                 value = jumpRankInput,
-                onValueChange = { raw ->
-                  val digits = raw.filter { it.isDigit() }.take(4)
-                  jumpRankInput = digits
-                  if (digits.isNotEmpty()) {
-                    performJumpToRank(digits)
+                onValueChange = { input ->
+                  val filteredDigits = input.filter { it.isDigit() }.take(5)
+                  jumpRankInput = filteredDigits
+                  if (filteredDigits.isNotEmpty()) {
+                    performJumpToRank(filteredDigits)
                   }
                 },
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(
                   keyboardType = KeyboardType.Number,
                   imeAction = ImeAction.Go
                 ),
                 keyboardActions = KeyboardActions(
-                  onGo = { performJumpToRank(jumpRankInput) }
+                  onGo = {
+                    if (jumpRankInput.isNotEmpty()) {
+                      performJumpToRank(jumpRankInput)
+                    }
+                  }
                 ),
-                singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
-                  color = Color(0xFF38BDF8),
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 12.sp,
+                  color = Color.White,
+                  fontSize = 13.5.sp,
                   textAlign = TextAlign.Center
                 ),
                 cursorBrush = SolidColor(Color(0xFF38BDF8)),
                 modifier = Modifier
-                  .width(86.dp)
+                  .width(68.dp)
                   .testTag("jump_rank_input"),
                 decorationBox = { innerTextField ->
-                  Box(
+                  Row(
                     modifier = Modifier
                       .fillMaxWidth()
-                      .height(42.dp)
-                      .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(10.dp))
-                      .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                      .height(36.dp)
+                      .background(Color(0xFF1E293B).copy(alpha = 0.55f), shape = RoundedCornerShape(10.dp))
+                      .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
                       .padding(horizontal = 6.dp),
-                    contentAlignment = Alignment.Center
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                   ) {
-                    if (jumpRankInput.isEmpty()) {
-                      Text(
-                        text = "1-${words.maxOfOrNull { it.rank } ?: 2811}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                          fontSize = 11.5.sp
-                        ),
-                        color = Color(0xFF64748B),
-                        textAlign = TextAlign.Center
-                      )
+                    Box(
+                      modifier = Modifier.weight(1f),
+                      contentAlignment = Alignment.Center
+                    ) {
+                      if (jumpRankInput.isEmpty()) {
+                        Text(
+                          text = "Nº",
+                          style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium
+                          ),
+                          textAlign = TextAlign.Center
+                        )
+                      }
+                      innerTextField()
                     }
-                    innerTextField()
+                    if (jumpRankInput.isNotEmpty()) {
+                      IconButton(
+                        onClick = { jumpRankInput = "" },
+                        modifier = Modifier.size(18.dp)
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Close,
+                          contentDescription = "Borrar número",
+                          tint = Color(0xFF94A3B8),
+                          modifier = Modifier.size(12.dp)
+                        )
+                      }
+                    }
                   }
                 }
               )
@@ -1122,6 +1051,216 @@ fun VocabularyScreen(
             }
           }
 
+          // BUSCADOR PARA ABECEDARIO
+          if (selectedSectionTab == MainSectionTab.ALPHABET) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+            ) {
+              BasicTextField(
+                value = alphabetSearchQuery,
+                onValueChange = { alphabetSearchQuery = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                  color = Color.White,
+                  fontSize = 13.5.sp
+                ),
+                cursorBrush = SolidColor(Color(0xFF38BDF8)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("search_alphabet_input"),
+                decorationBox = { innerTextField ->
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .height(36.dp)
+                      .background(Color(0xFF1E293B).copy(alpha = 0.55f), shape = RoundedCornerShape(10.dp))
+                      .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                      .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Icon(
+                      imageVector = Icons.Default.Search,
+                      contentDescription = "Buscar en abecedario",
+                      tint = Color(0xFF38BDF8),
+                      modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                      modifier = Modifier.weight(1f),
+                      contentAlignment = Alignment.CenterStart
+                    ) {
+                      if (alphabetSearchQuery.isEmpty()) {
+                        Text(
+                          text = "Buscar",
+                          style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            fontSize = 12.5.sp
+                          )
+                        )
+                      }
+                      innerTextField()
+                    }
+                    if (alphabetSearchQuery.isNotEmpty()) {
+                      IconButton(
+                        onClick = { alphabetSearchQuery = "" },
+                        modifier = Modifier.size(24.dp)
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Close,
+                          contentDescription = "Limpiar búsqueda",
+                          tint = Color(0xFF94A3B8),
+                          modifier = Modifier.size(15.dp)
+                        )
+                      }
+                    }
+                  }
+                }
+              )
+            }
+          }
+
+          // BUSCADOR PARA NÚMEROS
+          if (selectedSectionTab == MainSectionTab.NUMBERS) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+            ) {
+              BasicTextField(
+                value = numbersSearchQuery,
+                onValueChange = { numbersSearchQuery = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                  color = Color.White,
+                  fontSize = 13.5.sp
+                ),
+                cursorBrush = SolidColor(Color(0xFF38BDF8)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("search_numbers_input"),
+                decorationBox = { innerTextField ->
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .height(36.dp)
+                      .background(Color(0xFF1E293B).copy(alpha = 0.55f), shape = RoundedCornerShape(10.dp))
+                      .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                      .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Icon(
+                      imageVector = Icons.Default.Search,
+                      contentDescription = "Buscar en números",
+                      tint = Color(0xFF38BDF8),
+                      modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                      modifier = Modifier.weight(1f),
+                      contentAlignment = Alignment.CenterStart
+                    ) {
+                      if (numbersSearchQuery.isEmpty()) {
+                        Text(
+                          text = "Buscar",
+                          style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            fontSize = 12.5.sp
+                          )
+                        )
+                      }
+                      innerTextField()
+                    }
+                    if (numbersSearchQuery.isNotEmpty()) {
+                      IconButton(
+                        onClick = { numbersSearchQuery = "" },
+                        modifier = Modifier.size(24.dp)
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Close,
+                          contentDescription = "Limpiar búsqueda",
+                          tint = Color(0xFF94A3B8),
+                          modifier = Modifier.size(15.dp)
+                        )
+                      }
+                    }
+                  }
+                }
+              )
+            }
+          }
+
+          // BUSCADOR PARA FRASES
+          if (selectedSectionTab == MainSectionTab.PHRASES) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+            ) {
+              BasicTextField(
+                value = phrasesSearchQuery,
+                onValueChange = { phrasesSearchQuery = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                  color = Color.White,
+                  fontSize = 13.5.sp
+                ),
+                cursorBrush = SolidColor(Color(0xFF38BDF8)),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("search_phrases_input"),
+                decorationBox = { innerTextField ->
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .height(36.dp)
+                      .background(Color(0xFF1E293B).copy(alpha = 0.55f), shape = RoundedCornerShape(10.dp))
+                      .border(0.8.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(10.dp))
+                      .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                  ) {
+                    Icon(
+                      imageVector = Icons.Default.Search,
+                      contentDescription = "Buscar en frases",
+                      tint = Color(0xFF38BDF8),
+                      modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                      modifier = Modifier.weight(1f),
+                      contentAlignment = Alignment.CenterStart
+                    ) {
+                      if (phrasesSearchQuery.isEmpty()) {
+                        Text(
+                          text = "Buscar",
+                          style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            fontSize = 12.5.sp
+                          )
+                        )
+                      }
+                      innerTextField()
+                    }
+                    if (phrasesSearchQuery.isNotEmpty()) {
+                      IconButton(
+                        onClick = { phrasesSearchQuery = "" },
+                        modifier = Modifier.size(24.dp)
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Close,
+                          contentDescription = "Limpiar búsqueda",
+                          tint = Color(0xFF94A3B8),
+                          modifier = Modifier.size(15.dp)
+                        )
+                      }
+                    }
+                  }
+                }
+              )
+            }
+          }
+
         }
 
         if (selectedSectionTab == MainSectionTab.VOCABULARY) {
@@ -1132,7 +1271,7 @@ fun VocabularyScreen(
               .fillMaxWidth()
               .weight(1f)
               .testTag("vocabulary_list"),
-            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 260.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             if (filteredWords.isEmpty()) {
@@ -1181,6 +1320,7 @@ fun VocabularyScreen(
           // SECCIÓN DEL ABECEDARIO EN INGLÉS (26 LETRAS, FONÉTICA, CONTADOR Y BOTÓN LIENZO)
           AlphabetListSection(
             letterCounts = alphabetCounts,
+            searchQuery = alphabetSearchQuery,
             onSpeakLetter = { letterItem -> viewModel.speakAlphabetLetter(letterItem) },
             onAddLetterToCanvas = { letterItem -> viewModel.addAlphabetLetterToDraft(letterItem) },
             modifier = Modifier
@@ -1191,6 +1331,7 @@ fun VocabularyScreen(
           // SECCIÓN DE NÚMEROS DEL 1 AL 100 EN INGLÉS (ESCRITURA, FONÉTICA, CONTADOR Y BOTÓN LIENZO)
           NumbersSection(
             numberCounts = numberCounts,
+            searchQuery = numbersSearchQuery,
             onSpeakNumber = { entry -> viewModel.speakNumber(entry) },
             onAddNumberToCanvas = { entry -> viewModel.addNumberToDraft(entry) },
             modifier = Modifier
@@ -1202,6 +1343,7 @@ fun VocabularyScreen(
           // Diseño libre sin cajas con reproductor de audio, contador y sincronización local
           EverydayPhrasesSection(
             phraseCounts = phraseCounts,
+            searchQuery = phrasesSearchQuery,
             onSpeakPhrase = { phrase -> viewModel.speakPhrase(phrase) },
             onAddPhraseToCanvas = { phrase -> viewModel.addPhraseToDraft(phrase) },
             onSendToTranslator = { phrase ->
@@ -1320,124 +1462,191 @@ fun VocabularyScreen(
         }
       )
 
-      // BANDEJA EN PASTILLA FLOTANTE: 6 botones (Copas, Velocidad, Notas en Celeste, Guardado en Celeste, Fondos, Ajustes)
-      // Flotando limpiamente sobre el contenido sin ninguna tabla ni barra de fondo
-      Box(
+      // BANDEJA LATERAL IZQUIERDA: PESTAÑA FLOTANTE AL BORDE PARA NOTAS
+      if (!isLocalNotesTrayOpen) {
+        Surface(
+          modifier = Modifier
+            .align(Alignment.CenterStart)
+            .offset(y = (-40).dp)
+            .testTag("lateral_notes_trigger_tab")
+            .clickable {
+              val willOpen = !isLocalNotesTrayOpen
+              isSettingsTrayOpen = false
+              isProficiencyLevelsTrayOpen = false
+              isLocalNotesTrayOpen = willOpen
+            },
+          shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
+          color = Color(0xFF0F172A).copy(alpha = 0.94f),
+          border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f)),
+          shadowElevation = 8.dp
+        ) {
+          Box(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Description,
+              contentDescription = "Bandeja lateral de Notas",
+              tint = Color(0xFF38BDF8),
+              modifier = Modifier.size(24.dp)
+            )
+          }
+        }
+      }
+
+      // BANDEJA LATERAL DERECHA: PESTAÑA FLOTANTE AL BORDE PARA AJUSTES (SENTIGS)
+      if (!isSettingsTrayOpen) {
+        Surface(
+          modifier = Modifier
+            .align(Alignment.CenterEnd)
+            .offset(y = (-40).dp)
+            .testTag("lateral_settings_trigger_tab")
+            .clickable {
+              val willOpen = !isSettingsTrayOpen
+              isLocalNotesTrayOpen = false
+              isProficiencyLevelsTrayOpen = false
+              isSettingsTrayOpen = willOpen
+            },
+          shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+          color = Color(0xFF0F172A).copy(alpha = 0.94f),
+          border = BorderStroke(1.dp, Color(0xFF94A3B8).copy(alpha = 0.45f)),
+          shadowElevation = 8.dp
+        ) {
+          Box(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              imageVector = Icons.Outlined.Settings,
+              contentDescription = "Bandeja lateral de Ajustes",
+              tint = Color(0xFFE2E8F0),
+              modifier = Modifier.size(24.dp)
+            )
+          }
+        }
+      }
+
+      // BANDEJA FLOTANTE INFERIOR COMPLETA (ocupa todo el ancho y fondo de la pantalla)
+      // Contiene:
+      // 1. Bandeja EN ⇄ ES Escribe en inglés... + Caja de velocidad separada
+      // 2. Lienzo de pruebas (Scratchpad)
+      Surface(
         modifier = Modifier
           .fillMaxWidth()
           .align(Alignment.BottomCenter)
-          .navigationBarsPadding()
-          .padding(bottom = 12.dp, start = 6.dp, end = 6.dp),
-        contentAlignment = Alignment.Center
+          .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+          .testTag("full_bottom_floating_dock"),
+        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        color = Color(0xFF0A0F18).copy(alpha = 0.96f),
+        shadowElevation = 16.dp
       ) {
-        val pillScrollState = rememberScrollState()
-        Surface(
+        Column(
           modifier = Modifier
-            .wrapContentWidth()
-            .testTag("giant_bottom_pill"),
-          shape = CircleShape,
-          color = Color(0xFF101923).copy(alpha = 0.95f),
-          border = BorderStroke(1.2.dp, Color(0xFF334155)),
-          shadowElevation = 8.dp
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 6.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
+          horizontalAlignment = Alignment.CenterHorizontally
         ) {
-          Row(
+          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS
+          Box(
             modifier = Modifier
-              .horizontalScroll(pillScrollState)
-              .padding(horizontal = 6.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 1.dp)
           ) {
-            // 1. Copas (🏆 Logros y Niveles de Vocabulario)
-            TrophyFloatingActionButton(
-              count = usedWordsCount,
-              celebrationTrigger = celebrationTrigger,
-              onClick = {
-                val willOpen = !isProficiencyLevelsTrayOpen
-                isYouTubeTrayOpen = false
-                isLocalNotesTrayOpen = false
-                isSavedPhrasesTrayOpen = false
-                isWallpaperTrayOpen = false
-                isSettingsTrayOpen = false
-                isProficiencyLevelsTrayOpen = willOpen
-              }
-            )
-
-            // 2. Ajustador de Velocidad TTS (Velocímetro interactivo)
-            SpeedFloatingActionButton(
-              currentSpeed = currentSpeechSpeed,
-              onClick = { viewModel.onToggleSpeed() }
-            )
-
-            // 3. Notas Locales (Celeste)
-            LocalNotesFloatingActionButton(
-              isOpen = isLocalNotesTrayOpen,
-              onClick = {
-                val willOpen = !isLocalNotesTrayOpen
-                isYouTubeTrayOpen = false
-                isSavedPhrasesTrayOpen = false
-                isWallpaperTrayOpen = false
-                isSettingsTrayOpen = false
-                isProficiencyLevelsTrayOpen = false
-                isLocalNotesTrayOpen = willOpen
-              }
-            )
-
-            // 4. YouTube Web (En el medio exacto de la pastilla flotante)
-            YouTubeFloatingActionButton(
-              isOpen = isYouTubeTrayOpen,
-              onClick = {
-                val willOpen = !isYouTubeTrayOpen
-                isLocalNotesTrayOpen = false
-                isSavedPhrasesTrayOpen = false
-                isWallpaperTrayOpen = false
-                isSettingsTrayOpen = false
-                isProficiencyLevelsTrayOpen = false
-                isYouTubeTrayOpen = willOpen
-              }
-            )
-
-            // 5. Frases Guardadas (Celeste)
-            SavedPhrasesFloatingActionButton(
-              isOpen = isSavedPhrasesTrayOpen,
-              onClick = {
-                val willOpen = !isSavedPhrasesTrayOpen
-                isYouTubeTrayOpen = false
-                isLocalNotesTrayOpen = false
-                isWallpaperTrayOpen = false
-                isSettingsTrayOpen = false
-                isProficiencyLevelsTrayOpen = false
-                isSavedPhrasesTrayOpen = willOpen
-              }
-            )
-
-            // 5. Fondo de Pantallas
-            WallpaperFloatingActionButton(
-              isOpen = isWallpaperTrayOpen,
-              onClick = {
-                val willOpen = !isWallpaperTrayOpen
-                isYouTubeTrayOpen = false
-                isLocalNotesTrayOpen = false
-                isSavedPhrasesTrayOpen = false
-                isSettingsTrayOpen = false
-                isProficiencyLevelsTrayOpen = false
-                isWallpaperTrayOpen = willOpen
-              }
-            )
-
-            // 6. Ajustes de la App
-            SettingsFloatingActionButton(
-              isOpen = isSettingsTrayOpen,
-              onClick = {
-                val willOpen = !isSettingsTrayOpen
-                isYouTubeTrayOpen = false
-                isLocalNotesTrayOpen = false
-                isSavedPhrasesTrayOpen = false
-                isWallpaperTrayOpen = false
-                isProficiencyLevelsTrayOpen = false
-                isSettingsTrayOpen = willOpen
+            SpanishToEnglishWriterCard(
+              modifier = Modifier.fillMaxWidth(),
+              spanishText = spanishInputText,
+              onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
+              onTranslateNow = { viewModel.translateSpanishNow() },
+              onClear = { viewModel.clearSpanishTranslator() },
+              translationState = spanishTranslationState,
+              onSpeakEnglish = { viewModel.speakWord(it) },
+              onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+              isSpanishToEnglish = isSpanishToEnglish,
+              onSwapLanguages = { viewModel.swapTranslationDirection() },
+              onClose = null,
+              onWordClick = { word ->
+                if (jumpRankInput.isNotEmpty()) {
+                  jumpRankInput = ""
+                }
+                viewModel.clearSyntaxFilter()
+                viewModel.updateSearchQuery(word)
+                viewModel.recordWordUsage(word)
+                coroutineScope.launch {
+                  listState.scrollToItem(0)
+                }
               }
             )
           }
+
+          // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
+          DraftScratchpadHeader(
+            draftWords = draftWords,
+            canUndoDraft = canUndoDraft,
+            canRedoDraft = canRedoDraft,
+            onUndo = { viewModel.undoDraft() },
+            onRedo = { viewModel.redoDraft() },
+            isPhraseUpdated = isPhraseUpdated,
+            isTranslationTrayExpanded = isTranslationTrayExpanded,
+            translationState = translationState,
+            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
+            onTranslate = { viewModel.toggleTranslationTray() },
+            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+            onMoveRight = { index -> viewModel.moveWordRight(index) },
+            onPlayPhrase = { viewModel.playFullDraftPhrase() },
+            onClearDraft = { viewModel.clearDraft() },
+            onSavePhrase = {
+              if (draftWords.isNotEmpty()) {
+                val savedStorage = SavedPhrasesStorage(context)
+                val phraseText = draftWords.joinToString(" ") { it.lemma }
+                val wordsList = draftWords.map { it.lemma }
+                val translation = (translationState as? TranslationState.Success)?.translation
+                  ?.takeIf { it.isNotBlank() }
+                  ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
+                val newSavedPhrase = SavedDraftPhrase(
+                  id = java.util.UUID.randomUUID().toString(),
+                  phraseText = phraseText,
+                  words = wordsList,
+                  spanishTranslation = translation,
+                  createdAt = System.currentTimeMillis()
+                )
+                savedStorage.addSavedPhrase(newSavedPhrase)
+                Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
+
+                // Actualiza la copia de seguridad local automática con las frases guardadas
+                val allWords = viewModel.words.value
+                val vocabCounts = allWords.associate { it.lemma to it.useCount }
+                val customWords = allWords.filter { it.rank > 2811 }.map { w ->
+                  CustomWordRecord(
+                    rank = w.rank,
+                    word = w.lemma,
+                    partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+                    spanishTranslation = w.spanishTranslation,
+                    microExample = w.microExample,
+                    useCount = w.useCount
+                  )
+                }
+                val currentNotes = LocalNotesStorage(context).loadNotes()
+                val allSavedPhrases = savedStorage.loadSavedPhrases()
+                AutoBackupManager.saveFullBackup(
+                  context = context,
+                  vocabularyWordCounts = vocabCounts,
+                  allWordsDetails = allWords,
+                  customWords = customWords,
+                  usedWordsCount = usedWordsCount,
+                  notes = currentNotes,
+                  alphabetCounts = alphabetCounts,
+                  numberCounts = numberCounts,
+                  phraseCounts = phraseCounts,
+                  savedDraftPhrases = allSavedPhrases,
+                  wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
+                  wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
+                )
+              }
+            },
+            onSpeakWord = { word -> viewModel.speakWord(word) }
+          )
         }
       }
     }
@@ -2075,12 +2284,12 @@ private fun ToolIconButton(
 @Composable
 fun EverydayPhrasesSection(
   phraseCounts: Map<Int, Int> = emptyMap(),
+  searchQuery: String = "",
   onSpeakPhrase: (EverydayPhrase) -> Unit,
   onAddPhraseToCanvas: (EverydayPhrase) -> Unit,
   onSendToTranslator: ((EverydayPhrase) -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
-  var phraseSearchQuery by rememberSaveable { mutableStateOf("") }
   var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
 
   val allPhrases = remember { EverydayPhrasesCatalog.phrases }
@@ -2088,12 +2297,18 @@ fun EverydayPhrasesSection(
     listOf("Todas") + allPhrases.map { it.category }.distinct()
   }
 
-  val filteredPhrases = remember(phraseSearchQuery, selectedCategory, allPhrases) {
+  val filteredPhrases = remember(selectedCategory, searchQuery, allPhrases) {
     allPhrases.filter { phrase ->
       val matchesCategory = selectedCategory == null || selectedCategory == "Todas" || phrase.category == selectedCategory
-      val matchesQuery = phraseSearchQuery.isBlank() ||
-        phrase.spanishText.contains(phraseSearchQuery, ignoreCase = true) ||
-        phrase.englishHint.contains(phraseSearchQuery, ignoreCase = true)
+      val matchesQuery = if (searchQuery.isBlank()) {
+        true
+      } else {
+        val q = searchQuery.trim().lowercase()
+        phrase.spanishText.lowercase().contains(q) ||
+        phrase.englishHint.lowercase().contains(q) ||
+        phrase.category.lowercase().contains(q) ||
+        phrase.id.toString() == q
+      }
       matchesCategory && matchesQuery
     }
   }
@@ -2103,79 +2318,11 @@ fun EverydayPhrasesSection(
       .fillMaxWidth()
       .testTag("everyday_phrases_section")
   ) {
-    // 1. Buscador rápido de frases cotidianas agrandado
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 4.dp),
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      BasicTextField(
-        value = phraseSearchQuery,
-        onValueChange = { phraseSearchQuery = it },
-        singleLine = true,
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-          color = Color.White,
-          fontSize = 14.sp
-        ),
-        cursorBrush = SolidColor(Color.White),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("search_phrases_input"),
-        decorationBox = { innerTextField ->
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(48.dp)
-              .background(Color(0xFF1E293B).copy(alpha = 0.5f), shape = RoundedCornerShape(12.dp))
-              .border(1.dp, Color(0xFF334155).copy(alpha = 0.7f), shape = RoundedCornerShape(12.dp))
-              .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Icon(
-              imageVector = Icons.Default.Search,
-              contentDescription = "Buscar",
-              tint = Color(0xFF38BDF8),
-              modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Box(
-              modifier = Modifier.weight(1f),
-              contentAlignment = Alignment.CenterStart
-            ) {
-              if (phraseSearchQuery.isEmpty()) {
-                Text(
-                  text = "Buscar",
-                  style = MaterialTheme.typography.bodyMedium,
-                  color = Color(0xFF64748B),
-                  fontSize = 13.5.sp
-                )
-              }
-              innerTextField()
-            }
-            if (phraseSearchQuery.isNotEmpty()) {
-              IconButton(
-                onClick = { phraseSearchQuery = "" },
-                modifier = Modifier.size(28.dp)
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Close,
-                  contentDescription = "Limpiar búsqueda de frases",
-                  tint = Color(0xFF94A3B8),
-                  modifier = Modifier.size(16.dp)
-                )
-              }
-            }
-          }
-        }
-      )
-    }
-
-    // 2. Chips de categorías (sin contadores y sin etiqueta de usos)
+    // 1. Chips de categorías (sin contadores y sin etiqueta de usos)
     LazyRow(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 12.dp, vertical = 2.dp),
+        .padding(horizontal = 12.dp, vertical = 4.dp),
       horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
       items(categories.size) { index ->
@@ -2199,13 +2346,13 @@ fun EverydayPhrasesSection(
       }
     }
 
-    // 3. Lista de las 50 frases sin caja, textos libres (idéntico al abecedario y números)
+    // 2. Lista de las 50 frases sin caja, textos libres (idéntico al abecedario y números)
     LazyColumn(
       modifier = Modifier
         .fillMaxWidth()
         .weight(1f)
         .testTag("everyday_phrases_list"),
-      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 80.dp),
+      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 260.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
       itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { index, phrase ->
@@ -3637,22 +3784,6 @@ private fun DraftScratchpadHeader(
                 modifier = Modifier.size(19.dp)
               )
             }
-          }
-
-          // Botón Guardar frase armada en bandeja lateral (solo icono, sin texto)
-          IconButton(
-            onClick = onSavePhrase,
-            enabled = draftWords.isNotEmpty(),
-            modifier = Modifier
-              .size(30.dp)
-              .testTag("btn_save_draft_phrase")
-          ) {
-            Icon(
-              imageVector = Icons.Default.Bookmark,
-              contentDescription = "Guardar frase en bandeja lateral",
-              tint = if (draftWords.isNotEmpty()) Color(0xFFFBBF24) else Color(0xFF475569),
-              modifier = Modifier.size(19.dp)
-            )
           }
 
           IconButton(
