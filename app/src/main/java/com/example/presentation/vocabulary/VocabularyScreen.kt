@@ -35,6 +35,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -56,6 +58,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -116,9 +119,6 @@ import com.example.presentation.youtube.RawYouTubeTray
 import com.example.presentation.youtube.FloatingYouTubeTray
 import com.example.presentation.gemini.FloatingGeminiWebTray
 import com.example.presentation.translate.FloatingGoogleTranslateWebTray
-import com.example.presentation.roadmap.FloatingRoadmap8MonthsTray
-import com.example.presentation.roadmap.MinimalistDrawing
-import com.example.presentation.schedule.FloatingDailyScheduleTray
 import com.example.presentation.notes.FloatingLocalNotesTray
 import com.example.presentation.alphabet.AlphabetListSection
 import com.example.presentation.numbers.NumbersSection
@@ -137,7 +137,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Speed
@@ -221,6 +220,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import com.example.R
 import com.example.domain.model.PartOfSpeech
 import com.example.domain.model.Word
@@ -315,7 +315,6 @@ fun VocabularyScreen(
   val numberCounts by viewModel.numberCounts.collectAsStateWithLifecycle()
   val phraseCounts by viewModel.phraseCounts.collectAsStateWithLifecycle()
   val haptic = LocalHapticFeedback.current
-  var isSpanishTranslatorCardVisible by rememberSaveable { mutableStateOf(false) }
   var isCloudSaving by remember { mutableStateOf(false) }
   var backupStatusMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -404,8 +403,6 @@ fun VocabularyScreen(
   var isYouTubeTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGeminiWebTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isGoogleTranslateWebTrayOpen by rememberSaveable { mutableStateOf(false) }
-  var isRoadmap8MonthsTrayOpen by rememberSaveable { mutableStateOf(false) }
-  var isDailyScheduleTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isLocalNotesTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isSettingsTrayOpen by rememberSaveable { mutableStateOf(false) }
   var isProficiencyLevelsTrayOpen by rememberSaveable { mutableStateOf(false) }
@@ -720,135 +717,102 @@ fun VocabularyScreen(
             .padding(top = 8.dp, bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-          // Espacio superior encima de todo: "English" centrado con selector de velocidad a la izquierda y trofeo de logros a la derecha
-          AnimatedEnglishHeader(
-            usedWordsCount = usedWordsCount,
-            celebrationTrigger = celebrationTrigger,
-            currentSpeed = currentSpeechSpeed,
-            onToggleSpeed = { viewModel.onToggleSpeed() },
-            onOpenDrawer = { },
-            onOpenProficiencyLevels = {
-              isProficiencyLevelsTrayOpen = true
+
+
+          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - SIEMPRE VISIBLE
+          SpanishToEnglishWriterCard(
+            spanishText = spanishInputText,
+            onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
+            onTranslateNow = { viewModel.translateSpanishNow() },
+            onClear = { viewModel.clearSpanishTranslator() },
+            translationState = spanishTranslationState,
+            onSpeakEnglish = { viewModel.speakWord(it) },
+            onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+            isSpanishToEnglish = isSpanishToEnglish,
+            onSwapLanguages = { viewModel.swapTranslationDirection() },
+            onClose = null,
+            onWordClick = { word ->
+              if (jumpRankInput.isNotEmpty()) {
+                jumpRankInput = ""
+              }
+              viewModel.clearSyntaxFilter()
+              viewModel.updateSearchQuery(word)
+              viewModel.recordWordUsage(word)
+              coroutineScope.launch {
+                listState.scrollToItem(0)
+              }
             }
           )
 
-          // BARRA HORIZONTAL FLOTANTE DE HERRAMIENTAS: 7 ICONOS CON SUS FUNCIONES INTACTAS, SIN TEXTO, FLOTANDO ENTRE EL TÍTULO Y EL LIENZO DE PRUEBAS
-          FloatingToolsHorizontalBar(
-            onOpenRoadmap8Months = { isRoadmap8MonthsTrayOpen = true },
-            onOpenSchedule = { isDailyScheduleTrayOpen = true },
-            onOpenSettings = { isSettingsTrayOpen = true },
-            onOpenWallpaper = { isWallpaperTrayOpen = true },
-            onOpenNotes = { isLocalNotesTrayOpen = true },
-            onToggleTranslator = { isSpanishTranslatorCardVisible = !isSpanishTranslatorCardVisible },
-            onOpenSavedPhrases = { isSavedPhrasesTrayOpen = true }
-          )
-
-          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS - OCULTO POR DEFECTO, VISIBLE AL TOCAR EL BOTÓN TRASLATE DE ARRIBA
-          AnimatedVisibility(
-            visible = isSpanishTranslatorCardVisible,
-            enter = expandVertically(animationSpec = tween(280)) + fadeIn(animationSpec = tween(220)),
-            exit = shrinkVertically(animationSpec = tween(280)) + fadeOut(animationSpec = tween(220))
-          ) {
-            SpanishToEnglishWriterCard(
-              spanishText = spanishInputText,
-              onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
-              onTranslateNow = { viewModel.translateSpanishNow() },
-              onClear = { viewModel.clearSpanishTranslator() },
-              translationState = spanishTranslationState,
-              onSpeakEnglish = { viewModel.speakWord(it) },
-              onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
-              isSpanishToEnglish = isSpanishToEnglish,
-              onSwapLanguages = { viewModel.swapTranslationDirection() },
-              onClose = { isSpanishTranslatorCardVisible = false },
-              onWordClick = { word ->
-                if (jumpRankInput.isNotEmpty()) {
-                  jumpRankInput = ""
-                }
-                viewModel.clearSyntaxFilter()
-                viewModel.updateSearchQuery(word)
-                viewModel.recordWordUsage(word)
-                coroutineScope.launch {
-                  listState.scrollToItem(0)
-                }
-              }
-            )
-          }
-
           // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-          // Se muestra y abre cuando hay palabras añadidas al lienzo o cuando se puede retroceder
-          AnimatedVisibility(
-            visible = draftWords.isNotEmpty() || canUndoDraft,
-            enter = expandVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(220)),
-            exit = shrinkVertically(animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(animationSpec = tween(220))
-          ) {
-            DraftScratchpadHeader(
-              draftWords = draftWords,
-              canUndoDraft = canUndoDraft,
-              canRedoDraft = canRedoDraft,
-              onUndo = { viewModel.undoDraft() },
-              onRedo = { viewModel.redoDraft() },
-              isPhraseUpdated = isPhraseUpdated,
-              isTranslationTrayExpanded = isTranslationTrayExpanded,
-              translationState = translationState,
-              onToggleTranslationTray = { viewModel.toggleTranslationTray() },
-              onTranslate = { viewModel.toggleTranslationTray() },
-              onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
-              onMoveLeft = { index -> viewModel.moveWordLeft(index) },
-              onMoveRight = { index -> viewModel.moveWordRight(index) },
-              onPlayPhrase = { viewModel.playFullDraftPhrase() },
-              onClearDraft = { viewModel.clearDraft() },
-              onSavePhrase = {
-                if (draftWords.isNotEmpty()) {
-                  val savedStorage = SavedPhrasesStorage(context)
-                  val phraseText = draftWords.joinToString(" ") { it.lemma }
-                  val wordsList = draftWords.map { it.lemma }
-                  val translation = (translationState as? TranslationState.Success)?.translation
-                    ?.takeIf { it.isNotBlank() }
-                    ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
-                  val newSavedPhrase = SavedDraftPhrase(
-                    id = java.util.UUID.randomUUID().toString(),
-                    phraseText = phraseText,
-                    words = wordsList,
-                    spanishTranslation = translation,
-                    createdAt = System.currentTimeMillis()
-                  )
-                  savedStorage.addSavedPhrase(newSavedPhrase)
-                  Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
+          // Siempre visible y disponible arriba permanentemente
+          DraftScratchpadHeader(
+            draftWords = draftWords,
+            canUndoDraft = canUndoDraft,
+            canRedoDraft = canRedoDraft,
+            onUndo = { viewModel.undoDraft() },
+            onRedo = { viewModel.redoDraft() },
+            isPhraseUpdated = isPhraseUpdated,
+            isTranslationTrayExpanded = isTranslationTrayExpanded,
+            translationState = translationState,
+            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
+            onTranslate = { viewModel.toggleTranslationTray() },
+            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+            onMoveRight = { index -> viewModel.moveWordRight(index) },
+            onPlayPhrase = { viewModel.playFullDraftPhrase() },
+            onClearDraft = { viewModel.clearDraft() },
+            onSavePhrase = {
+              if (draftWords.isNotEmpty()) {
+                val savedStorage = SavedPhrasesStorage(context)
+                val phraseText = draftWords.joinToString(" ") { it.lemma }
+                val wordsList = draftWords.map { it.lemma }
+                val translation = (translationState as? TranslationState.Success)?.translation
+                  ?.takeIf { it.isNotBlank() }
+                  ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
+                val newSavedPhrase = SavedDraftPhrase(
+                  id = java.util.UUID.randomUUID().toString(),
+                  phraseText = phraseText,
+                  words = wordsList,
+                  spanishTranslation = translation,
+                  createdAt = System.currentTimeMillis()
+                )
+                savedStorage.addSavedPhrase(newSavedPhrase)
+                Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
 
-                  // Actualiza la copia de seguridad local automática con las frases guardadas
-                  val allWords = viewModel.words.value
-                  val vocabCounts = allWords.associate { it.lemma to it.useCount }
-                  val customWords = allWords.filter { it.rank > 2811 }.map { w ->
-                    CustomWordRecord(
-                      rank = w.rank,
-                      word = w.lemma,
-                      partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
-                      spanishTranslation = w.spanishTranslation,
-                      microExample = w.microExample,
-                      useCount = w.useCount
-                    )
-                  }
-                  val currentNotes = LocalNotesStorage(context).loadNotes()
-                  val allSavedPhrases = savedStorage.loadSavedPhrases()
-                  AutoBackupManager.saveFullBackup(
-                    context = context,
-                    vocabularyWordCounts = vocabCounts,
-                    allWordsDetails = allWords,
-                    customWords = customWords,
-                    usedWordsCount = usedWordsCount,
-                    notes = currentNotes,
-                    alphabetCounts = alphabetCounts,
-                    numberCounts = numberCounts,
-                    phraseCounts = phraseCounts,
-                    savedDraftPhrases = allSavedPhrases,
-                    wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
-                    wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
+                // Actualiza la copia de seguridad local automática con las frases guardadas
+                val allWords = viewModel.words.value
+                val vocabCounts = allWords.associate { it.lemma to it.useCount }
+                val customWords = allWords.filter { it.rank > 2811 }.map { w ->
+                  CustomWordRecord(
+                    rank = w.rank,
+                    word = w.lemma,
+                    partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+                    spanishTranslation = w.spanishTranslation,
+                    microExample = w.microExample,
+                    useCount = w.useCount
                   )
                 }
-              },
-              onSpeakWord = { word -> viewModel.speakWord(word) }
-            )
-          }
+                val currentNotes = LocalNotesStorage(context).loadNotes()
+                val allSavedPhrases = savedStorage.loadSavedPhrases()
+                AutoBackupManager.saveFullBackup(
+                  context = context,
+                  vocabularyWordCounts = vocabCounts,
+                  allWordsDetails = allWords,
+                  customWords = customWords,
+                  usedWordsCount = usedWordsCount,
+                  notes = currentNotes,
+                  alphabetCounts = alphabetCounts,
+                  numberCounts = numberCounts,
+                  phraseCounts = phraseCounts,
+                  savedDraftPhrases = allSavedPhrases,
+                  wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
+                  wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
+                )
+              }
+            },
+            onSpeakWord = { word -> viewModel.speakWord(word) }
+          )
 
           // SELECTOR EN MEDIO DEL LIENZO DE PRUEBAS Y EL BUSCADOR DE VOCABULARIO:
           // Botones de solo texto con su rayita baja que lo señala (Vocabulario, Abecedario en el medio, Frases)
@@ -1255,27 +1219,10 @@ fun VocabularyScreen(
         }
     }
 
-    // BANDEJA FLOTANTE DE YOUTUBE: Vive activada desde el botón flotante inferior
-    // Permanece en el árbol de composición para no perder NUNCA el estado web ni el audio (anti-reseteo)
+      // BANDEJA FLOTANTE DE YOUTUBE WEB (Flotando sobre la pantalla)
       FloatingYouTubeTray(
         isOpen = isYouTubeTrayOpen,
         onClose = { isYouTubeTrayOpen = false }
-      )
-      FloatingGeminiWebTray(
-        isOpen = isGeminiWebTrayOpen,
-        onClose = { isGeminiWebTrayOpen = false }
-      )
-      FloatingGoogleTranslateWebTray(
-        isOpen = isGoogleTranslateWebTrayOpen,
-        onClose = { isGoogleTranslateWebTrayOpen = false }
-      )
-      FloatingRoadmap8MonthsTray(
-        isOpen = isRoadmap8MonthsTrayOpen,
-        onClose = { isRoadmap8MonthsTrayOpen = false }
-      )
-      FloatingDailyScheduleTray(
-        isOpen = isDailyScheduleTrayOpen,
-        onClose = { isDailyScheduleTrayOpen = false }
       )
       FloatingLocalNotesTray(
         isOpen = isLocalNotesTrayOpen,
@@ -1373,63 +1320,121 @@ fun VocabularyScreen(
         }
       )
 
-      // BANDEJA EN PASTILLA FLOTANTE (Solo la pastilla flotante y sus 3 botones: Gemini, YouTube, Traductor)
+      // BANDEJA EN PASTILLA FLOTANTE: 6 botones (Copas, Velocidad, Notas en Celeste, Guardado en Celeste, Fondos, Ajustes)
       // Flotando limpiamente sobre el contenido sin ninguna tabla ni barra de fondo
       Box(
         modifier = Modifier
           .fillMaxWidth()
           .align(Alignment.BottomCenter)
           .navigationBarsPadding()
-          .padding(bottom = 12.dp),
+          .padding(bottom = 12.dp, start = 6.dp, end = 6.dp),
         contentAlignment = Alignment.Center
       ) {
+        val pillScrollState = rememberScrollState()
         Surface(
           modifier = Modifier
-            .width(175.dp)
+            .wrapContentWidth()
             .testTag("giant_bottom_pill"),
           shape = CircleShape,
-          color = Color(0xFF101923),
+          color = Color(0xFF101923).copy(alpha = 0.95f),
           border = BorderStroke(1.2.dp, Color(0xFF334155)),
           shadowElevation = 8.dp
         ) {
           Row(
             modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+              .horizontalScroll(pillScrollState)
+              .padding(horizontal = 6.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
           ) {
-            // 1. Gemini Web
-            GeminiWebFloatingActionButton(
-              isOpen = isGeminiWebTrayOpen,
+            // 1. Copas (🏆 Logros y Niveles de Vocabulario)
+            TrophyFloatingActionButton(
+              count = usedWordsCount,
+              celebrationTrigger = celebrationTrigger,
               onClick = {
-                isGeminiWebTrayOpen = !isGeminiWebTrayOpen
-                if (isGeminiWebTrayOpen) {
-                  isYouTubeTrayOpen = false
-                  isGoogleTranslateWebTrayOpen = false
-                }
+                val willOpen = !isProficiencyLevelsTrayOpen
+                isYouTubeTrayOpen = false
+                isLocalNotesTrayOpen = false
+                isSavedPhrasesTrayOpen = false
+                isWallpaperTrayOpen = false
+                isSettingsTrayOpen = false
+                isProficiencyLevelsTrayOpen = willOpen
               }
             )
-            // 2. YouTube Web
+
+            // 2. Ajustador de Velocidad TTS (Velocímetro interactivo)
+            SpeedFloatingActionButton(
+              currentSpeed = currentSpeechSpeed,
+              onClick = { viewModel.onToggleSpeed() }
+            )
+
+            // 3. Notas Locales (Celeste)
+            LocalNotesFloatingActionButton(
+              isOpen = isLocalNotesTrayOpen,
+              onClick = {
+                val willOpen = !isLocalNotesTrayOpen
+                isYouTubeTrayOpen = false
+                isSavedPhrasesTrayOpen = false
+                isWallpaperTrayOpen = false
+                isSettingsTrayOpen = false
+                isProficiencyLevelsTrayOpen = false
+                isLocalNotesTrayOpen = willOpen
+              }
+            )
+
+            // 4. YouTube Web (En el medio exacto de la pastilla flotante)
             YouTubeFloatingActionButton(
               isOpen = isYouTubeTrayOpen,
               onClick = {
-                isYouTubeTrayOpen = !isYouTubeTrayOpen
-                if (isYouTubeTrayOpen) {
-                  isGeminiWebTrayOpen = false
-                  isGoogleTranslateWebTrayOpen = false
-                }
+                val willOpen = !isYouTubeTrayOpen
+                isLocalNotesTrayOpen = false
+                isSavedPhrasesTrayOpen = false
+                isWallpaperTrayOpen = false
+                isSettingsTrayOpen = false
+                isProficiencyLevelsTrayOpen = false
+                isYouTubeTrayOpen = willOpen
               }
             )
-            // 3. Google Translate Web
-            GoogleTranslateFloatingActionButton(
-              isOpen = isGoogleTranslateWebTrayOpen,
+
+            // 5. Frases Guardadas (Celeste)
+            SavedPhrasesFloatingActionButton(
+              isOpen = isSavedPhrasesTrayOpen,
               onClick = {
-                isGoogleTranslateWebTrayOpen = !isGoogleTranslateWebTrayOpen
-                if (isGoogleTranslateWebTrayOpen) {
-                  isYouTubeTrayOpen = false
-                  isGeminiWebTrayOpen = false
-                }
+                val willOpen = !isSavedPhrasesTrayOpen
+                isYouTubeTrayOpen = false
+                isLocalNotesTrayOpen = false
+                isWallpaperTrayOpen = false
+                isSettingsTrayOpen = false
+                isProficiencyLevelsTrayOpen = false
+                isSavedPhrasesTrayOpen = willOpen
+              }
+            )
+
+            // 5. Fondo de Pantallas
+            WallpaperFloatingActionButton(
+              isOpen = isWallpaperTrayOpen,
+              onClick = {
+                val willOpen = !isWallpaperTrayOpen
+                isYouTubeTrayOpen = false
+                isLocalNotesTrayOpen = false
+                isSavedPhrasesTrayOpen = false
+                isSettingsTrayOpen = false
+                isProficiencyLevelsTrayOpen = false
+                isWallpaperTrayOpen = willOpen
+              }
+            )
+
+            // 6. Ajustes de la App
+            SettingsFloatingActionButton(
+              isOpen = isSettingsTrayOpen,
+              onClick = {
+                val willOpen = !isSettingsTrayOpen
+                isYouTubeTrayOpen = false
+                isLocalNotesTrayOpen = false
+                isSavedPhrasesTrayOpen = false
+                isWallpaperTrayOpen = false
+                isProficiencyLevelsTrayOpen = false
+                isSettingsTrayOpen = willOpen
               }
             )
           }
@@ -1484,33 +1489,18 @@ fun YouTubeFloatingActionButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  Surface(
+  IconButton(
     onClick = onClick,
-    modifier = modifier.testTag("fab_youtube_toggle"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFFFF0000)) else null,
-    shadowElevation = 0.dp
+    modifier = modifier
+      .testTag("fab_youtube_toggle")
+      .size(44.dp)
   ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = Color(0xFFFF0000),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = if (isOpen) "Ocultar YouTube" else "Abrir YouTube",
-            tint = Color.White,
-            modifier = Modifier.size(18.dp)
-          )
-        }
-      }
-    }
+    Icon(
+      imageVector = Icons.Default.PlayArrow,
+      contentDescription = if (isOpen) "Ocultar YouTube" else "Abrir YouTube",
+      tint = if (isOpen) Color(0xFFEF4444) else Color(0xFFFF2222),
+      modifier = Modifier.size(26.dp)
+    )
   }
 }
 
@@ -1602,132 +1592,17 @@ fun GoogleTranslateFloatingActionButton(
   }
 }
 
-/**
- * Botón Flotante Inferior del Traductor Español a Inglés.
- * Abre o pliega la bandeja de traducción interactiva.
- */
-@Composable
-fun SpanishTranslatorFloatingActionButton(
-  isOpen: Boolean,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Surface(
-    onClick = onClick,
-    modifier = modifier.testTag("btn_toggle_spanish_translator_header"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF00E5FF)) else null,
-    shadowElevation = 0.dp
-  ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = if (isOpen) Color(0xFF0891B2) else Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Default.Translate,
-            contentDescription = if (isOpen) "Ocultar Traductor Idioma" else "Abrir Traductor Idioma",
-            tint = if (isOpen) Color.White else Color(0xFF00E5FF),
-            modifier = Modifier
-              .size(18.dp)
-              .testTag("icon_spanish_translator_header")
-          )
-        }
-      }
-    }
-  }
-}
 
-/**
- * Botón Flotante Inferior de Horario de Aprendizaje Diario (Reloj).
- */
-@Composable
-fun DailyScheduleFloatingActionButton(
-  isOpen: Boolean,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Surface(
-    onClick = onClick,
-    modifier = modifier.testTag("btn_open_schedule_tray"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
-    shadowElevation = 0.dp
-  ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            painter = painterResource(R.drawable.ic_radar_sonar),
-            contentDescription = "Horario de aprendizaje",
-            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
-            modifier = Modifier
-              .size(18.dp)
-              .testTag("icon_schedule_clock")
-          )
-        }
-      }
-    }
-  }
-}
 
-/**
- * Botón Flotante Inferior de Meta de 8 Meses (Bandera).
- */
-@Composable
-fun Roadmap8MonthsFloatingActionButton(
-  isOpen: Boolean,
-  onClick: () -> Unit,
-  modifier: Modifier = Modifier
-) {
-  Surface(
-    onClick = onClick,
-    modifier = modifier.testTag("btn_open_roadmap_8months"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
-    shadowElevation = 0.dp
-  ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Outlined.Flag,
-            contentDescription = "Meta de 8 meses",
-            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
-            modifier = Modifier
-              .size(18.dp)
-              .testTag("icon_roadmap_flag")
-          )
-        }
-      }
-    }
-  }
-}
+
 
 /**
  * Botón Flotante Inferior de Notas Locales (Hoja).
+ * Diseñado en tono Celeste / Sky Blue para integrarse con la barra flotante.
+ */
+/**
+ * Botón Flotante Inferior de Notas Locales (Hoja).
+ * Diseñado en tono Celeste / Sky Blue, sin círculos, como icono limpio e interactivo.
  */
 @Composable
 fun LocalNotesFloatingActionButton(
@@ -1735,38 +1610,48 @@ fun LocalNotesFloatingActionButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  Surface(
+  IconButton(
     onClick = onClick,
-    modifier = modifier.testTag("btn_open_local_notes"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
-    shadowElevation = 0.dp
+    modifier = modifier
+      .testTag("btn_open_local_notes")
+      .size(44.dp)
   ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Outlined.Description,
-            contentDescription = "Notas locales",
-            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
-            modifier = Modifier.size(18.dp)
-          )
-        }
-      }
-    }
+    Icon(
+      imageVector = Icons.Outlined.Description,
+      contentDescription = "Notas locales",
+      tint = if (isOpen) Color(0xFF38BDF8) else Color(0xFF7DD3FC),
+      modifier = Modifier.size(24.dp)
+    )
   }
 }
 
 /**
- * Botón Flotante Inferior de Ajustes y Copia de Seguridad (Engranaje).
+ * Botón Flotante Inferior de Guardado (Frases Guardadas / Marcadores).
+ * Diseñado en tono Celeste / Cian brillante, sin círculos.
+ */
+@Composable
+fun SavedPhrasesFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  IconButton(
+    onClick = onClick,
+    modifier = modifier
+      .testTag("drawer_item_saved_phrases")
+      .size(44.dp)
+  ) {
+    Icon(
+      imageVector = Icons.Default.Bookmarks,
+      contentDescription = "Frases guardadas",
+      tint = if (isOpen) Color(0xFF22D3EE) else Color(0xFF67E8F9),
+      modifier = Modifier.size(24.dp)
+    )
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Ajustes y Copia de Seguridad (Engranaje), sin círculos.
  */
 @Composable
 fun SettingsFloatingActionButton(
@@ -1774,32 +1659,97 @@ fun SettingsFloatingActionButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  Surface(
+  IconButton(
     onClick = onClick,
-    modifier = modifier.testTag("btn_settings_gear"),
-    shape = CircleShape,
-    color = if (isOpen) Color(0xFF1E293B) else Color.Transparent,
-    border = if (isOpen) BorderStroke(1.5.dp, Color(0xFF38BDF8)) else null,
-    shadowElevation = 0.dp
+    modifier = modifier
+      .testTag("drawer_item_settings")
+      .size(44.dp)
   ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
+    Icon(
+      imageVector = Icons.Outlined.Settings,
+      contentDescription = "Ajustes de la app",
+      tint = if (isOpen) Color.White else Color(0xFF94A3B8),
+      modifier = Modifier.size(24.dp)
+    )
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Fondos de Pantalla, sin círculos.
+ */
+@Composable
+fun WallpaperFloatingActionButton(
+  isOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  IconButton(
+    onClick = onClick,
+    modifier = modifier
+      .testTag("drawer_item_wallpaper")
+      .size(44.dp)
+  ) {
+    Icon(
+      imageVector = Icons.Default.Wallpaper,
+      contentDescription = "Fondos de pantalla",
+      tint = if (isOpen) Color(0xFFF472B6) else Color(0xFFE879F9),
+      modifier = Modifier.size(24.dp)
+    )
+  }
+}
+
+/**
+ * Botón Flotante Inferior de Copas / Logros de Aprendizaje, sin círculo contenedor.
+ */
+@Composable
+fun TrophyFloatingActionButton(
+  count: Int,
+  celebrationTrigger: Long,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier
+) {
+  val scaleAnim = remember { Animatable(1.0f) }
+  var lastHandledTrigger by remember { mutableLongStateOf(0L) }
+  LaunchedEffect(celebrationTrigger) {
+    if (celebrationTrigger > 0L && celebrationTrigger != lastHandledTrigger) {
+      lastHandledTrigger = celebrationTrigger
+      scaleAnim.animateTo(1.25f, tween(150))
+      scaleAnim.animateTo(1.0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    }
+  }
+
+  Box(
+    modifier = modifier
+      .testTag("header_trophy_achievement_badge")
+      .size(44.dp)
+      .clickable(onClick = onClick),
+    contentAlignment = Alignment.Center
+  ) {
+    Row(
+      modifier = Modifier
+        .testTag("counter_used_words_badge")
+        .graphicsLayer {
+          scaleX = scaleAnim.value
+          scaleY = scaleAnim.value
+        },
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      Surface(
-        shape = CircleShape,
-        color = if (isOpen) Color(0xFF0284C7) else Color(0xFF1E293B),
-        modifier = Modifier.size(30.dp)
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            imageVector = Icons.Outlined.Settings,
-            contentDescription = "Ajustes de la app",
-            tint = if (isOpen) Color.White else Color(0xFF38BDF8),
-            modifier = Modifier.size(18.dp)
-          )
-        }
-      }
+      Text(
+        text = "$count",
+        style = MaterialTheme.typography.labelSmall.copy(
+          fontWeight = FontWeight.ExtraBold,
+          fontSize = 11.sp,
+          color = Color(0xFFFDE047)
+        ),
+        modifier = Modifier.testTag("text_used_words_count")
+      )
+      Spacer(modifier = Modifier.width(2.dp))
+      Text(
+        text = "🏆",
+        fontSize = 12.sp,
+        modifier = Modifier.testTag("icon_trophy")
+      )
     }
   }
 }
@@ -1819,8 +1769,6 @@ fun AnimatedEnglishHeader(
   onToggleSpeed: () -> Unit = {},
   onOpenDrawer: () -> Unit = {},
   onOpenProficiencyLevels: () -> Unit = {},
-  onOpenRoadmap8Months: () -> Unit = {},
-  onOpenDailySchedule: () -> Unit = {},
   onOpenLocalNotes: () -> Unit = {},
   onOpenSettings: () -> Unit = {},
   isSpanishTranslatorVisible: Boolean = false,
@@ -2025,22 +1973,15 @@ fun PremiumTrophyBadge(
 }
 
 /**
- * Barra horizontal flotante de herramientas: 7 logos/iconos con sus funciones intactas
- * sin textos, flotando elegantemente entre el título ("English") y el lienzo de pruebas.
+ * Barra horizontal flotante de herramientas: Ajustes y Fondos
+ * sin textos, flotando elegantemente entre el título ("English") y la barra de traducción.
  */
 @Composable
 fun FloatingToolsHorizontalBar(
-  onOpenRoadmap8Months: () -> Unit,
-  onOpenSchedule: () -> Unit,
   onOpenSettings: () -> Unit,
   onOpenWallpaper: () -> Unit,
-  onOpenNotes: () -> Unit,
-  onToggleTranslator: () -> Unit,
-  onOpenSavedPhrases: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val scrollState = rememberScrollState()
-
   Box(
     modifier = modifier
       .fillMaxWidth()
@@ -2049,31 +1990,12 @@ fun FloatingToolsHorizontalBar(
   ) {
     Row(
       modifier = Modifier
-        .horizontalScroll(scrollState)
         .padding(horizontal = 4.dp, vertical = 2.dp)
         .testTag("floating_horizontal_tools_bar"),
-      horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+      horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
       verticalAlignment = Alignment.CenterVertically
     ) {
-      // 1. Meta 8 Meses
-      ToolIconButton(
-        icon = Icons.Outlined.Flag,
-        iconTint = Color(0xFF38BDF8),
-        contentDescription = "Meta 8 Meses",
-        testTag = "drawer_item_roadmap_8months",
-        onClick = onOpenRoadmap8Months
-      )
-
-      // 2. Horario (Logo radar/sonar anaranjado)
-      ToolIconButton(
-        painter = painterResource(R.drawable.ic_radar_sonar),
-        iconTint = Color(0xFFFBBF24),
-        contentDescription = "Horario",
-        testTag = "drawer_item_schedule",
-        onClick = onOpenSchedule
-      )
-
-      // 4. Ajustes
+      // 1. Ajustes
       ToolIconButton(
         icon = Icons.Outlined.Settings,
         iconTint = Color(0xFF94A3B8),
@@ -2082,40 +2004,13 @@ fun FloatingToolsHorizontalBar(
         onClick = onOpenSettings
       )
 
-      // 5. Fondos
+      // 2. Fondos
       ToolIconButton(
         icon = Icons.Default.Wallpaper,
         iconTint = Color(0xFFE879F9),
         contentDescription = "Fondos",
         testTag = "drawer_item_wallpaper",
         onClick = onOpenWallpaper
-      )
-
-      // 6. Notas
-      ToolIconButton(
-        icon = Icons.Outlined.Description,
-        iconTint = Color(0xFFFB923C),
-        contentDescription = "Notas",
-        testTag = "drawer_item_notes",
-        onClick = onOpenNotes
-      )
-
-      // 7. Traductor
-      ToolIconButton(
-        icon = Icons.Default.Translate,
-        iconTint = Color(0xFF00E5FF),
-        contentDescription = "Traductor",
-        testTag = "drawer_item_spanish_translator",
-        onClick = onToggleTranslator
-      )
-
-      // 8. Frases
-      ToolIconButton(
-        icon = Icons.Default.Bookmarks,
-        iconTint = Color(0xFFFBBF24),
-        contentDescription = "Frases",
-        testTag = "drawer_item_saved_phrases",
-        onClick = onOpenSavedPhrases
       )
     }
   }
@@ -3055,22 +2950,15 @@ fun SpeedFloatingActionButton(
     else -> "Velocidad: 0.8x"
   }
 
-  Surface(
+  IconButton(
     onClick = onClick,
-    modifier = modifier.testTag("fab_speed_control"),
-    shape = CircleShape,
-    color = Color.Transparent,
-    border = null,
-    shadowElevation = 0.dp
+    modifier = modifier
+      .testTag("header_speed_control")
+      .size(44.dp)
   ) {
-    Box(
-      modifier = Modifier.size(44.dp),
-      contentAlignment = Alignment.Center
-    ) {
-      AnimatedSpeedometerIcon(
-        currentSpeed = currentSpeed
-      )
-    }
+    AnimatedSpeedometerIcon(
+      currentSpeed = currentSpeed
+    )
   }
 }
 
@@ -3662,20 +3550,20 @@ private fun DraftScratchpadHeader(
   Surface(
     modifier = Modifier
       .fillMaxWidth()
-      .heightIn(min = 90.dp)
+      .heightIn(min = if (draftWords.isEmpty()) 64.dp else 90.dp)
       .padding(horizontal = 16.dp, vertical = 2.dp)
       .testTag("draft_scratchpad"),
     shape = RoundedCornerShape(12.dp),
     color = Color(0xFF1E293B).copy(alpha = 0.5f),
-    border = null,
+    border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.25f)),
     shadowElevation = 0.dp
   ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
-        .heightIn(min = 86.dp)
-        .padding(horizontal = 12.dp, vertical = 10.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp)
+        .heightIn(min = if (draftWords.isEmpty()) 60.dp else 86.dp)
+        .padding(horizontal = 12.dp, vertical = 8.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
       // Cabecera del Scratchpad
       Row(
@@ -3799,8 +3687,24 @@ private fun DraftScratchpadHeader(
         }
       }
 
-      // Fila desplazable de bloques (Chips de frase armada)
-      LazyRow(
+      if (draftWords.isEmpty()) {
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+          contentAlignment = Alignment.CenterStart
+        ) {
+          Text(
+            text = "Toca palabras o pulsa (+ Lienzo) para armar frases aquí...",
+            color = Color(0xFF64748B),
+            fontSize = 12.sp,
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            modifier = Modifier.padding(start = 2.dp)
+          )
+        }
+      } else {
+        // Fila desplazable de bloques (Chips de frase armada)
+        LazyRow(
           modifier = Modifier
             .fillMaxWidth()
             .testTag("draft_chips_row"),
@@ -3823,6 +3727,7 @@ private fun DraftScratchpadHeader(
             )
           }
         }
+      }
 
         // Bandeja desplegable justo debajo de los bloques de palabras con la traducción al español usando Google ML Kit
         AnimatedVisibility(

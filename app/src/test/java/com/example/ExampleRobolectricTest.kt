@@ -226,7 +226,7 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("draft_scratchpad").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("draft_scratchpad").assertExists()
     composeTestRule.onNodeWithTag("btn_translate_practice").assertDoesNotExist()
     composeTestRule.onNodeWithTag("btn_mic_pronunciation").assertDoesNotExist()
     composeTestRule.onNodeWithTag("mirror_voice_tray").assertDoesNotExist()
@@ -458,7 +458,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify spanish to english writer card is hidden by default and toggles via drawer`() {
+  fun `verify spanish to english writer card is permanently visible and translator toggle button is removed`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -466,34 +466,11 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    // Initially hidden
-    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("btn_open_side_drawer").assertDoesNotExist()
-
-    // Open side drawer by swipe and tap drawer item to open writer card
-    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
-      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
-    }
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").performScrollTo().performClick()
-    composeTestRule.waitForIdle()
+    // Permanently visible on screen
     composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("input_spanish_text", useUnmergedTree = true).assertExists()
-    composeTestRule.onNodeWithTag("btn_close_translator_card", useUnmergedTree = true).assertExists()
-
-    // Tap X at the side to close/dismiss the translator card from view
-    composeTestRule.onNodeWithTag("btn_close_translator_card", useUnmergedTree = true).performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("spanish_english_writer_card").assertDoesNotExist()
-
-    // Swipe drawer open and tap Traductor Idioma to open it again
-    composeTestRule.onNodeWithTag("screen_vocabulario").performTouchInput {
-      swipe(start = Offset(5f, 400f), end = Offset(600f, 400f))
-    }
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").performScrollTo().performClick()
-    composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
+    // Toggle button removed as requested
+    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").assertDoesNotExist()
   }
 
   @Test
@@ -649,16 +626,9 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Verify FAB Gemini Web exists and is clickable (opens 75% floating web tray)
-    composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
-    composeTestRule.onNodeWithTag("fab_gemini_web").performClick()
-    composeTestRule.waitForIdle()
-
-    // Verify Floating Gemini Web Tray and close button exist
-    composeTestRule.onNodeWithTag("floating_gemini_web_tray").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_floating_gemini_web").performClick()
-    composeTestRule.waitForIdle()
+    // Verify FAB Gemini Web and Google Translate are removed per user request
+    composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
 
     // El botón + de añadir palabra en el vocabulario fue eliminado a petición del usuario
     composeTestRule.onNodeWithTag("drawer_item_add_word").assertDoesNotExist()
@@ -691,7 +661,7 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `verify google translate web fab button exists and opens 60 percent floating web tray with only back forward and close buttons`() {
+  fun `verify youtube button is in center of bottom dock and opens floating tray`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -700,26 +670,25 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Verify Google Translate FAB exists
-    composeTestRule.onNodeWithTag("fab_google_translate_web").assertExists()
-    composeTestRule.onNodeWithTag("fab_google_translate_web").performClick()
+    // Button in bottom dock exists
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
+
+    // Click YouTube button to open floating YouTube tray
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").performClick()
     composeTestRule.waitForIdle()
 
-    // Verify Floating Google Translate Web Tray exists
-    composeTestRule.onNodeWithTag("floating_google_translate_web_tray").assertExists()
+    // Verify YouTube floating tray and controls exist
+    composeTestRule.onNodeWithTag("floating_youtube_tray").assertExists()
+    composeTestRule.onNodeWithTag("raw_youtube_webview").assertExists()
+    composeTestRule.onNodeWithTag("btn_close_floating_youtube").assertExists()
 
-    // Verify top controls: only back, forward and close X exist
-    composeTestRule.onNodeWithTag("btn_translate_web_back").assertExists()
-    composeTestRule.onNodeWithTag("btn_translate_web_forward").assertExists()
-    composeTestRule.onNodeWithTag("btn_close_floating_translate_web").assertExists()
-
-    // Click close button
-    composeTestRule.onNodeWithTag("btn_close_floating_translate_web").performClick()
+    // Close YouTube
+    composeTestRule.onNodeWithTag("btn_close_floating_youtube").performClick()
     composeTestRule.waitForIdle()
   }
 
   @Test
-  fun `verify animated english header with fredericka font exists at top of screen`() {
+  fun `verify english title is removed from top and achievement badge is in bottom dock`() {
     composeTestRule.setContent {
       EnglishAppTheme {
         EnglishApp()
@@ -727,9 +696,9 @@ class ExampleRobolectricTest {
     }
 
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("header_english_space").assertExists()
-    composeTestRule.onNodeWithTag("text_english_title").assertExists()
-    composeTestRule.onNodeWithTag("counter_used_words_badge").assertExists()
+    composeTestRule.onNodeWithTag("text_english_title").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("header_english_space").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("counter_used_words_badge", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("text_used_words_count", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("icon_trophy", useUnmergedTree = true).assertExists()
   }
@@ -845,9 +814,10 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("study_stopwatch_container").assertDoesNotExist()
     composeTestRule.onNodeWithTag("bottom_actions_tray").assertDoesNotExist()
     composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
-    composeTestRule.onNodeWithTag("fab_gemini_web").assertExists()
+    composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
-    composeTestRule.onNodeWithTag("fab_google_translate_web").assertExists()
+    composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("btn_open_local_notes").assertExists()
   }
 
   @Test
@@ -2081,19 +2051,22 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
 
-    // Verify floating horizontal tools bar exists
-    composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertExists()
+    // Verify top tools bar was cleaned up
+    composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertDoesNotExist()
 
-    // Verify all 7 icons exist with their original functionality
-    composeTestRule.onNodeWithTag("drawer_item_roadmap_8months").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_roadmap").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("drawer_item_schedule").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_settings").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_notes").assertExists()
-    composeTestRule.onNodeWithTag("drawer_item_spanish_translator").assertExists()
+    // Verify bottom dock has the 6 tools and lateral handle exists
+    composeTestRule.onNodeWithTag("giant_bottom_pill").assertExists()
+    composeTestRule.onNodeWithTag("header_trophy_achievement_badge").assertExists()
+    composeTestRule.onNodeWithTag("header_speed_control").assertExists()
+    composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("btn_open_local_notes").assertExists()
+    composeTestRule.onNodeWithTag("fab_youtube_toggle").assertExists()
+    composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
     composeTestRule.onNodeWithTag("drawer_item_saved_phrases").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_wallpaper").assertExists()
+    composeTestRule.onNodeWithTag("drawer_item_settings").assertExists()
     composeTestRule.onNodeWithTag("drawer_item_add_word").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("youtube_lateral_handle").assertDoesNotExist()
   }
 
   @Test

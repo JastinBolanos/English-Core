@@ -26,12 +26,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -312,18 +315,6 @@ fun FloatingYouTubeTray(
         }
     }
 
-    val animAlpha by animateFloatAsState(
-        targetValue = if (isOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-        label = "youtube_tray_alpha"
-    )
-
-    val animScale by animateFloatAsState(
-        targetValue = if (isOpen) 1f else 0.93f,
-        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-        label = "youtube_tray_scale"
-    )
-
     val currentShortcuts = when (selectedCategory) {
         SearchCategory.ALL -> ALL_SHORTCUTS
         SearchCategory.CONNECTED_SPEECH -> CONNECTED_SPEECH_SHORTCUTS
@@ -331,69 +322,54 @@ fun FloatingYouTubeTray(
         SearchCategory.SPEED_REFLEX -> SPEED_REFLEX_SHORTCUTS
     }
 
-    val isFullyClosed = !isOpen && animAlpha <= 0.01f
+    val animAlpha by animateFloatAsState(
+        targetValue = if (isOpen) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "youtube_tray_alpha"
+    )
+
+    val isVisible = isOpen || animAlpha > 0.01f
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .then(
-                if (isFullyClosed) {
+                if (isVisible) {
+                    Modifier.graphicsLayer { alpha = animAlpha }
+                } else {
                     Modifier.offset(x = 10000.dp)
-                } else {
-                    Modifier
                 }
             )
-            .graphicsLayer {
-                // Si la bandeja está cerrada, se desplaza fuera de pantalla y no bloquea toques
-                alpha = animAlpha
-            }
+            .background(Color.Black.copy(alpha = 0.65f * animAlpha))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                enabled = isOpen
+            ) {
+                onClose()
+            },
+        contentAlignment = Alignment.Center
     ) {
-        // Fondo semi-transparente para dar foco a la bandeja flotante cuando está abierta
-        if (animAlpha > 0.05f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = animAlpha * 0.55f }
-                    .background(Color.Black)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        enabled = isOpen
-                    ) {
-                        onClose()
-                    }
-            )
-        }
-
-        // Tarjeta flotante con altura del 75% de la pantalla centrada en el medio (o pantalla completa si isFullscreen)
+        // Bandeja flotante de YouTube (diseño flotante tipo tarjeta centrada con bordes redondeados y sombra)
         Surface(
-            modifier = (
-                if (isFullscreen) {
-                    Modifier.fillMaxSize()
-                } else {
-                    Modifier
-                        .fillMaxWidth()
-                        .height(totalTrayHeight)
-                        .padding(horizontal = 8.dp)
-                        .align(Alignment.Center)
-                        .offset(y = (-45).dp)
-                }
-            )
-            .graphicsLayer {
-                alpha = animAlpha
-                scaleX = animScale
-                scaleY = animScale
-            }
-            .testTag("floating_youtube_tray"),
-            shape = if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp),
-            color = Color(0xFF0F172A),
-            border = if (isFullscreen) null else BorderStroke(1.2.dp, Color(0xFF38BDF8).copy(alpha = 0.65f)),
-            shadowElevation = if (isFullscreen) 0.dp else 16.dp
+            modifier = Modifier
+                .fillMaxWidth(if (isFullscreen) 1f else 0.94f)
+                .fillMaxHeight(if (isFullscreen) 1f else 0.82f)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {}
+                .clip(RoundedCornerShape(if (isFullscreen) 0.dp else 22.dp))
+                .testTag("floating_youtube_tray"),
+            shape = RoundedCornerShape(if (isFullscreen) 0.dp else 22.dp),
+            border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.50f)),
+            shadowElevation = 20.dp,
+            color = Color(0xFF0F172A).copy(alpha = 0.98f)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(if (isFullscreen) PaddingValues(0.dp) else PaddingValues(horizontal = 6.dp, vertical = 6.dp))
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
             ) {
                 // Contenedor del WebView con controles semitransparentes flotantes superpuestos
                 Box(
@@ -409,7 +385,7 @@ fun FloatingYouTubeTray(
                             persistentWebView
                         },
                         update = { webView ->
-                            webView.visibility = if (isFullyClosed) View.INVISIBLE else View.VISIBLE
+                            webView.visibility = View.VISIBLE
                         },
                         modifier = Modifier
                             .fillMaxSize()
