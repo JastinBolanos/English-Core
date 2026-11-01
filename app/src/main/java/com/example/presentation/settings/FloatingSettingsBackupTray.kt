@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -52,6 +53,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -104,6 +107,9 @@ fun FloatingSettingsBackupTray(
     hasDirectBackup: Boolean = false,
     onOpenProficiencyLevels: (() -> Unit)? = null,
     wallpaperManager: WallpaperManager? = null,
+    currentSpeechSpeed: Float = 0.5f,
+    onSpeechSpeedChange: (Float) -> Unit = {},
+    onTestAudio: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (!isOpen) return
@@ -831,6 +837,162 @@ fun FloatingSettingsBackupTray(
                                 testTag = "btn_darkness_85_moon",
                                 modifier = Modifier.weight(1f)
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // SECCIÓN: Ajuste de lentitud y rapidez del audio (Línea de tiempo de 0.15 a 1.0)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("section_audio_speed_timeline"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF131D33)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            // Encabezado con icono, título y valor actual
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .background(Color(0xFF38BDF8).copy(alpha = 0.18f), shape = CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                            contentDescription = null,
+                                            tint = Color(0xFF38BDF8),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Velocidad del Audio",
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = Color(0xFFF8FAFC)
+                                            )
+                                        )
+                                        Text(
+                                            text = "Lentitud y rapidez (0.15 a 1.0)",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontSize = 10.5.sp,
+                                                color = Color(0xFF94A3B8)
+                                            )
+                                        )
+                                    }
+                                }
+
+                                val speedDisplay = String.format(java.util.Locale.US, "%.2fx", currentSpeechSpeed)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFF0284C7).copy(alpha = 0.22f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.6f))
+                                ) {
+                                    Text(
+                                        text = speedDisplay,
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF38BDF8)
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Línea de tiempo graduadora desde 0.15 hasta 1.0
+                            Slider(
+                                value = currentSpeechSpeed.coerceIn(0.15f, 1.0f),
+                                onValueChange = { newValue ->
+                                    val rounded = (kotlin.math.round(newValue * 100f) / 100f).coerceIn(0.15f, 1.0f)
+                                    onSpeechSpeedChange(rounded)
+                                },
+                                valueRange = 0.15f..1.0f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color(0xFF38BDF8),
+                                    activeTrackColor = Color(0xFF0284C7),
+                                    inactiveTrackColor = Color(0xFF1E293B)
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("slider_audio_speed_timeline")
+                            )
+
+                            // Hitos de la línea de tiempo (0.15 Lento a 1.0 Normal)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                listOf(0.15f, 0.30f, 0.50f, 0.75f, 1.0f).forEach { mark ->
+                                    val markLabel = if (mark == 0.15f) "0.15 Lento" else if (mark == 1.0f) "1.0 Normal" else String.format(java.util.Locale.US, "%.2f", mark)
+                                    val isCurrentMark = kotlin.math.abs(currentSpeechSpeed - mark) < 0.04f
+
+                                    Text(
+                                        text = markLabel,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.5.sp,
+                                            fontWeight = if (isCurrentMark) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isCurrentMark) Color(0xFF38BDF8) else Color(0xFF64748B)
+                                        ),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .clickable { onSpeechSpeedChange(mark) }
+                                            .padding(vertical = 2.dp, horizontal = 2.dp)
+                                    )
+                                }
+                            }
+
+                            if (onTestAudio != null) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedButton(
+                                    onClick = onTestAudio,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(36.dp)
+                                        .testTag("btn_test_audio_speed"),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFF38BDF8)
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Escuchar prueba de audio",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
 

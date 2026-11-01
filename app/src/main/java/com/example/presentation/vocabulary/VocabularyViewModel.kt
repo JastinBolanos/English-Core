@@ -749,6 +749,10 @@ class VocabularyViewModel @Inject constructor(
     return ttsManager.cycleSpeechRate()
   }
 
+  fun setSpeechSpeed(speed: Float) {
+    ttsManager.setSpeechRate(speed.coerceIn(0.15f, 1.0f))
+  }
+
   /**
    * Lista completa de palabras cargadas desde Room Database.
    * Cumple con la Regla 1 (Orden de Combate): Frecuencia absoluta (rank ASC).

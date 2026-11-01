@@ -70,10 +70,16 @@ class AndroidTextToSpeechManager @Inject constructor(
     return nextSpeed
   }
 
+  private val prefs by lazy { context.getSharedPreferences("english_tts_prefs", Context.MODE_PRIVATE) }
+
   override fun setSpeechRate(rate: Float) {
-    _currentSpeechRate.value = rate
+    val clamped = rate.coerceIn(0.15f, 1.0f)
+    _currentSpeechRate.value = clamped
     try {
-      textToSpeech?.setSpeechRate(rate)
+      prefs.edit().putFloat("speech_rate", clamped).apply()
+    } catch (_: Exception) {}
+    try {
+      textToSpeech?.setSpeechRate(clamped)
     } catch (e: Exception) {
       Log.e(tag, "Error setting TTS rate: ${e.message}")
     }

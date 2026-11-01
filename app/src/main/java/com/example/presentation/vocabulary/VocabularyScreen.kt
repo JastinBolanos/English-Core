@@ -1438,7 +1438,10 @@ fun VocabularyScreen(
           isSettingsTrayOpen = false
           isProficiencyLevelsTrayOpen = true
         },
-        wallpaperManager = activeWallpaperManager
+        wallpaperManager = activeWallpaperManager,
+        currentSpeechSpeed = currentSpeechSpeed,
+        onSpeechSpeedChange = { newSpeed -> viewModel.setSpeechSpeed(newSpeed) },
+        onTestAudio = { viewModel.speakWord("Hello, welcome to English Core") }
       )
 
       ProficiencyLevelsTray(
