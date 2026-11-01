@@ -701,7 +701,7 @@ fun VocabularyScreen(
     modifier = modifier
       .fillMaxSize()
       .testTag("screen_vocabulario"),
-    containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else MaterialTheme.colorScheme.background
+    containerColor = if (!currentWallpaper.isDefaultNone) Color.Transparent else Color.Black
   ) { innerPadding ->
     Box(
       modifier = Modifier.fillMaxSize()
@@ -719,7 +719,7 @@ fun VocabularyScreen(
               if (!currentWallpaper.isDefaultNone)
                 Color.Transparent
               else
-                MaterialTheme.colorScheme.background
+                Color.Black
             )
             .padding(top = 8.dp, bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(5.dp)
@@ -1437,7 +1437,8 @@ fun VocabularyScreen(
         onOpenProficiencyLevels = {
           isSettingsTrayOpen = false
           isProficiencyLevelsTrayOpen = true
-        }
+        },
+        wallpaperManager = activeWallpaperManager
       )
 
       ProficiencyLevelsTray(

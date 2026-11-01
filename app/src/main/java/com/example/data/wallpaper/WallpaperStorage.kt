@@ -30,7 +30,7 @@ class WallpaperStorage(private val context: Context) {
 
     val DEFAULT_NONE_WALLPAPER = WallpaperItem(
       id = "none",
-      title = "Tema Predeterminado (Oscuro)",
+      title = "Fondo Negro Absoluto",
       fileName = null,
       assetPath = null,
       isDefaultNone = true
@@ -46,11 +46,11 @@ class WallpaperStorage(private val context: Context) {
   }
 
   fun getWallpaperDimAlpha(): Float {
-    return 0.83f
+    return prefs.getFloat(KEY_WALLPAPER_DIM_ALPHA, 0.83f)
   }
 
   fun setWallpaperDimAlpha(alpha: Float = 0.83f) {
-    prefs.edit().putFloat(KEY_WALLPAPER_DIM_ALPHA, 0.83f).apply()
+    prefs.edit().putFloat(KEY_WALLPAPER_DIM_ALPHA, alpha).apply()
   }
 
   /**
@@ -130,6 +130,12 @@ class WallpaperStorage(private val context: Context) {
       .replace(Regex("-[0-9]+x[0-9]+$", RegexOption.IGNORE_CASE), "")
 
     return when (clean.lowercase(Locale.ROOT)) {
+      "azure-line-electric_blue-pattern-circle" -> "Círculo Azul Eléctrico"
+      "compact_fluorescent_lamp-fluorescent_lamp-still_life-nightlight-lamp" -> "Lámpara de Neón"
+      "shell-fuel-fast-shell_chemicals-connect" -> "Ruta y Luces Shell"
+      "honor-tablet-guidebook-blue-red" -> "Gradiente Azul y Rojo"
+      "ios-yellow-petal-orange-graphics" -> "Pétalos Amarillo y Naranja"
+      "pink-wave-graphics-huawei-orange" -> "Ondas Rosa y Naranja"
       "great_dane-mountain-cat-pet_rock-rock" -> "Husky en las Rocas de Montaña"
       "canyon-antelope_canyon-natural_environment-bedrock-natural_landscape" -> "Cañón del Antílope"
       "dawn-sun-sunset-afterglow-evening" -> "Amanecer Dorado y Sol"

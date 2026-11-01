@@ -24,6 +24,11 @@ fun AppWallpaperBackground(
   modifier: Modifier = Modifier
 ) {
   if (wallpaper == null || wallpaper.isDefaultNone || wallpaper.assetPath == null) {
+    Box(
+      modifier = modifier
+        .fillMaxSize()
+        .background(Color.Black)
+    )
     return
   }
 

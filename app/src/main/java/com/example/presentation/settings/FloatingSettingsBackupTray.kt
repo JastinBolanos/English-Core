@@ -28,16 +28,21 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,6 +55,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,11 +63,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.data.wallpaper.WallpaperItem
+import com.example.data.wallpaper.WallpaperManager
+import com.example.data.wallpaper.WallpaperStorage
+
 
 /**
  * Bandeja flotante de Ajustes y Copia de Seguridad JSON.
@@ -88,9 +103,20 @@ fun FloatingSettingsBackupTray(
     onDirectRestore: (() -> Unit)? = null,
     hasDirectBackup: Boolean = false,
     onOpenProficiencyLevels: (() -> Unit)? = null,
+    wallpaperManager: WallpaperManager? = null,
     modifier: Modifier = Modifier
 ) {
     if (!isOpen) return
+
+    val context = LocalContext.current
+    val activeWallpaperManager = wallpaperManager ?: remember(context) {
+        val storage = WallpaperStorage(context.applicationContext)
+        WallpaperManager(storage)
+    }
+
+    val currentSelectedWallpaper by activeWallpaperManager.selectedWallpaper.collectAsStateWithLifecycle()
+    val allWallpapers by activeWallpaperManager.wallpapers.collectAsStateWithLifecycle()
+    val currentDimAlpha by activeWallpaperManager.dimAlpha.collectAsStateWithLifecycle()
 
     BackHandler { onClose() }
 
@@ -653,9 +679,377 @@ fun FloatingSettingsBackupTray(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // SECCIÓN: Elección de Fondo de Pantalla (Fondo negro absoluto + 3 imágenes en bandeja horizontal)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("section_settings_wallpaper"),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Wallpaper,
+                                    contentDescription = null,
+                                    tint = Color(0xFF38BDF8),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = "Fondo de Pantalla",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFFF8FAFC)
+                                    )
+                                )
+                            }
+                            Text(
+                                text = "Toca para aplicar",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val blackWallpaper = remember(allWallpapers) {
+                            allWallpapers.firstOrNull { it.isDefaultNone }
+                                ?: WallpaperStorage.DEFAULT_NONE_WALLPAPER
+                        }
+                        val imageWallpapers = remember(allWallpapers) {
+                            allWallpapers.filter { !it.isDefaultNone }
+                        }
+                        val trayWallpapers = remember(blackWallpaper, imageWallpapers) {
+                            listOf(blackWallpaper) + imageWallpapers
+                        }
+
+                        // Bandeja horizontal con todas las opciones: Fondo Negro Absoluto y las imágenes disponibles
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .testTag("horizontal_wallpapers_tray"),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            trayWallpapers.forEach { wp ->
+                                val isSelected = currentSelectedWallpaper.id == wp.id ||
+                                    (!wp.isDefaultNone && currentSelectedWallpaper.fileName == wp.fileName)
+
+                                WallpaperTrayThumbnailItem(
+                                    wallpaper = wp,
+                                    isSelected = isSelected,
+                                    onClick = {
+                                        activeWallpaperManager.selectWallpaper(wp)
+                                    }
+                                )
+                            }
+                        }
+
+                        // GRADUADOR DE TONO DE OSCURIDAD (75% Sol, 80% Medio Sol, 85% Luna)
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Tono de Oscuridad",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.5.sp,
+                                    color = Color(0xFFF8FAFC)
+                                )
+                            )
+                            val currentPercent = (currentDimAlpha * 100).toInt()
+                            Text(
+                                text = "$currentPercent%",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF38BDF8)
+                                )
+                            )
+                        }
+
+                        Text(
+                            text = "Toca para cambiar: Sol (75%), Medio sol (80%) o Luna (85%)",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.5.sp,
+                                color = Color(0xFF94A3B8)
+                            ),
+                            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+                        )
+
+                        // Selector de 3 botones discretos (sin línea de tiempo graduadora)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("row_darkness_tone_selector"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            DarknessToneButton(
+                                icon = Icons.Default.WbSunny,
+                                iconColor = Color(0xFFFACC15),
+                                label = "75%",
+                                subLabel = "Sol",
+                                isSelected = currentDimAlpha <= 0.775f,
+                                onClick = { activeWallpaperManager.updateDimAlpha(0.75f) },
+                                testTag = "btn_darkness_75_sun",
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            DarknessToneButton(
+                                icon = Icons.Default.BrightnessMedium,
+                                iconColor = Color(0xFFFB923C),
+                                label = "80%",
+                                subLabel = "Medio sol",
+                                isSelected = currentDimAlpha > 0.775f && currentDimAlpha < 0.825f,
+                                onClick = { activeWallpaperManager.updateDimAlpha(0.80f) },
+                                testTag = "btn_darkness_80_half_sun",
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            DarknessToneButton(
+                                icon = Icons.Default.DarkMode,
+                                iconColor = Color(0xFFA78BFA),
+                                label = "85%",
+                                subLabel = "Luna",
+                                isSelected = currentDimAlpha >= 0.825f,
+                                onClick = { activeWallpaperManager.updateDimAlpha(0.85f) },
+                                testTag = "btn_darkness_85_moon",
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                 }
             }
         }
+    }
+}
+
+/**
+ * Botón discreto de tono de oscuridad (Sol 75%, Medio sol 80%, Luna 85%).
+ * Cambia únicamente al tocarse sin barra graduadora continua.
+ */
+@Composable
+private fun DarknessToneButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    label: String,
+    subLabel: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    testTag: String,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)
+    val borderWidth = if (isSelected) 1.8.dp else 1.dp
+    val backgroundColor = if (isSelected) Color(0xFF1E293B) else Color(0xFF131D33)
+    val cardShape = RoundedCornerShape(12.dp)
+
+    Card(
+        modifier = modifier
+            .height(52.dp)
+            .clip(cardShape)
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(
+                        if (isSelected) iconColor.copy(alpha = 0.2f) else Color(0xFF1E293B),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = subLabel,
+                    tint = if (isSelected) iconColor else Color(0xFF94A3B8),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Column(
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isSelected) Color(0xFFF8FAFC) else Color(0xFFCBD5E1)
+                    )
+                )
+                Text(
+                    text = subLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = if (isSelected) Color(0xFF38BDF8) else Color(0xFF94A3B8)
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Tarjeta miniatura en la bandeja horizontal de Ajustes.
+ * Permite seleccionar con un solo toque el Fondo Negro Absoluto o una de las imágenes.
+ */
+@Composable
+private fun WallpaperTrayThumbnailItem(
+    wallpaper: WallpaperItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val borderColor = if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)
+    val borderWidth = if (isSelected) 2.dp else 1.dp
+    val cardShape = RoundedCornerShape(12.dp)
+
+    val label = if (wallpaper.isDefaultNone) {
+        "Negro\nAbsoluto"
+    } else {
+        when {
+            wallpaper.title.contains("Eléctrico", ignoreCase = true) || wallpaper.fileName?.contains("azure", ignoreCase = true) == true -> "Azul\nEléctrico"
+            wallpaper.title.contains("Lámpara", ignoreCase = true) || wallpaper.fileName?.contains("lamp", ignoreCase = true) == true -> "Lámpara\nNeón"
+            wallpaper.title.contains("Shell", ignoreCase = true) || wallpaper.fileName?.contains("shell", ignoreCase = true) == true -> "Ruta\nShell"
+            wallpaper.title.contains("Gradiente", ignoreCase = true) || wallpaper.fileName?.contains("honor", ignoreCase = true) == true -> "Azul y\nRojo"
+            wallpaper.title.contains("Pétalos", ignoreCase = true) || wallpaper.fileName?.contains("petal", ignoreCase = true) == true -> "Pétalos\nCálidos"
+            wallpaper.title.contains("Ondas", ignoreCase = true) || wallpaper.fileName?.contains("wave", ignoreCase = true) == true -> "Ondas\nRosa"
+            wallpaper.title.contains("Husky", ignoreCase = true) -> "Husky\nMontaña"
+            wallpaper.title.contains("Cósmica", ignoreCase = true) || wallpaper.title.contains("Nebulosa", ignoreCase = true) -> "Nebulosa\nCósmica"
+            wallpaper.title.contains("Atardecer", ignoreCase = true) || wallpaper.title.contains("Cumbres", ignoreCase = true) -> "Atardecer\nCumbres"
+            else -> wallpaper.title.split(" ").take(2).joinToString("\n")
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .width(78.dp)
+            .height(112.dp)
+            .clip(cardShape)
+            .border(borderWidth, borderColor, cardShape)
+            .background(if (wallpaper.isDefaultNone) Color.Black else Color(0xFF1E293B))
+            .clickable(onClick = onClick)
+            .testTag("wallpaper_tray_item_${wallpaper.id}")
+    ) {
+        if (!wallpaper.isDefaultNone && wallpaper.assetPath != null) {
+            val assetUrl = "file:///android_asset/${wallpaper.assetPath}"
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(assetUrl)
+                    .crossfade(true)
+                    .size(160, 240)
+                    .build(),
+                contentDescription = wallpaper.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Degradado inferior para legibilidad del texto
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.4f),
+                                Color.Black.copy(alpha = 0.85f)
+                            )
+                        )
+                    )
+            )
+        } else {
+            // Fondo Negro Absoluto: ícono de modo oscuro centrado
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 16.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color(0xFF18181B), shape = CircleShape)
+                        .border(1.dp, Color(0xFF3F3F46), shape = CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DarkMode,
+                        contentDescription = null,
+                        tint = if (isSelected) Color(0xFF38BDF8) else Color(0xFF71717A),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        // Insignia de verificación si está seleccionado
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(18.dp)
+                    .background(Color(0xFF0284C7), shape = CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Activo",
+                    tint = Color.White,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        // Título / Etiqueta inferior
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color(0xFFF8FAFC) else Color(0xFFCBD5E1),
+                textAlign = TextAlign.Center,
+                lineHeight = 12.sp
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+        )
     }
 }
