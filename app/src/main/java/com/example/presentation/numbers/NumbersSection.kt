@@ -200,7 +200,7 @@ fun NumbersSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("numbers_1_to_100_list"),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 260.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Listado de los números sin caja, separados por línea fina (igual que vocabulario y abecedario)

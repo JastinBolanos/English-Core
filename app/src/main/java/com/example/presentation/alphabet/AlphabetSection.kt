@@ -137,7 +137,7 @@ fun AlphabetListSection(
             .fillMaxSize()
             .padding(horizontal = 16.dp)
             .testTag("alphabet_list_view"),
-        contentPadding = PaddingValues(top = 4.dp, bottom = 260.dp),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Lista de las letras sin caja, separadas por línea fina (igual que en el vocabulario)

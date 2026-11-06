@@ -788,7 +788,9 @@ class ExampleRobolectricTest {
 
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("study_stopwatch_container").assertDoesNotExist()
-    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertExists()
+    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("draft_scratchpad", useUnmergedTree = true).assertExists()
+    composeTestRule.onNodeWithTag("spanish_english_writer_card", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_youtube_toggle").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_google_translate_web").assertDoesNotExist()
@@ -2032,8 +2034,9 @@ class ExampleRobolectricTest {
     // Verify top tools bar was cleaned up
     composeTestRule.onNodeWithTag("floating_horizontal_tools_bar").assertDoesNotExist()
 
-    // Verify bottom dock and lateral tabs
-    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertExists()
+    // Verify bottom dock is removed and translator/scratchpad are at top
+    composeTestRule.onNodeWithTag("full_bottom_floating_dock").assertDoesNotExist()
+    composeTestRule.onNodeWithTag("draft_scratchpad", useUnmergedTree = true).assertExists()
     composeTestRule.onNodeWithTag("header_speed_control").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_gemini_web").assertDoesNotExist()
     composeTestRule.onNodeWithTag("fab_youtube_toggle").assertDoesNotExist()

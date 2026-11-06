@@ -724,11 +724,109 @@ fun VocabularyScreen(
             .padding(top = 8.dp, bottom = 2.dp),
           verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
+          // 1. BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS (EN LA PARTE SUPERIOR)
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 1.dp)
+          ) {
+            SpanishToEnglishWriterCard(
+              modifier = Modifier.fillMaxWidth(),
+              spanishText = spanishInputText,
+              onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
+              onTranslateNow = { viewModel.translateSpanishNow() },
+              onClear = { viewModel.clearSpanishTranslator() },
+              translationState = spanishTranslationState,
+              onSpeakEnglish = { viewModel.speakWord(it) },
+              onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
+              isSpanishToEnglish = isSpanishToEnglish,
+              onSwapLanguages = { viewModel.swapTranslationDirection() },
+              onClose = null,
+              onWordClick = { word ->
+                if (jumpRankInput.isNotEmpty()) {
+                  jumpRankInput = ""
+                }
+                viewModel.clearSyntaxFilter()
+                viewModel.updateSearchQuery(word)
+                viewModel.recordWordUsage(word)
+                coroutineScope.launch {
+                  listState.scrollToItem(0)
+                }
+              }
+            )
+          }
 
+          // 2. LIENZO DE PRUEBAS (SCRATCHPAD) (EN LA PARTE SUPERIOR)
+          DraftScratchpadHeader(
+            draftWords = draftWords,
+            canUndoDraft = canUndoDraft,
+            canRedoDraft = canRedoDraft,
+            onUndo = { viewModel.undoDraft() },
+            onRedo = { viewModel.redoDraft() },
+            isPhraseUpdated = isPhraseUpdated,
+            isTranslationTrayExpanded = isTranslationTrayExpanded,
+            translationState = translationState,
+            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
+            onTranslate = { viewModel.toggleTranslationTray() },
+            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
+            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
+            onMoveRight = { index -> viewModel.moveWordRight(index) },
+            onPlayPhrase = { viewModel.playFullDraftPhrase() },
+            onClearDraft = { viewModel.clearDraft() },
+            onSavePhrase = {
+              if (draftWords.isNotEmpty()) {
+                val savedStorage = SavedPhrasesStorage(context)
+                val phraseText = draftWords.joinToString(" ") { it.lemma }
+                val wordsList = draftWords.map { it.lemma }
+                val translation = (translationState as? TranslationState.Success)?.translation
+                  ?.takeIf { it.isNotBlank() }
+                  ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
+                val newSavedPhrase = SavedDraftPhrase(
+                  id = java.util.UUID.randomUUID().toString(),
+                  phraseText = phraseText,
+                  words = wordsList,
+                  spanishTranslation = translation,
+                  createdAt = System.currentTimeMillis()
+                )
+                savedStorage.addSavedPhrase(newSavedPhrase)
+                Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
 
+                // Actualiza la copia de seguridad local automática con las frases guardadas
+                val allWords = viewModel.words.value
+                val vocabCounts = allWords.associate { it.lemma to it.useCount }
+                val customWords = allWords.filter { it.rank > 2811 }.map { w ->
+                  CustomWordRecord(
+                    rank = w.rank,
+                    word = w.lemma,
+                    partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
+                    spanishTranslation = w.spanishTranslation,
+                    microExample = w.microExample,
+                    useCount = w.useCount
+                  )
+                }
+                val currentNotes = LocalNotesStorage(context).loadNotes()
+                val allSavedPhrases = savedStorage.loadSavedPhrases()
+                AutoBackupManager.saveFullBackup(
+                  context = context,
+                  vocabularyWordCounts = vocabCounts,
+                  allWordsDetails = allWords,
+                  customWords = customWords,
+                  usedWordsCount = usedWordsCount,
+                  notes = currentNotes,
+                  alphabetCounts = alphabetCounts,
+                  numberCounts = numberCounts,
+                  phraseCounts = phraseCounts,
+                  savedDraftPhrases = allSavedPhrases,
+                  wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
+                  wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
+                )
+              }
+            },
+            onSpeakWord = { word -> viewModel.speakWord(word) }
+          )
 
+          // 3. SELECTOR DE PESTAÑAS (Vocabulario, Abecedario, Números, Frases)
 
-          // SELECTOR DE PESTAÑAS (Vocabulario, Abecedario, Números, Frases) - EN LA PARTE SUPERIOR
           BoxWithConstraints(
             modifier = Modifier.fillMaxWidth()
           ) {
@@ -1271,7 +1369,7 @@ fun VocabularyScreen(
               .fillMaxWidth()
               .weight(1f)
               .testTag("vocabulary_list"),
-            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 260.dp),
+            contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 2.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             if (filteredWords.isEmpty()) {
@@ -1530,129 +1628,7 @@ fun VocabularyScreen(
         }
       }
 
-      // BANDEJA FLOTANTE INFERIOR COMPLETA (ocupa todo el ancho y fondo de la pantalla)
-      // Contiene:
-      // 1. Bandeja EN ⇄ ES Escribe en inglés... + Caja de velocidad separada
-      // 2. Lienzo de pruebas (Scratchpad)
-      Surface(
-        modifier = Modifier
-          .fillMaxWidth()
-          .align(Alignment.BottomCenter)
-          .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-          .testTag("full_bottom_floating_dock"),
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
-        color = Color(0xFF0A0F18).copy(alpha = 0.96f),
-        shadowElevation = 16.dp
-      ) {
-        Column(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 6.dp),
-          verticalArrangement = Arrangement.spacedBy(4.dp),
-          horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-          // BANDEJA ESCRITOR TRADUCTOR ESPAÑOL ⇄ INGLÉS
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 16.dp, vertical = 1.dp)
-          ) {
-            SpanishToEnglishWriterCard(
-              modifier = Modifier.fillMaxWidth(),
-              spanishText = spanishInputText,
-              onSpanishTextChanged = { viewModel.updateSpanishInputText(it) },
-              onTranslateNow = { viewModel.translateSpanishNow() },
-              onClear = { viewModel.clearSpanishTranslator() },
-              translationState = spanishTranslationState,
-              onSpeakEnglish = { viewModel.speakWord(it) },
-              onAddToCanvas = { viewModel.addSpanishTranslationToDraft(it) },
-              isSpanishToEnglish = isSpanishToEnglish,
-              onSwapLanguages = { viewModel.swapTranslationDirection() },
-              onClose = null,
-              onWordClick = { word ->
-                if (jumpRankInput.isNotEmpty()) {
-                  jumpRankInput = ""
-                }
-                viewModel.clearSyntaxFilter()
-                viewModel.updateSearchQuery(word)
-                viewModel.recordWordUsage(word)
-                coroutineScope.launch {
-                  listState.scrollToItem(0)
-                }
-              }
-            )
-          }
 
-          // LA BARRA DE BORRADOR ("Scratchpad" de Frases) - LIENZO DE PRUEBAS
-          DraftScratchpadHeader(
-            draftWords = draftWords,
-            canUndoDraft = canUndoDraft,
-            canRedoDraft = canRedoDraft,
-            onUndo = { viewModel.undoDraft() },
-            onRedo = { viewModel.redoDraft() },
-            isPhraseUpdated = isPhraseUpdated,
-            isTranslationTrayExpanded = isTranslationTrayExpanded,
-            translationState = translationState,
-            onToggleTranslationTray = { viewModel.toggleTranslationTray() },
-            onTranslate = { viewModel.toggleTranslationTray() },
-            onRemoveWord = { index -> viewModel.removeWordFromDraft(index) },
-            onMoveLeft = { index -> viewModel.moveWordLeft(index) },
-            onMoveRight = { index -> viewModel.moveWordRight(index) },
-            onPlayPhrase = { viewModel.playFullDraftPhrase() },
-            onClearDraft = { viewModel.clearDraft() },
-            onSavePhrase = {
-              if (draftWords.isNotEmpty()) {
-                val savedStorage = SavedPhrasesStorage(context)
-                val phraseText = draftWords.joinToString(" ") { it.lemma }
-                val wordsList = draftWords.map { it.lemma }
-                val translation = (translationState as? TranslationState.Success)?.translation
-                  ?.takeIf { it.isNotBlank() }
-                  ?: com.example.domain.util.PhraseTranslator.translatePhrase(phraseText)
-                val newSavedPhrase = SavedDraftPhrase(
-                  id = java.util.UUID.randomUUID().toString(),
-                  phraseText = phraseText,
-                  words = wordsList,
-                  spanishTranslation = translation,
-                  createdAt = System.currentTimeMillis()
-                )
-                savedStorage.addSavedPhrase(newSavedPhrase)
-                Toast.makeText(context, "Frase guardada: \"$phraseText\"", Toast.LENGTH_SHORT).show()
-
-                // Actualiza la copia de seguridad local automática con las frases guardadas
-                val allWords = viewModel.words.value
-                val vocabCounts = allWords.associate { it.lemma to it.useCount }
-                val customWords = allWords.filter { it.rank > 2811 }.map { w ->
-                  CustomWordRecord(
-                    rank = w.rank,
-                    word = w.lemma,
-                    partOfSpeech = w.rawPartOfSpeech.ifBlank { w.partOfSpeech.name },
-                    spanishTranslation = w.spanishTranslation,
-                    microExample = w.microExample,
-                    useCount = w.useCount
-                  )
-                }
-                val currentNotes = LocalNotesStorage(context).loadNotes()
-                val allSavedPhrases = savedStorage.loadSavedPhrases()
-                AutoBackupManager.saveFullBackup(
-                  context = context,
-                  vocabularyWordCounts = vocabCounts,
-                  allWordsDetails = allWords,
-                  customWords = customWords,
-                  usedWordsCount = usedWordsCount,
-                  notes = currentNotes,
-                  alphabetCounts = alphabetCounts,
-                  numberCounts = numberCounts,
-                  phraseCounts = phraseCounts,
-                  savedDraftPhrases = allSavedPhrases,
-                  wallpaperId = activeWallpaperManager.selectedWallpaper.value.id,
-                  wallpaperDimAlpha = activeWallpaperManager.dimAlpha.value
-                )
-              }
-            },
-            onSpeakWord = { word -> viewModel.speakWord(word) }
-          )
-        }
-      }
     }
   }
 
@@ -2356,7 +2332,7 @@ fun EverydayPhrasesSection(
         .fillMaxWidth()
         .weight(1f)
         .testTag("everyday_phrases_list"),
-      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 260.dp),
+      contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 48.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
       itemsIndexed(filteredPhrases, key = { _, phrase -> phrase.id }) { index, phrase ->
